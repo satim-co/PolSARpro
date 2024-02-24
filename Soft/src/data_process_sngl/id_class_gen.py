@@ -2,13 +2,13 @@
 
 '''
 ********************************************************************
-PolSARpro v5.0 is free software; you can redistribute it and/or 
-modify it under the terms of the GNU General Public License as 
+PolSARpro v5.0 is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License as
 published by the Free Software Foundation; either version 2 (1991) of
 the License, or any later version. This program is distributed in the
-hope that it will be useful, but WITHOUT ANY WARRANTY; without even 
+hope that it will be useful, but WITHOUT ANY WARRANTY; without even
 the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
-PURPOSE. 
+PURPOSE.
 
 See the GNU General Public License (Version 2, 1991) for more details
 
@@ -26,7 +26,7 @@ INSTITUT D'ELECTRONIQUE et de TELECOMMUNICATIONS de RENNES (I.E.T.R)
 UMR CNRS 6164
 
 Waves and Signal department
-SHINE Team 
+SHINE Team
 
 
 UNIVERSITY OF RENNES I
@@ -39,7 +39,7 @@ e-mail: eric.pottier@univ-rennes1.fr
 
 *--------------------------------------------------------------------
 
-Description :  Basic identification of the classes resulting of a 
+Description :  Basic identification of the classes resulting of a
                Unsupervised H / A / Alpha - Wishart segmentation
 
 ********************************************************************
@@ -55,11 +55,11 @@ import logging
 import datetime
 import numba
 sys.path.append(r'../')
-import lib.util
-import lib.util_block
-import lib.util_convert
-import lib.matrix
-import lib.graphics
+import lib.util  # noqa: E402
+import lib.util_block  # noqa: E402
+import lib.util_convert  # noqa: E402
+import lib.matrix  # noqa: E402
+import lib.graphics  # noqa: E402
 
 numba.config.THREADING_LAYER = 'omp'
 if numba.config.NUMBA_NUM_THREADS > 1:
@@ -443,7 +443,7 @@ class App(lib.util.Application):
         if flag_valid is True:
             self.rewind(in_valid)
         n_lig_g = 0
-        lig_g = 0
+        # lig_g = 0
 
         for nb in range(nb_block):
             if nb_block > 2:
@@ -562,7 +562,7 @@ class App(lib.util.Application):
         if flag_valid is True:
             self.rewind(in_valid)
         n_lig_g = 0
-        lig_g = 0
+        # lig_g = 0
 
         for nb in range(nb_block):
             if nb_block > 2:
@@ -600,7 +600,7 @@ class App(lib.util.Application):
         if flag_valid is True:
             self.rewind(in_valid)
         n_lig_g = 0
-        lig_g = 0
+        # lig_g = 0
 
         for nb in range(nb_block):
             if nb_block > 2:
@@ -642,7 +642,7 @@ class App(lib.util.Application):
         if flag_valid is True:
             self.rewind(in_valid)
         n_lig_g = 0
-        lig_g = 0
+        # lig_g = 0
 
         for nb in range(nb_block):
             if nb_block > 2:
@@ -684,7 +684,7 @@ class App(lib.util.Application):
         if flag_valid is True:
             self.rewind(in_valid)
         n_lig_g = 0
-        lig_g = 0
+        # lig_g = 0
 
         for nb in range(nb_block):
             if nb_block > 2:
@@ -785,7 +785,7 @@ if __name__ == "__main__":
         # Pass parasm as positional arguments
         # main(id=dir_in,
         #      od=dir_out,
-        #      ofr=0, 
+        #      ofr=0,
         #      ofc=0,
         #      fnr=18432,
         #      fnc=1248,

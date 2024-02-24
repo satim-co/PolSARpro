@@ -56,10 +56,10 @@ import logging
 import datetime
 import numba
 sys.path.append(r'../')
-import lib.util
-import lib.util_block
-import lib.util_convert
-import lib.graphics
+import lib.util  # noqa: E402
+import lib.util_block  # noqa: E402
+import lib.util_convert  # noqa: E402
+import lib.graphics  # noqa: E402
 
 numba.config.THREADING_LAYER = 'omp'
 if numba.config.NUMBA_NUM_THREADS > 1:
@@ -105,9 +105,8 @@ def read_coord(file_name):
         print('Could not open configuration file: ', file_name)
         raise
 
-    tmp = None
     n_class = None
-    tmp = file.readline()
+    file.readline()  # skip line
     n_class = (int)(file.readline())
 
     n_area = lib.matrix.vector_int(n_class)
@@ -119,9 +118,9 @@ def read_coord(file_name):
     zone = 0
 
     for classe in range(n_class):
-        tmp = file.readline()
-        tmp = file.readline()
-        tmp = file.readline()
+        file.readline()  # skip line
+        file.readline()  # skip line
+        file.readline()  # skip line
         n_area[classe] = numpy.int32(file.readline())
 
         n_t_pt[classe] = lib.matrix.vector_int(n_area[classe])
@@ -130,17 +129,17 @@ def read_coord(file_name):
 
         for area in range(n_area[classe]):
             zone += 1
-            tmp = file.readline()
-            tmp = file.readline()
+            file.readline()  # skip line
+            file.readline()  # skip line
             n_t_pt[classe][area] = numpy.int32(file.readline())
             area_coord_l[classe][area] = lib.matrix.vector_float(n_t_pt[classe][area] + 1)
             area_coord_c[classe][area] = lib.matrix.vector_float(n_t_pt[classe][area] + 1)
             t_pt = 0
             for t_pt in range(n_t_pt[classe][area]):
-                tmp = file.readline()
-                tmp = file.readline()
+                file.readline()  # skip line
+                file.readline()  # skip line
                 area_coord_l[classe][area][t_pt] = numpy.float32(file.readline())
-                tmp = file.readline()
+                file.readline()  # skip line
                 area_coord_c[classe][area][t_pt] = numpy.float32(file.readline())
             area_coord_l[classe][area][t_pt + 1] = area_coord_l[classe][area][0]
             area_coord_c[classe][area][t_pt + 1] = area_coord_c[classe][area][0]
@@ -548,15 +547,15 @@ class App(lib.util.Application):
         logging.info(f'{n_lig_block=}')
 
         # MATRIX ALLOCATION
+        coh_area_size = 3
         t = [[[None] * 2] * 3] * 3
-        coh_area = [[[None] * 2] * 3] * 3
+        coh_area = [[[None] * 2] * coh_area_size] * coh_area_size
         self.allocate_matrices(n_col, n_polar_out, n_win_l, n_win_c, n_lig_block[0], sub_n_col_opce, n_lig)
 
         # MASK VALID PIXELS (if there is no MaskFile)
         self.set_valid_pixels(flag_valid, n_lig_block, sub_n_col_opce, n_win_c, n_win_l)
 
         eps = lib.util.Application.EPS
-        init_minmax = lib.util.Application.INIT_MINMAX
 
         # DATA PROCESSING
         logging.info('--= Started: data processing =--')
@@ -580,10 +579,10 @@ class App(lib.util.Application):
         for cls in range(n_class):
             n_zones += n_area[cls]
 
-        for k in range(3):
-            for l in range(3):
-                coh_area[k][l][0] = lib.matrix.vector_float(n_zones)
-                coh_area[k][l][1] = lib.matrix.vector_float(n_zones)
+        for k in range(coh_area_size):
+            for n in range(coh_area_size):
+                coh_area[k][n][0] = lib.matrix.vector_float(n_zones)
+                coh_area[k][n][1] = lib.matrix.vector_float(n_zones)
         cpt_zones = lib.matrix.vector_float(n_zones)
 
         zone = -1
@@ -663,10 +662,10 @@ class App(lib.util.Application):
                             t[2][2][1] = 0.
 
                             # Assigning T to the corresponding training coherency matrix
-                            for k in range(3):
-                                for l in range(3):
-                                    coh_area[k][l][0][zone] = coh_area[k][l][0][zone] + t[k][l][0]
-                                    coh_area[k][l][1][zone] = coh_area[k][l][1][zone] + t[k][l][1]
+                            for k in range(coh_area_size):
+                                for n in range(coh_area_size):
+                                    coh_area[k][n][0][zone] = coh_area[k][n][0][zone] + t[k][n][0]
+                                    coh_area[k][n][1][zone] = coh_area[k][n][1][zone] + t[k][n][1]
                             cpt_zones[zone] = cpt_zones[zone] + 1.
 
                             # Check if the pixel has already been assigned to a previous class
@@ -675,14 +674,14 @@ class App(lib.util.Application):
                                 border_error_flag = 1
                             self.im[(int)(lig + off_lig)][(int)(col + off_col)] = zone + 1
 
-                for k in range(3):
-                    for l in range(3):
+                for k in range(coh_area_size):
+                    for n in range(coh_area_size):
                         if cpt_zones[zone] == 0.0:
-                            coh_area[k][l][0][zone] = -math.nan
-                            coh_area[k][l][1][zone] = -math.nan
+                            coh_area[k][n][0][zone] = -math.nan
+                            coh_area[k][n][1][zone] = -math.nan
                         else:
-                            coh_area[k][l][0][zone] = coh_area[k][l][0][zone] / cpt_zones[zone]
-                            coh_area[k][l][1][zone] = coh_area[k][l][1][zone] / cpt_zones[zone]
+                            coh_area[k][n][0][zone] = coh_area[k][n][0][zone] / cpt_zones[zone]
+                            coh_area[k][n][1][zone] = coh_area[k][n][1][zone] / cpt_zones[zone]
 
         logging.info('--= Started: OPCE_results =--')
         if border_error_flag == 0:
@@ -737,7 +736,7 @@ class App(lib.util.Application):
             KC6 = coh_area[1][2][0][zone]
             KC7 = coh_area[0][2][1][zone]
             KC8 = 0.5 * (coh_area[0][0][0][zone] - coh_area[1][1][0][zone] + coh_area[2][2][0][zone])
-            KC9 = -coh_area[0][1][1][zone];
+            KC9 = -coh_area[0][1][1][zone]
             KC10 = 0.5 * (-coh_area[0][0][0][zone] + coh_area[1][1][0][zone] + coh_area[2][2][0][zone])
 
             # Transmission / Reception Stokes Vector Initialisation
@@ -773,7 +772,7 @@ class App(lib.util.Application):
             fp.write(f'Initial Target Power = {Pnum:e}\n'.encode('ascii'))
             fp.write(f'Initial Clutter Power = {Pden:e}\n'.encode('ascii'))
             fp.write(f'Initial Contrast = {Pnum / Pden:e}\n'.encode('ascii'))
-            fp.write('\n'.encode('ascii'));
+            fp.write('\n'.encode('ascii'))
 
             x0 = g0
             x1 = g1
@@ -1013,7 +1012,7 @@ if __name__ == '__main__':
              iodf='T3',
              nwr=1000,
              nwc=1000,
-             ofr=0, 
+             ofr=0,
              ofc=0,
              fnr=18432,
              fnc=1248,

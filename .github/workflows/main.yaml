@@ -28,6 +28,9 @@ jobs:
       - name: Install dependencies
         run: pip install -r Soft/requirements.txt
 
+      - name: Install flake8
+        run: pip install flake8
+
       - name: Lint with flake8
         run:
           # ignora:e E501 line too long

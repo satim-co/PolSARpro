@@ -7,7 +7,6 @@ import datetime
 import subprocess
 import time
 import math
-import logging
 sys.path.append(r'../src/')
 sys.path.append(r'../src/data_process_sngl/')
 
@@ -96,13 +95,13 @@ class Logger(object):
 
     def write(self, message):
         self.terminal.write(message)
-        self.log.write(message)  
+        self.log.write(message)
 
     def flush(self):
         # this flush method is needed for python 3 compatibility.
         # this handles the flush command by doing nothing.
         # you might want to specify some extra behavior here.
-        pass 
+        pass
 
     @staticmethod
     def make_dirs(path):
@@ -355,7 +354,6 @@ class WishartHAAlphaClassifier(Module):
         self.params['mask'] = os.path.join(self.dir_in, 'mask_valid_pixels.bin')
 
 
-
 class ModuleLauncher:
     def __init__(self):
         sys.stdout = Logger()
@@ -363,7 +361,7 @@ class ModuleLauncher:
     def prepare(self, lang):
         Module.LANG = lang
         self.modules = []
-        self.modules.append(AriiAnned3ComponentsDecomposition()) # 'long processing time'))
+        self.modules.append(AriiAnned3ComponentsDecomposition())  # 'long processing time'))
         self.modules.append(AriiNned3ComponentsDecomposition())
         self.modules.append(Freeman2ComponentsDecomposition())
         self.modules.append(IdClassGen())
@@ -380,7 +378,6 @@ class ModuleLauncher:
         print(f'\t{sys.argv[0]} all py|cpp [verbose]')
         print('\n')
 
-
     def run(self):
         if len(sys.argv) < 3:
             self.print_usage()
@@ -394,7 +391,6 @@ class ModuleLauncher:
         if len(sys.argv) > 3:
             arg_verbose = sys.argv[3]
         print(arg_verbose)
-        summary_info = []
         summary_time = []
         self.prepare(arg_lang)
         summary = [['Np.', 'MODULE', 'RESULT', 'INFO', 'TIME']]

@@ -1,0 +1,35 @@
+name: MAIN CI
+on:
+  workflow_dispatch:
+  #  push:
+  #    branches: [main]
+  #  pull_request:
+  #    branches: [main]
+
+env:
+  PYTHON_VERSION: 3.10.12
+
+jobs:
+  ci-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Setup repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python $PYTHON_VERSION
+        uses: actions/setup-python@5
+          with:
+            python-version: '$PYTHON_VERSION'
+
+      - name: Display Python version
+        run: python -c "import sys; print(sys.version)"
+
+      - name: Install dependencies
+        run: pip install -r Soft/requirements.txt
+
+      - name: Lint with flake8
+        run:
+          # ignora:e E501 line too long
+          flake8 . --ignore E501
+

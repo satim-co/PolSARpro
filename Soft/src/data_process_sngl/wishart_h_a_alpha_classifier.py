@@ -51,28 +51,23 @@ matrices
 import os
 import sys
 import platform
-import errno
 import numpy
 import math
 import logging
 import datetime
 import numba
-from functools import partial
-from multiprocessing import Pool
-from multiprocessing import current_process
-
 sys.path.append(r'../')
-import lib.util
-import lib.util_block
-import lib.util_convert
-from lib.processing import trace3_hm1xhm2
-from lib.processing import trace4_hm1xhm2
-from lib.processing import inverse_hermitian_matrix3
-from lib.processing import determinant_hermitian_matrix3
-from lib.processing import inverse_hermitian_matrix4
-from lib.processing import determinant_hermitian_matrix4
-import lib.matrix
-import lib.graphics
+import lib.util  # noqa: E402
+import lib.util_block  # noqa: E402
+import lib.util_convert  # noqa: E402
+from lib.processing import trace3_hm1xhm2  # noqa: E402
+from lib.processing import trace4_hm1xhm2  # noqa: E402
+from lib.processing import inverse_hermitian_matrix3  # noqa: E402
+from lib.processing import determinant_hermitian_matrix3  # noqa: E402
+from lib.processing import inverse_hermitian_matrix4  # noqa: E402
+from lib.processing import determinant_hermitian_matrix4  # noqa: E402
+import lib.matrix  # noqa: E402
+import lib.graphics  # noqa: E402
 
 numba.config.THREADING_LAYER = 'omp'
 if numba.config.NUMBA_NUM_THREADS > 1:
@@ -199,9 +194,9 @@ def average_complex_coherency_matrix_determination_1(sub_n_col, valid, n_win_l_m
             # Class center coherency matrices are initialized
             # according to the H_alpha classification results
             for k in range(n_pp):
-                for l in range(n_pp):
-                    coh_area[k][l][0][area] = coh_area[k][l][0][area] + m[k][l][0]
-                    coh_area[k][l][1][area] = coh_area[k][l][1][area] + m[k][l][1]
+                for n in range(n_pp):
+                    coh_area[k][n][0][area] = coh_area[k][n][0][area] + m[k][n][0]
+                    coh_area[k][n][1][area] = coh_area[k][n][1][area] + m[k][n][1]
 
             cpt_area[area] = cpt_area[area] + 1.0
             class_im[lig_g][col] = numpy.float32(area)
@@ -212,9 +207,9 @@ def prepare_coh_area_for_inverse_center_coherency_matrices_computation(n_area, c
     for area in range(1, n_area + 1):
         if cpt_area[area] != 0.:
             for k in range(n_pp):
-                for l in range(n_pp):
-                    coh_area[k][l][0][area] = coh_area[k][l][0][area] / cpt_area[area]
-                    coh_area[k][l][1][area] = coh_area[k][l][1][area] / cpt_area[area]
+                for n in range(n_pp):
+                    coh_area[k][n][0][area] = coh_area[k][n][0][area] / cpt_area[area]
+                    coh_area[k][n][1][area] = coh_area[k][n][1][area] / cpt_area[area]
 
 
 @numba.njit(parallel=False, fastmath=True)
@@ -222,9 +217,9 @@ def inverse_center_coherency_matrices_computation_1(n_area, cpt_area, n_pp, coh,
     for area in range(1, n_area + 1):
         if cpt_area[area] != 0.:
             for k in range(n_pp):
-                for l in range(n_pp):
-                    coh[k][l][0] = coh_area[k][l][0][area]
-                    coh[k][l][1] = coh_area[k][l][1][area]
+                for n in range(n_pp):
+                    coh[k][n][0] = coh_area[k][n][0][area]
+                    coh[k][n][1] = coh_area[k][n][1][area]
             if pol_type_out in ['C3', 'T3']:
                 inverse_hermitian_matrix3(coh, coh_m1)
                 determinant_hermitian_matrix3(coh, det, eps)
@@ -232,9 +227,9 @@ def inverse_center_coherency_matrices_computation_1(n_area, cpt_area, n_pp, coh,
                 inverse_hermitian_matrix4(coh, coh_m1, eps)
                 determinant_hermitian_matrix4(coh, det, eps)
             for k in range(n_pp):
-                for l in range(n_pp):
-                    coh_area_m1[k][l][0][area] = coh_m1[k][l][0]
-                    coh_area_m1[k][l][1][area] = coh_m1[k][l][1]
+                for n in range(n_pp):
+                    coh_area_m1[k][n][0][area] = coh_m1[k][n][0]
+                    coh_area_m1[k][n][1][area] = coh_m1[k][n][1]
             det_area[0][area] = det[0]
             det_area[1][area] = det[1]
 
@@ -304,9 +299,9 @@ def average_complex_coherency_matrix_determination_2(modif, sub_n_col, valid, n_
             for area in range(1, n_area + 1):
                 if cpt_area[area] != 0.:
                     for k in range(n_pp):
-                        for l in range(n_pp):
-                            coh_m1[k][l][0] = coh_area_m1[k][l][0][area]
-                            coh_m1[k][l][1] = coh_area_m1[k][l][1][area]
+                        for n in range(n_pp):
+                            coh_m1[k][n][0] = coh_area_m1[k][n][0][area]
+                            coh_m1[k][n][1] = coh_area_m1[k][n][1][area]
                     distance[area] = math.log(math.sqrt(det_area[0][area] * det_area[0][area] + det_area[1][area] * det_area[1][area]))
                     if pol_type_out in ['C3', 'T3']:
                         distance[area] = distance[area] + trace3_hm1xhm2(coh_m1, m)
@@ -326,7 +321,7 @@ def average_complex_coherency_matrix_determination_2(modif, sub_n_col, valid, n_
 
 @numba.njit(parallel=False, fastmath=True)
 def average_complex_coherency_matrix_determination_3(sub_n_col, valid, n_win_l_m1s2, lig, n_win_c_m1s2, eps, pol_type_out, m, m_avg, n_pp, coh_area, cpt_area, class_im, lig_g):
-    zone = 0
+    # zone = 0
     for col in range(sub_n_col):
         if valid[n_win_l_m1s2 + lig][n_win_c_m1s2 + col] == 1.:
             if pol_type_out in ['C3', 'T3']:
@@ -388,9 +383,9 @@ def average_complex_coherency_matrix_determination_3(sub_n_col, valid, n_win_l_m
             area = numpy.int32(class_im[lig_g][col])
 
             for k in range(n_pp):
-                for l in range(n_pp):
-                    coh_area[k][l][0][area] = coh_area[k][l][0][area] + m[k][l][0]
-                    coh_area[k][l][1][area] = coh_area[k][l][1][area] + m[k][l][1]
+                for n in range(n_pp):
+                    coh_area[k][n][0][area] = coh_area[k][n][0][area] + m[k][n][0]
+                    coh_area[k][n][1][area] = coh_area[k][n][1][area] + m[k][n][1]
 
             cpt_area[area] = cpt_area[area] + 1.
 
@@ -400,9 +395,9 @@ def inverse_center_coherency_matrices_computation_3a(n_area, cpt_area, n_pp, coh
     for area in range(1, n_area + 1):
         if cpt_area[area] != 0.:
             for k in range(n_pp):
-                for l in range(n_pp):
-                    coh[k][l][0] = coh_area[k][l][0][area]
-                    coh[k][l][1] = coh_area[k][l][1][area]
+                for n in range(n_pp):
+                    coh[k][n][0] = coh_area[k][n][0][area]
+                    coh[k][n][1] = coh_area[k][n][1][area]
             if pol_type_out in ['C3', 'T3']:
                 inverse_hermitian_matrix3(coh, coh_m1)
                 determinant_hermitian_matrix3(coh, det, eps)
@@ -410,12 +405,11 @@ def inverse_center_coherency_matrices_computation_3a(n_area, cpt_area, n_pp, coh
                 inverse_hermitian_matrix4(coh, coh_m1, eps)
                 determinant_hermitian_matrix4(coh, det, eps)
             for k in range(n_pp):
-                for l in range(n_pp):
-                    coh_area_m1[k][l][0][area] = coh_m1[k][l][0]
-                    coh_area_m1[k][l][1][area] = coh_m1[k][l][1]
+                for n in range(n_pp):
+                    coh_area_m1[k][n][0][area] = coh_m1[k][n][0]
+                    coh_area_m1[k][n][1][area] = coh_m1[k][n][1]
             det_area[0][area] = det[0]
             det_area[1][area] = det[1]
-
 
 
 @numba.njit(parallel=False, fastmath=True)
@@ -485,9 +479,9 @@ def average_complex_coherency_matrix_determination_4(sub_n_col, valid, n_win_l_m
             # Class center coherency matrices are initialize
             # according to the H_alpha classification results
             for k in range(n_pp):
-                for l in range(n_pp):
-                    coh_area[k][l][0][area] = coh_area[k][l][0][area] + m[k][l][0]
-                    coh_area[k][l][1][area] = coh_area[k][l][1][area] + m[k][l][1]
+                for n in range(n_pp):
+                    coh_area[k][n][0][area] = coh_area[k][n][0][area] + m[k][n][0]
+                    coh_area[k][n][1][area] = coh_area[k][n][1][area] + m[k][n][1]
             cpt_area[area] = cpt_area[area] + 1.
             class_im[lig_g][col] = numpy.float32(area)
 
@@ -497,9 +491,9 @@ def inverse_center_coherency_matrices_computation_4a(n_area, cpt_area, n_pp, coh
     for area in range(1, n_area + 1):
         if cpt_area[area] != 0.:
             for k in range(n_pp):
-                for l in range(n_pp):
-                    coh[k][l][0] = coh_area[k][l][0][area]
-                    coh[k][l][1] = coh_area[k][l][1][area]
+                for n in range(n_pp):
+                    coh[k][n][0] = coh_area[k][n][0][area]
+                    coh[k][n][1] = coh_area[k][n][1][area]
             if pol_type_out in ['C3', 'T3']:
                 inverse_hermitian_matrix3(coh, coh_m1)
                 determinant_hermitian_matrix3(coh, det, eps)
@@ -507,15 +501,15 @@ def inverse_center_coherency_matrices_computation_4a(n_area, cpt_area, n_pp, coh
                 inverse_hermitian_matrix4(coh, coh_m1, eps)
                 determinant_hermitian_matrix4(coh, det, eps)
             for k in range(n_pp):
-                for l in range(n_pp):
-                    coh_area_m1[k][l][0][area] = coh_m1[k][l][0]
-                    coh_area_m1[k][l][1][area] = coh_m1[k][l][1]
+                for n in range(n_pp):
+                    coh_area_m1[k][n][0][area] = coh_m1[k][n][0]
+                    coh_area_m1[k][n][1][area] = coh_m1[k][n][1]
             det_area[0][area] = det[0]
             det_area[1][area] = det[1]
 
 
 @numba.njit(parallel=False, fastmath=True)
-def average_complex_coherency_matrix_determination_5(modif, sub_n_col, valid, n_win_l_m1s2, lig, n_win_c_m1s2, eps, pol_type_out, m, m_avg, n_area, n_pp, coh_m1, coh_area_m1, distance, det_area,  init_minmax, cpt_area, class_im, m_prm_a, lig_g):
+def average_complex_coherency_matrix_determination_5(modif, sub_n_col, valid, n_win_l_m1s2, lig, n_win_c_m1s2, eps, pol_type_out, m, m_avg, n_area, n_pp, coh_m1, coh_area_m1, distance, det_area, init_minmax, cpt_area, class_im, m_prm_a, lig_g):
     zone = 0
     for col in range(sub_n_col):
         if valid[n_win_l_m1s2 + lig][n_win_c_m1s2 + col] == 1.:
@@ -579,9 +573,9 @@ def average_complex_coherency_matrix_determination_5(modif, sub_n_col, valid, n_
             for area in range(1, n_area + 1):
                 if cpt_area[area] != 0.:
                     for k in range(n_pp):
-                        for l in range(n_pp):
-                            coh_m1[k][l][0] = coh_area_m1[k][l][0][area]
-                            coh_m1[k][l][1] = coh_area_m1[k][l][1][area]
+                        for n in range(n_pp):
+                            coh_m1[k][n][0] = coh_area_m1[k][n][0][area]
+                            coh_m1[k][n][1] = coh_area_m1[k][n][1][area]
                     distance[area] = math.log(math.sqrt(det_area[0][area] * det_area[0][area] + det_area[1][area] * det_area[1][area]))
                     if pol_type_out in ['C3', 'T3']:
                         distance[area] = distance[area] + trace3_hm1xhm2(coh_m1, m)
@@ -662,9 +656,9 @@ def average_complex_coherency_matrix_determination_6(sub_n_col, valid, n_win_l_m
             area = numpy.int32(class_im[lig_g][col])
 
             for k in range(n_pp):
-                for l in range(n_pp):
-                    coh_area[k][l][0][area] = coh_area[k][l][0][area] + m[k][l][0]
-                    coh_area[k][l][1][area] = coh_area[k][l][1][area] + m[k][l][1]
+                for n in range(n_pp):
+                    coh_area[k][n][0][area] = coh_area[k][n][0][area] + m[k][n][0]
+                    coh_area[k][n][1][area] = coh_area[k][n][1][area] + m[k][n][1]
             cpt_area[area] = cpt_area[area] + 1.
 
 
@@ -673,9 +667,9 @@ def inverse_center_coherency_matrices_computation_6a(n_area, cpt_area, n_pp, coh
     for area in range(1, n_area + 1):
         if cpt_area[area] != 0.:
             for k in range(n_pp):
-                for l in range(n_pp):
-                    coh[k][l][0] = coh_area[k][l][0][area]
-                    coh[k][l][1] = coh_area[k][l][1][area]
+                for n in range(n_pp):
+                    coh[k][n][0] = coh_area[k][n][0][area]
+                    coh[k][n][1] = coh_area[k][n][1][area]
             if pol_type_out in ['C3', 'T3']:
                 lib.processing.inverse_hermitian_matrix3(coh, coh_m1)
                 lib.processing.determinant_hermitian_matrix3(coh, det, eps)
@@ -683,9 +677,9 @@ def inverse_center_coherency_matrices_computation_6a(n_area, cpt_area, n_pp, coh
                 lib.processing.inverse_hermitian_matrix4(coh, coh_m1, eps)
                 lib.processing.determinant_hermitian_matrix4(coh, det, eps)
             for k in range(n_pp):
-                for l in range(n_pp):
-                    coh_area_m1[k][l][0][area] = coh_m1[k][l][0]
-                    coh_area_m1[k][l][1][area] = coh_m1[k][l][1]
+                for n in range(n_pp):
+                    coh_area_m1[k][n][0][area] = coh_m1[k][n][0]
+                    coh_area_m1[k][n][1][area] = coh_m1[k][n][1]
             det_area[0][area] = det[0]
             det_area[1][area] = det[1]
 
@@ -879,11 +873,11 @@ class App(lib.util.Application):
 
         n_area = 20
         for k in range(n_pp):
-            for l in range(n_pp):
-                tmp_coh_area[k][l][0] = lib.matrix.vector_float(n_area)
-                tmp_coh_area[k][l][1] = lib.matrix.vector_float(n_area)
-                tmp_coh_area_m1[k][l][0] = lib.matrix.vector_float(n_area)
-                tmp_coh_area_m1[k][l][1] = lib.matrix.vector_float(n_area)
+            for n in range(n_pp):
+                tmp_coh_area[k][n][0] = lib.matrix.vector_float(n_area)
+                tmp_coh_area[k][n][1] = lib.matrix.vector_float(n_area)
+                tmp_coh_area_m1[k][n][0] = lib.matrix.vector_float(n_area)
+                tmp_coh_area_m1[k][n][1] = lib.matrix.vector_float(n_area)
         coh_area = numpy.array(tmp_coh_area)
         coh_area_m1 = numpy.array(tmp_coh_area_m1)
         tmp_det_area = [None] * 2
@@ -980,8 +974,8 @@ class App(lib.util.Application):
                 else:  # Case of C,T or I
                     lib.util_block.read_block_tci_noavg(in_datafile, self.m_in, n_polar_out, nb, nb_block, n_lig_block[nb], sub_n_col, n_win_l, n_win_c, off_lig, off_col, n_col, self.vf_in, vf_in_readingLines[nb])
 
-                zone = 0
-                dist_min = init_minmax
+                # zone = 0
+                # dist_min = init_minmax
                 # pragma omp parallel for private(col, area, k, l, M_avg, M, coh_m1) firstprivate(ligg, distance, dist_min, zone) shared(ligDone, modif)
                 for lig in range(n_lig_block[nb]):
                     # logging.info('--= Started: WISHART H-ALPHA CLASSIFICATION: in range(n_lig_block[nb] =--')
@@ -1013,9 +1007,9 @@ class App(lib.util.Application):
                 for area in range(1, n_area + 1):
                     self.cpt_area[area] = 0.
                     for k in range(n_pp):
-                        for l in range(n_pp):
-                            coh_area[k][l][0][area] = 0.
-                            coh_area[k][l][1][area] = 0.
+                        for n in range(n_pp):
+                            coh_area[k][n][0][area] = 0.
+                            coh_area[k][n][1][area] = 0.
                 for np in range(n_polar_in):
                     self.rewind(in_datafile[np])
                 if flag_valid is True:
@@ -1033,7 +1027,7 @@ class App(lib.util.Application):
                     if pol_type == 'S2':
                         lib.util_block.read_block_s2_noavg(in_datafile, self.m_in, pol_type_out, n_polar_out, nb, nb_block, n_lig_block[nb], sub_n_col, n_win_l, n_win_c, off_lig, off_col, n_col, self.mc_in)
                     else:  # Case of C,T or I
-                        lib.util_block.read_block_tci_noavg(in_datafile, self.m_in, n_polar_out, nb, nb_block, n_lig_block[nb], sub_n_col, n_win_l, n_win_c, off_lig, off_col, n_col, self.vf_in,  vf_in_readingLines[nb])
+                        lib.util_block.read_block_tci_noavg(in_datafile, self.m_in, n_polar_out, nb, nb_block, n_lig_block[nb], sub_n_col, n_win_l, n_win_c, off_lig, off_col, n_col, self.vf_in, vf_in_readingLines[nb])
 
                     area = 0
                     # pragma omp parallel for private(col, k, l, M_avg, M) firstprivate(ligg, area) shared(ligDone, coh_area, cpt_area)
@@ -1082,9 +1076,9 @@ class App(lib.util.Application):
         for area in range(1, n_area + 1):
             self.cpt_area[area] = 0.
             for k in range(n_pp):
-                for l in range(n_pp):
-                    coh_area[k][l][0][area] = 0.
-                    coh_area[k][l][1][area] = 0.
+                for n in range(n_pp):
+                    coh_area[k][n][0][area] = 0.
+                    coh_area[k][n][1][area] = 0.
 
         n_lig_g = 0
         lig_g = 0
@@ -1156,8 +1150,8 @@ class App(lib.util.Application):
                 else:  # Case of C,T or I
                     lib.util_block.read_block_tci_noavg(in_datafile, self.m_in, n_polar_out, nb, nb_block, n_lig_block[nb], sub_n_col, n_win_l, n_win_c, off_lig, off_col, n_col, self.vf_in, vf_in_readingLines[nb])
 
-                zone = 0
-                dist_min = init_minmax
+                # zone = 0
+                # dist_min = init_minmax
                 # pragma omp parallel for private(col, area, k, l, M_avg, M, coh_m1) firstprivate(ligg, distance, dist_min, zone) shared(ligDone, modif)
                 for lig in range(n_lig_block[nb]):
                     ligDone += 1
@@ -1168,7 +1162,7 @@ class App(lib.util.Application):
                     m_avg = lib.matrix.matrix_float(n_polar_out, sub_n_col)
                     lib.util_block.average_tci(self.m_in, self.valid, n_polar_out, m_avg, lig, sub_n_col, n_win_l, n_win_c, n_win_l_m1s2, n_win_c_m1s2)
                     lig_g = lig + n_lig_g
-                    modif = average_complex_coherency_matrix_determination_5(modif, sub_n_col, self.valid, n_win_l_m1s2, lig, n_win_c_m1s2, eps, pol_type_out, m, m_avg, n_area, n_pp, coh_m1, coh_area_m1, self.distance, det_area,  init_minmax, self.cpt_area, self.class_im, self.m_prm_a, lig_g)
+                    modif = average_complex_coherency_matrix_determination_5(modif, sub_n_col, self.valid, n_win_l_m1s2, lig, n_win_c_m1s2, eps, pol_type_out, m, m_avg, n_area, n_pp, coh_m1, coh_area_m1, self.distance, det_area, init_minmax, self.cpt_area, self.class_im, self.m_prm_a, lig_g)
                 n_lig_g += n_lig_block[nb]
 
             flag_stop = 0
@@ -1184,9 +1178,9 @@ class App(lib.util.Application):
                 for area in range(1, n_area + 1):
                     self.cpt_area[area] = 0.
                     for k in range(n_pp):
-                        for l in range(n_pp):
-                            coh_area[k][l][0][area] = 0.
-                            coh_area[k][l][1][area] = 0.
+                        for n in range(n_pp):
+                            coh_area[k][n][0][area] = 0.
+                            coh_area[k][n][1][area] = 0.
                 for np in range(n_polar_in):
                     self.rewind(in_datafile[np])
                 if flag_valid is True:

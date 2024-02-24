@@ -56,10 +56,10 @@ import logging
 import datetime
 import numba
 sys.path.append(r'../')
-import lib.util
-import lib.util_block
-import lib.util_convert
-import lib.matrix
+import lib.util  # noqa: E402
+import lib.util_block  # noqa: E402
+import lib.util_convert  # noqa: E402
+import lib.matrix  # noqa: E402
 
 numba.config.THREADING_LAYER = 'omp'
 if numba.config.NUMBA_NUM_THREADS > 1:
@@ -390,7 +390,7 @@ class App(lib.util.Application):
             self.rewind(in_valid)
 
         for nb in range(nb_block):
-            ligDone = 0
+            # ligDone = 0
             if nb_block > 2:
                 logging.debug("%f\r" % (100 * nb / (nb_block - 1)), end="", flush=True)
             if flag_valid is True:

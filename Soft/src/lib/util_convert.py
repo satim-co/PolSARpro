@@ -7,12 +7,9 @@ util_convert
 # %% [codecell] import
 from concurrent.futures import ThreadPoolExecutor
 import math
-import os
-import sys
-import struct
-import numpy as np
 import numba
 from . import util
+
 
 def S2_to_T6(S_in1, S_in2, M_in, Nlig, Ncol, NwinLig, NwinCol):
     hh = 0
@@ -33,17 +30,19 @@ def process_s2_to_t6(lig, Ncol, NwinCol, hh, hv, vh, vv, S_in1, S_in2, M_in):
     for col in range(Ncol + NwinCol):
         k1r = (S_in1[hh][lig][2 * col] + S_in1[vv][lig][2 * col]) / math.sqrt(2.)
         k1i = (S_in1[hh][lig][2 * col + 1] + S_in1[vv][lig][2 * col + 1]) / math.sqrt(2.)
-        k2r = (S_in1[hh][lig][2 * col] - S_in1[vv][lig][2 * col]) / math.sqrt(2.)
-        k2i = (S_in1[hh][lig][2 * col + 1] - S_in1[vv][lig][2 * col + 1]) / math.sqrt(2.)
-        k3r = (S_in1[hv][lig][2 * col] + S_in1[vh][lig][2 * col]) / math.sqrt(2.)
-        k3i = (S_in1[hv][lig][2 * col + 1] + S_in1[vh][lig][2 * col + 1]) / math.sqrt(2.)
+        # assigned to but never used
+        # k2r = (S_in1[hh][lig][2 * col] - S_in1[vv][lig][2 * col]) / math.sqrt(2.)
+        # k2i = (S_in1[hh][lig][2 * col + 1] - S_in1[vv][lig][2 * col + 1]) / math.sqrt(2.)
+        # k3r = (S_in1[hv][lig][2 * col] + S_in1[vh][lig][2 * col]) / math.sqrt(2.)
+        # k3i = (S_in1[hv][lig][2 * col + 1] + S_in1[vh][lig][2 * col + 1]) / math.sqrt(2.)
 
-        k4r = (S_in2[hh][lig][2 * col] + S_in2[vv][lig][2 * col]) / math.sqrt(2.)
-        k4i = (S_in2[hh][lig][2 * col + 1] + S_in2[vv][lig][2 * col + 1]) / math.sqrt(2.)
-        k5r = (S_in2[hh][lig][2 * col] - S_in2[vv][lig][2 * col]) / math.sqrt(2.)
-        k5i = (S_in2[hh][lig][2 * col + 1] - S_in2[vv][lig][2 * col + 1]) / math.sqrt(2.)
-        k6r = (S_in2[hv][lig][2 * col] + S_in2[vh][lig][2 * col]) / math.sqrt(2.)
-        k6i = (S_in2[hv][lig][2 * col + 1] + S_in2[vh][lig][2 * col + 1]) / math.sqrt(2.)
+        # assigned to but never used
+        # k4r = (S_in2[hh][lig][2 * col] + S_in2[vv][lig][2 * col]) / math.sqrt(2.)
+        # k4i = (S_in2[hh][lig][2 * col + 1] + S_in2[vv][lig][2 * col + 1]) / math.sqrt(2.)
+        # k5r = (S_in2[hh][lig][2 * col] - S_in2[vv][lig][2 * col]) / math.sqrt(2.)
+        # k5i = (S_in2[hh][lig][2 * col + 1] - S_in2[vv][lig][2 * col + 1]) / math.sqrt(2.)
+        # k6r = (S_in2[hv][lig][2 * col] + S_in2[vh][lig][2 * col]) / math.sqrt(2.)
+        # k6i = (S_in2[hv][lig][2 * col + 1] + S_in2[vh][lig][2 * col + 1]) / math.sqrt(2.)
 
         M_in[0][lig][col] = k1r * k1r + k1i * k1i
 
@@ -51,14 +50,14 @@ def process_s2_to_t6(lig, Ncol, NwinCol, hh, hv, vh, vv, S_in1, S_in2, M_in):
 @numba.njit()
 def t3_to_c3(M_in, Nlig, Ncol, NwinLig, NwinCol):
     """Description : create an array of the C3 matrix from T3 matrix"""
-    #int lig, col;
-    #float T11, T12_re, T12_im, T13_re, T13_im;
-    #float T22, T23_re, T23_im;
-    #float T33;
+    # int lig, col;
+    # float T11, T12_re, T12_im, T13_re, T13_im;
+    # float T22, T23_re, T23_im;
+    # float T33;
 
-    #T11 = T12_re = T12_im = T13_re = T13_im = 0.
-    #T22 = T23_re = T23_im = T33 = 0.
-    #pragma omp parallel for private(col) firstprivate(T11, T12_re, T12_im, T13_re, T13_im, T22, T23_re, T23_im, T33)
+    # T11 = T12_re = T12_im = T13_re = T13_im = 0.
+    # T22 = T23_re = T23_im = T33 = 0.
+    # pragma omp parallel for private(col) firstprivate(T11, T12_re, T12_im, T13_re, T13_im, T22, T23_re, T23_im, T33)
     for lig in range(Nlig + NwinLig):
         for col in range(Ncol + NwinCol):
             T11 = M_in[util.T311][lig][col]
@@ -233,5 +232,3 @@ def t4_to_t3(M_in, Nlig, Ncol, NwinLig, NwinCol):
             M_in[util.T323_IM][lig][col] = T23_im
             M_in[util.T333][lig][col] = T33
     return 1
-
-

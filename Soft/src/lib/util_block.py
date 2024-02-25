@@ -8,7 +8,6 @@ util_block
 import math
 import os
 import sys
-import struct
 import numpy as np
 import logging
 import numba
@@ -855,8 +854,8 @@ def read_block_SPP_noavg(
                     )
                     m_out[n][lig][:] = 0
                     m_out[n][lig][
-                        2 * nn_win_col_m1s2 : 2 * nn_win_col_m1s2 + 2 * sub_nncol
-                    ] = util.mc_in[n][2 * ooff_col : 2 * ooff_col + 2 * sub_nncol]
+                        2 * nn_win_col_m1s2: 2 * nn_win_col_m1s2 + 2 * sub_nncol
+                    ] = util.mc_in[n][2 * ooff_col: 2 * ooff_col + 2 * sub_nncol]
 
         # READING NLIG LINES
         for lig in range(sub_nnlig + nn_win_lig_m1s2):
@@ -876,8 +875,8 @@ def read_block_SPP_noavg(
                     )
                     m_out[n][nn_win_lig_m1s2 + lig][:] = 0
                     m_out[n][nn_win_lig_m1s2 + lig][
-                        2 * nn_win_col_m1s2 : 2 * nn_win_col_m1s2 + 2 * sub_nncol
-                    ] = util.mc_in[n][2 * ooff_col : 2 * ooff_col + 2 * sub_nncol]
+                        2 * nn_win_col_m1s2: 2 * nn_win_col_m1s2 + 2 * sub_nncol
+                    ] = util.mc_in[n][2 * ooff_col: 2 * ooff_col + 2 * sub_nncol]
                 else:
                     if nn_block == (nn_bblock - 1):
                         m_out[n][nn_win_lig_m1s2 + lig][:] = 0
@@ -887,8 +886,8 @@ def read_block_SPP_noavg(
                         )
                         m_out[n][nn_win_lig_m1s2 + lig][:] = 0
                         m_out[n][nn_win_lig_m1s2 + lig][
-                            2 * nn_win_col_m1s2 : 2 * nn_win_col_m1s2 + 2 * sub_nncol
-                        ] = util.mc_in[n][2 * ooff_col : 2 * ooff_col + 2 * sub_nncol]
+                            2 * nn_win_col_m1s2: 2 * nn_win_col_m1s2 + 2 * sub_nncol
+                        ] = util.mc_in[n][2 * ooff_col: 2 * ooff_col + 2 * sub_nncol]
     else:
         if nn_block == 0:
             # OFFSET LINES READING
@@ -939,17 +938,9 @@ def read_block_SPP_noavg(
                         k1r = (
                             util.mc_in[chx1][2 * col] + util.mc_in[chx2][2 * col]
                         ) / math.sqrt(2.0)
-                        k1i = (
-                            util.mc_in[chx1][2 * col + 1]
-                            + util.mc_in[chx2][2 * col + 1]
-                        ) / math.sqrt(2.0)
-                        k2r = (
-                            util.mc_in[chx1][2 * col] - util.mc_in[chx2][2 * col]
-                        ) / math.sqrt(2.0)
-                        k2i = (
-                            util.mc_in[chx1][2 * col + 1]
-                            - util.mc_in[chx2][2 * col + 1]
-                        ) / math.sqrt(2.0)
+                        k1i = (util.mc_in[chx1][2 * col + 1] + util.mc_in[chx2][2 * col + 1]) / math.sqrt(2.0)
+                        k2r = (util.mc_in[chx1][2 * col] - util.mc_in[chx2][2 * col]) / math.sqrt(2.0)
+                        k2i = (util.mc_in[chx1][2 * col + 1] - util.mc_in[chx2][2 * col + 1]) / math.sqrt(2.0)
 
                         m_out[util.T211][lig][col - ooff_col + nn_win_col_m1s2] = (
                             k1r * k1r + k1i * k1i
@@ -1349,68 +1340,6 @@ def read_block_tci_noavg(datafile, M_out, NNpolar, NNblock, NNbBlock, Sub_NNlig,
     # logging.info('READING NLIG LINES 2')
     read_block_tci_noavg_reading_nlig_lines(M_out, NNpolar, NNblock, NNbBlock, Sub_NNlig, Sub_NNcol, NNwinCol, OOff_col, NNwinLigM1S2, NNwinColM1S2, NNcol, numba.typed.List(_vf_in))
 
-#KS #@util.enter_exit_func_decorator
-#KS def ks_read_block_tci_noavg(datafile, M_out, NNpolar, NNblock, NNbBlock, Sub_NNlig, Sub_NNcol, NNwinLig, NNwinCol, OOff_lig, OOff_col, NNcol, _VF_in):
-#KS     """
-#KS     Description : Read T Coherency, C Covariance or I Intensity matrix without applying a spatial averaging
-#KS     """
-#KS 
-#KS     NNwinLigM1S2 = (NNwinLig - 1) // 2
-#KS     NNwinColM1S2 = (NNwinCol - 1) // 2
-#KS     NNwinLigM1 = (NNwinLig - 1)
-#KS 
-#KS     if NNblock == 0:
-#KS       # OFFSET LINES READING
-#KS       for lig in range(OOff_lig):
-#KS           for Np in range(NNpolar):
-#KS               _VF_in = np.fromfile(datafile[Np], dtype=np.float32, count=NNcol)
-#KS 
-#KS       # Set the Tmp matrix to 0
-#KS       for lig in range(NNwinLigM1S2):
-#KS           for col in range(Sub_NNcol + NNwinCol):
-#KS               for Np in range(NNpolar):
-#KS                   M_out[Np][lig][col] = 0.
-#KS     else:
-#KS         # FSEEK NNwinL LINES
-#KS         for Np in range(NNpolar):
-#KS               util.my_fseek(datafile[Np], -1, NNwinLigM1, NNcol * np.dtype(np.float32).itemsize);
-#KS         # FIRST (NNwin+1)/2 LINES READING
-#KS         for lig in range(NNwinLigM1S2):
-#KS             for Np in range(NNpolar):
-#KS                 _VF_in = np.fromfile(datafile[Np], dtype=np.float32, count=NNcol)
-#KS                 print(f'f{Np=} {_VF_in}')
-#KS                 for col in range(Sub_NNcol + NNwinCol):
-#KS                     M_out[Np][lig][col] = 0.
-#KS                 for col in range(Sub_NNcol):
-#KS                     M_out[Np][lig][col + NNwinColM1S2] = _VF_in[col + OOff_col]
-#KS 
-#KS     # READING NLIG LINES
-#KS     for lig in range(Sub_NNlig+NNwinLigM1S2):
-#KS         if NNbBlock == 1:
-#KS             if lig%(int)((Sub_NNlig+NNwinLigM1S2)/20) == 0:
-#KS                 print("{:.2f}%\r".format(100. * lig / (Sub_NNlig+NNwinLigM1S2 - 1)), end="", flush = True)
-#KS 
-#KS         # 1 line reading with zero padding
-#KS         for Np in range(NNpolar):
-#KS             if lig < Sub_NNlig:
-#KS                 _VF_in = np.fromfile(datafile[Np], dtype=np.float32, count=NNcol)
-#KS                 print(f'f{Np=} {_VF_in}')
-#KS                 for col in range(Sub_NNcol + NNwinCol):
-#KS                     M_out[Np][NNwinLigM1S2+lig][col] = 0.
-#KS                 for col in range(Sub_NNcol):
-#KS                     M_out[Np][NNwinLigM1S2+lig][col + NNwinColM1S2] = _VF_in[col + OOff_col]
-#KS             else:
-#KS                 if NNblock == (NNbBlock - 1):
-#KS                     for col in range(Sub_NNcol + NNwinCol):
-#KS                         M_out[Np][NNwinLigM1S2+lig][col] = 0.
-#KS                 else:
-#KS                     _VF_in = np.fromfile(datafile[Np], dtype=np.float32, count=NNcol)
-#KS                     print(f'f{Np=} {_VF_in}')
-#KS                     for col in range(Sub_NNcol + NNwinCol):
-#KS                          M_out[Np][NNwinLigM1S2+lig][col] = 0.;
-#KS                     for col in range(Sub_NNcol):
-#KS                         M_out[Np][NNwinLigM1S2+lig][col + NNwinColM1S2] = _VF_in[col + OOff_col]
-
 
 @util.enter_exit_func_decorator
 def read_block_s2_noavg(datafile, M_out, PolType, NNpolar, NNblock, NNbBlock, Sub_NNlig, Sub_NNcol, NNwinLig, NNwinCol, OOff_lig, OOff_col, NNcol, _MC_in):
@@ -1469,8 +1398,8 @@ def read_block_s2_noavg(datafile, M_out, PolType, NNpolar, NNblock, NNbBlock, Su
         # READING NLIG LINES
         for lig in range(Sub_NNlig + NNwinLigM1S2):
             if NNbBlock == 1:
-                if lig%(int)((Sub_NNlig + NNwinLigM1S2)/20) == 0:
-                    print("%f\r", 100. * lig / (Sub_NNlig + NNwinLigM1S2 - 1), end="", flush = True)
+                if lig % (int)((Sub_NNlig + NNwinLigM1S2) / 20) == 0:
+                    print("%f\r", 100. * lig / (Sub_NNlig + NNwinLigM1S2 - 1), end="", flush=True)
 
             # 1 line reading with zero padding
             if lig < Sub_NNlig:
@@ -1548,120 +1477,126 @@ def read_block_s2_noavg(datafile, M_out, PolType, NNpolar, NNblock, NNbBlock, Su
                     if PolType == "IPPpp4":
                         k1r = _MC_in[hh][2 * col]
                         k1i = _MC_in[hh][2 * col + 1]
-                        k2r = (_MC_in[hv][2 * col] + _MC_in[vh][2*col]) / math.sqrt(2.)
-                        k2i = (_MC_in[hv][2 * col + 1] + _MC_in[vh][2*col + 1]) / sqrt(2.)
+                        k2r = (_MC_in[hv][2 * col] + _MC_in[vh][2 * col]) / math.sqrt(2.)
+                        k2i = (_MC_in[hv][2 * col + 1] + _MC_in[vh][2 * col + 1]) / math.sqrt(2.)
                         k3r = _MC_in[vv][2 * col]
-                        k3i = _MC_in[vv][2*col + 1]
+                        k3i = _MC_in[vv][2 * col + 1]
                         M_out[0][lig][col - OOff_col + NNwinColM1S2] = k1r * k1r + k1i * k1i
                         M_out[1][lig][col - OOff_col + NNwinColM1S2] = k2r * k2r + k2i * k2i
                         M_out[2][lig][col - OOff_col + NNwinColM1S2] = k3r * k3r + k3i * k3i
                     if PolType == "IPPpp5":
-                        k1r = _MC_in[hh][2*col]; k1i = _MC_in[hh][2*col+1]
-                        k2r = _MC_in[vh][2*col]; k2i = _MC_in[vh][2*col+1]
+                        k1r = _MC_in[hh][2 * col]
+                        k1i = _MC_in[hh][2 * col + 1]
+                        k2r = _MC_in[vh][2 * col]
+                        k2i = _MC_in[vh][2 * col + 1]
                         M_out[0][lig][col - OOff_col + NNwinColM1S2] = k1r * k1r + k1i * k1i
                         M_out[1][lig][col - OOff_col + NNwinColM1S2] = k2r * k2r + k2i * k2i
                     if PolType == "IPPpp6":
-                        k1r = _MC_in[vv][2*col]; k1i = _MC_in[vv][2*col+1]
-                        k2r = _MC_in[hv][2*col]; k2i = _MC_in[hv][2*col+1]
+                        k1r = _MC_in[vv][2 * col]
+                        k1i = _MC_in[vv][2 * col + 1]
+                        k2r = _MC_in[hv][2 * col]
+                        k2i = _MC_in[hv][2 * col + 1]
                         M_out[0][lig][col - OOff_col + NNwinColM1S2] = k1r * k1r + k1i * k1i
                         M_out[1][lig][col - OOff_col + NNwinColM1S2] = k2r * k2r + k2i * k2i
                     if PolType == "IPPpp7":
-                        k1r = _MC_in[hh][2*col]; k1i = _MC_in[hh][2*col+1]
-                        k2r = _MC_in[vv][2*col]; k2i = _MC_in[vv][2*col+1]
+                        k1r = _MC_in[hh][2 * col]
+                        k1i = _MC_in[hh][2 * col + 1]
+                        k2r = _MC_in[vv][2 * col]
+                        k2i = _MC_in[vv][2 * col + 1]
                         M_out[0][lig][col - OOff_col + NNwinColM1S2] = k1r * k1r + k1i * k1i
                         M_out[1][lig][col - OOff_col + NNwinColM1S2] = k2r * k2r + k2i * k2i
                     if PolType == "T3":
-                        k1r = (_MC_in[hh][2*col] + _MC_in[vv][2*col]) / sqrt(2.)
-                        k1i = (_MC_in[hh][2*col+1] + _MC_in[vv][2*col+1]) / sqrt(2.)
-                        k2r = (_MC_in[hh][2*col] - _MC_in[vv][2*col]) / sqrt(2.)
-                        k2i = (_MC_in[hh][2*col+1] - _MC_in[vv][2*col+1]) / sqrt(2.)
-                        k3r = (_MC_in[hv][2*col] + _MC_in[vh][2*col]) / sqrt(2.)
-                        k3i = (_MC_in[hv][2*col+1] + _MC_in[vh][2*col+1]) / sqrt(2.)
+                        k1r = (_MC_in[hh][2 * col] + _MC_in[vv][2 * col]) / math.sqrt(2.)
+                        k1i = (_MC_in[hh][2 * col + 1] + _MC_in[vv][2 * col + 1]) / math.sqrt(2.)
+                        k2r = (_MC_in[hh][2 * col] - _MC_in[vv][2 * col]) / math.sqrt(2.)
+                        k2i = (_MC_in[hh][2 * col + 1] - _MC_in[vv][2 * col + 1]) / math.sqrt(2.)
+                        k3r = (_MC_in[hv][2 * col] + _MC_in[vh][2 * col]) / math.sqrt(2.)
+                        k3i = (_MC_in[hv][2 * col + 1] + _MC_in[vh][2 * col + 1]) / math.sqrt(2.)
 
-                        M_out[T311][lig][col - OOff_col + NNwinColM1S2] = k1r * k1r + k1i * k1i
-                        M_out[T312_re][lig][col - OOff_col + NNwinColM1S2] = k1r * k2r + k1i * k2i
-                        M_out[T312_im][lig][col - OOff_col + NNwinColM1S2] = k1i * k2r - k1r * k2i
-                        M_out[T313_re][lig][col - OOff_col + NNwinColM1S2] = k1r * k3r + k1i * k3i
-                        M_out[T313_im][lig][col - OOff_col + NNwinColM1S2] = k1i * k3r - k1r * k3i
-                        M_out[T322][lig][col - OOff_col + NNwinColM1S2] = k2r * k2r + k2i * k2i
-                        M_out[T323_re][lig][col - OOff_col + NNwinColM1S2] = k2r * k3r + k2i * k3i
-                        M_out[T323_im][lig][col - OOff_col + NNwinColM1S2] = k2i * k3r - k2r * k3i
-                        M_out[T333][lig][col - OOff_col + NNwinColM1S2] = k3r * k3r + k3i * k3i
+                        M_out[util.T311][lig][col - OOff_col + NNwinColM1S2] = k1r * k1r + k1i * k1i
+                        M_out[util.T312_re][lig][col - OOff_col + NNwinColM1S2] = k1r * k2r + k1i * k2i
+                        M_out[util.T312_im][lig][col - OOff_col + NNwinColM1S2] = k1i * k2r - k1r * k2i
+                        M_out[util.T313_re][lig][col - OOff_col + NNwinColM1S2] = k1r * k3r + k1i * k3i
+                        M_out[util.T313_im][lig][col - OOff_col + NNwinColM1S2] = k1i * k3r - k1r * k3i
+                        M_out[util.T322][lig][col - OOff_col + NNwinColM1S2] = k2r * k2r + k2i * k2i
+                        M_out[util.T323_re][lig][col - OOff_col + NNwinColM1S2] = k2r * k3r + k2i * k3i
+                        M_out[util.T323_im][lig][col - OOff_col + NNwinColM1S2] = k2i * k3r - k2r * k3i
+                        M_out[util.T333][lig][col - OOff_col + NNwinColM1S2] = k3r * k3r + k3i * k3i
                     if PolType == "T4":
-                        k1r = (_MC_in[hh][2*col] + _MC_in[vv][2*col]) / sqrt(2.)
-                        k1i = (_MC_in[hh][2*col+1] + _MC_in[vv][2*col+1]) / sqrt(2.)
-                        k2r = (_MC_in[hh][2*col] - _MC_in[vv][2*col]) / sqrt(2.)
-                        k2i = (_MC_in[hh][2*col+1] - _MC_in[vv][2*col+1]) / sqrt(2.)
-                        k3r = (_MC_in[hv][2*col] + _MC_in[vh][2*col]) / sqrt(2.)
-                        k3i = (_MC_in[hv][2*col+1] + _MC_in[vh][2*col+1]) / sqrt(2.)
-                        k4r = (_MC_in[vh][2*col+1] - _MC_in[hv][2*col+1]) / sqrt(2.)
-                        k4i = (_MC_in[hv][2*col] - _MC_in[vh][2*col]) / sqrt(2.)
-  
-                        M_out[T411][lig][col - OOff_col + NNwinColM1S2] = k1r * k1r + k1i * k1i
-                        M_out[T412_re][lig][col - OOff_col + NNwinColM1S2] = k1r * k2r + k1i * k2i
-                        M_out[T412_im][lig][col - OOff_col + NNwinColM1S2] = k1i * k2r - k1r * k2i
-                        M_out[T413_re][lig][col - OOff_col + NNwinColM1S2] = k1r * k3r + k1i * k3i
-                        M_out[T413_im][lig][col - OOff_col + NNwinColM1S2] = k1i * k3r - k1r * k3i
-                        M_out[T414_re][lig][col - OOff_col + NNwinColM1S2] = k1r * k4r + k1i * k4i
-                        M_out[T414_im][lig][col - OOff_col + NNwinColM1S2] = k1i * k4r - k1r * k4i
-                        M_out[T422][lig][col - OOff_col + NNwinColM1S2] = k2r * k2r + k2i * k2i
-                        M_out[T423_re][lig][col - OOff_col + NNwinColM1S2] = k2r * k3r + k2i * k3i
-                        M_out[T423_im][lig][col - OOff_col + NNwinColM1S2] = k2i * k3r - k2r * k3i
-                        M_out[T424_re][lig][col - OOff_col + NNwinColM1S2] = k2r * k4r + k2i * k4i
-                        M_out[T424_im][lig][col - OOff_col + NNwinColM1S2] = k2i * k4r - k2r * k4i
-                        M_out[T433][lig][col - OOff_col + NNwinColM1S2] = k3r * k3r + k3i * k3i
-                        M_out[T434_re][lig][col - OOff_col + NNwinColM1S2] = k3r * k4r + k3i * k4i
-                        M_out[T434_im][lig][col - OOff_col + NNwinColM1S2] = k3i * k4r - k3r * k4i
-                        M_out[T444][lig][col - OOff_col + NNwinColM1S2] = k4r * k4r + k4i * k4i
+                        k1r = (_MC_in[hh][2 * col] + _MC_in[vv][2 * col]) / math.sqrt(2.)
+                        k1i = (_MC_in[hh][2 * col + 1] + _MC_in[vv][2 * col + 1]) / math.sqrt(2.)
+                        k2r = (_MC_in[hh][2 * col] - _MC_in[vv][2 * col]) / math.sqrt(2.)
+                        k2i = (_MC_in[hh][2 * col + 1] - _MC_in[vv][2 * col + 1]) / math.sqrt(2.)
+                        k3r = (_MC_in[hv][2 * col] + _MC_in[vh][2 * col]) / math.sqrt(2.)
+                        k3i = (_MC_in[hv][2 * col + 1] + _MC_in[vh][2 * col + 1]) / math.sqrt(2.)
+                        k4r = (_MC_in[vh][2 * col + 1] - _MC_in[hv][2 * col + 1]) / math.sqrt(2.)
+                        k4i = (_MC_in[hv][2 * col] - _MC_in[vh][2 * col]) / math.sqrt(2.)
+
+                        M_out[util.T411][lig][col - OOff_col + NNwinColM1S2] = k1r * k1r + k1i * k1i
+                        M_out[util.T412_re][lig][col - OOff_col + NNwinColM1S2] = k1r * k2r + k1i * k2i
+                        M_out[util.T412_im][lig][col - OOff_col + NNwinColM1S2] = k1i * k2r - k1r * k2i
+                        M_out[util.T413_re][lig][col - OOff_col + NNwinColM1S2] = k1r * k3r + k1i * k3i
+                        M_out[util.T413_im][lig][col - OOff_col + NNwinColM1S2] = k1i * k3r - k1r * k3i
+                        M_out[util.T414_re][lig][col - OOff_col + NNwinColM1S2] = k1r * k4r + k1i * k4i
+                        M_out[util.T414_im][lig][col - OOff_col + NNwinColM1S2] = k1i * k4r - k1r * k4i
+                        M_out[util.T422][lig][col - OOff_col + NNwinColM1S2] = k2r * k2r + k2i * k2i
+                        M_out[util.T423_re][lig][col - OOff_col + NNwinColM1S2] = k2r * k3r + k2i * k3i
+                        M_out[util.T423_im][lig][col - OOff_col + NNwinColM1S2] = k2i * k3r - k2r * k3i
+                        M_out[util.T424_re][lig][col - OOff_col + NNwinColM1S2] = k2r * k4r + k2i * k4i
+                        M_out[util.T424_im][lig][col - OOff_col + NNwinColM1S2] = k2i * k4r - k2r * k4i
+                        M_out[util.T433][lig][col - OOff_col + NNwinColM1S2] = k3r * k3r + k3i * k3i
+                        M_out[util.T434_re][lig][col - OOff_col + NNwinColM1S2] = k3r * k4r + k3i * k4i
+                        M_out[util.T434_im][lig][col - OOff_col + NNwinColM1S2] = k3i * k4r - k3r * k4i
+                        M_out[util.T444][lig][col - OOff_col + NNwinColM1S2] = k4r * k4r + k4i * k4i
                     if PolType == "C3":
-                        k1r = _MC_in[hh][2*col]
-                        k1i = _MC_in[hh][2*col + 1]
-                        k2r = (_MC_in[hv][2*col] + _MC_in[vh][2*col]) / sqrt(2.)
-                        k2i = (_MC_in[hv][2*col + 1] + _MC_in[vh][2*col + 1]) / sqrt(2.)
-                        k3r = _MC_in[vv][2*col]
-                        k3i = _MC_in[vv][2*col + 1]
+                        k1r = _MC_in[hh][2 * col]
+                        k1i = _MC_in[hh][2 * col + 1]
+                        k2r = (_MC_in[hv][2 * col] + _MC_in[vh][2 * col]) / math.sqrt(2.)
+                        k2i = (_MC_in[hv][2 * col + 1] + _MC_in[vh][2 * col + 1]) / math.sqrt(2.)
+                        k3r = _MC_in[vv][2 * col]
+                        k3i = _MC_in[vv][2 * col + 1]
 
-                        M_out[C311][lig][col - OOff_col + NNwinColM1S2] = k1r * k1r + k1i * k1i
-                        M_out[C312_re][lig][col - OOff_col + NNwinColM1S2] = k1r * k2r + k1i * k2i
-                        M_out[C312_im][lig][col - OOff_col + NNwinColM1S2] = k1i * k2r - k1r * k2i
-                        M_out[C313_re][lig][col - OOff_col + NNwinColM1S2] = k1r * k3r + k1i * k3i
-                        M_out[C313_im][lig][col - OOff_col + NNwinColM1S2] = k1i * k3r - k1r * k3i
-                        M_out[C322][lig][col - OOff_col + NNwinColM1S2] = k2r * k2r + k2i * k2i
-                        M_out[C323_re][lig][col - OOff_col + NNwinColM1S2] = k2r * k3r + k2i * k3i
-                        M_out[C323_im][lig][col - OOff_col + NNwinColM1S2] = k2i * k3r - k2r * k3i
-                        M_out[C333][lig][col - OOff_col + NNwinColM1S2] = k3r * k3r + k3i * k3i
+                        M_out[util.C311][lig][col - OOff_col + NNwinColM1S2] = k1r * k1r + k1i * k1i
+                        M_out[util.C312_re][lig][col - OOff_col + NNwinColM1S2] = k1r * k2r + k1i * k2i
+                        M_out[util.C312_im][lig][col - OOff_col + NNwinColM1S2] = k1i * k2r - k1r * k2i
+                        M_out[util.C313_re][lig][col - OOff_col + NNwinColM1S2] = k1r * k3r + k1i * k3i
+                        M_out[util.C313_im][lig][col - OOff_col + NNwinColM1S2] = k1i * k3r - k1r * k3i
+                        M_out[util.C322][lig][col - OOff_col + NNwinColM1S2] = k2r * k2r + k2i * k2i
+                        M_out[util.C323_re][lig][col - OOff_col + NNwinColM1S2] = k2r * k3r + k2i * k3i
+                        M_out[util.C323_im][lig][col - OOff_col + NNwinColM1S2] = k2i * k3r - k2r * k3i
+                        M_out[util.C333][lig][col - OOff_col + NNwinColM1S2] = k3r * k3r + k3i * k3i
                     if PolType == "C4":
-                        k1r = _MC_in[hh][2*col]
-                        k1i = _MC_in[hh][2*col+1]
-                        k2r = _MC_in[hv][2*col]
-                        k2i  = _MC_in[hv][2*col+1]
-                        k3r = _MC_in[vh][2*col]
-                        k3i = _MC_in[vh][2*col+1]
-                        k4r = _MC_in[vv][2*col]
-                        k4i = _MC_in[vv][2*col+1]
+                        k1r = _MC_in[hh][2 * col]
+                        k1i = _MC_in[hh][2 * col + 1]
+                        k2r = _MC_in[hv][2 * col]
+                        k2i = _MC_in[hv][2 * col + 1]
+                        k3r = _MC_in[vh][2 * col]
+                        k3i = _MC_in[vh][2 * col + 1]
+                        k4r = _MC_in[vv][2 * col]
+                        k4i = _MC_in[vv][2 * col + 1]
 
-                        M_out[C411][lig][col - OOff_col + NNwinColM1S2] = k1r * k1r + k1i * k1i
-                        M_out[C412_re][lig][col - OOff_col + NNwinColM1S2] = k1r * k2r + k1i * k2i
-                        M_out[C412_im][lig][col - OOff_col + NNwinColM1S2] = k1i * k2r - k1r * k2i
-                        M_out[C413_re][lig][col - OOff_col + NNwinColM1S2] = k1r * k3r + k1i * k3i
-                        M_out[C413_im][lig][col - OOff_col + NNwinColM1S2] = k1i * k3r - k1r * k3i
-                        M_out[C414_re][lig][col - OOff_col + NNwinColM1S2] = k1r * k4r + k1i * k4i
-                        M_out[C414_im][lig][col - OOff_col + NNwinColM1S2] = k1i * k4r - k1r * k4i
-                        M_out[C422][lig][col - OOff_col + NNwinColM1S2] = k2r * k2r + k2i * k2i
-                        M_out[C423_re][lig][col - OOff_col + NNwinColM1S2] = k2r * k3r + k2i * k3i
-                        M_out[C423_im][lig][col - OOff_col + NNwinColM1S2] = k2i * k3r - k2r * k3i
-                        M_out[C424_re][lig][col - OOff_col + NNwinColM1S2] = k2r * k4r + k2i * k4i
-                        M_out[C424_im][lig][col - OOff_col + NNwinColM1S2] = k2i * k4r - k2r * k4i
-                        M_out[C433][lig][col - OOff_col + NNwinColM1S2] = k3r * k3r + k3i * k3i
-                        M_out[C434_re][lig][col - OOff_col + NNwinColM1S2] = k3r * k4r + k3i * k4i
-                        M_out[C434_im][lig][col - OOff_col + NNwinColM1S2] = k3i * k4r - k3r * k4i
-                        M_out[C444][lig][col - OOff_col + NNwinColM1S2] = k4r * k4r + k4i * k4i
+                        M_out[util.C411][lig][col - OOff_col + NNwinColM1S2] = k1r * k1r + k1i * k1i
+                        M_out[util.C412_re][lig][col - OOff_col + NNwinColM1S2] = k1r * k2r + k1i * k2i
+                        M_out[util.C412_im][lig][col - OOff_col + NNwinColM1S2] = k1i * k2r - k1r * k2i
+                        M_out[util.C413_re][lig][col - OOff_col + NNwinColM1S2] = k1r * k3r + k1i * k3i
+                        M_out[util.C413_im][lig][col - OOff_col + NNwinColM1S2] = k1i * k3r - k1r * k3i
+                        M_out[util.C414_re][lig][col - OOff_col + NNwinColM1S2] = k1r * k4r + k1i * k4i
+                        M_out[util.C414_im][lig][col - OOff_col + NNwinColM1S2] = k1i * k4r - k1r * k4i
+                        M_out[util.C422][lig][col - OOff_col + NNwinColM1S2] = k2r * k2r + k2i * k2i
+                        M_out[util.C423_re][lig][col - OOff_col + NNwinColM1S2] = k2r * k3r + k2i * k3i
+                        M_out[util.C423_im][lig][col - OOff_col + NNwinColM1S2] = k2i * k3r - k2r * k3i
+                        M_out[util.C424_re][lig][col - OOff_col + NNwinColM1S2] = k2r * k4r + k2i * k4i
+                        M_out[util.C424_im][lig][col - OOff_col + NNwinColM1S2] = k2i * k4r - k2r * k4i
+                        M_out[util.C433][lig][col - OOff_col + NNwinColM1S2] = k3r * k3r + k3i * k3i
+                        M_out[util.C434_re][lig][col - OOff_col + NNwinColM1S2] = k3r * k4r + k3i * k4i
+                        M_out[util.C434_im][lig][col - OOff_col + NNwinColM1S2] = k3i * k4r - k3r * k4i
+                        M_out[util.C444][lig][col - OOff_col + NNwinColM1S2] = k4r * k4r + k4i * k4i
 
         # READING NLIG LINES
-        for lig in range( Sub_NNlig + NNwinLigM1S2):
+        for lig in range(Sub_NNlig + NNwinLigM1S2):
             if NNbBlock == 1:
-                if lig%(int)((Sub_NNlig+NNwinLigM1S2)/20) == 0:
-                    print("%f\r", 100. * lig / (Sub_NNlig+NNwinLigM1S2 - 1), end="", flush = True)
+                if lig % (int)((Sub_NNlig + NNwinLigM1S2) / 20) == 0:
+                    print("%f\r", 100. * lig / (Sub_NNlig + NNwinLigM1S2 - 1), end="", flush=True)
 
             # 1 line reading with zero padding
             if lig < Sub_NNlig:
@@ -1676,122 +1611,129 @@ def read_block_s2_noavg(datafile, M_out, PolType, NNpolar, NNblock, NNbBlock, Su
                     for Np in range(NNpolarIn):
                         _MC_in[Np][0] = np.fromfile(datafile[Np], dtype=np.float32, count=2 * NNcol)
 
-            for Np in range( NNpolar):
+            for Np in range(NNpolar):
                 for col in range(Sub_NNcol + NNwinCol):
-                    M_out[Np][NNwinLigM1S2+lig][col] = 0.
+                    M_out[Np][NNwinLigM1S2 + lig][col] = 0.
 
             # Row-wise shift
             for col in range(Sub_NNcol + OOff_col):
                 if PolType == "IPPpp4":
-                    k1r = _MC_in[hh][2*col]; k1i = _MC_in[hh][2*col + 1];
-                    k2r = (_MC_in[hv][2*col] + _MC_in[vh][2*col]) / sqrt(2.);
-                    k2i = (_MC_in[hv][2*col + 1] + _MC_in[vh][2*col + 1]) / sqrt(2.);
-                    k3r = _MC_in[vv][2*col]; k3i = _MC_in[vv][2*col + 1];
-                    M_out[0][NNwinLigM1S2+lig][col - OOff_col + NNwinColM1S2] = k1r * k1r + k1i * k1i;
-                    M_out[1][NNwinLigM1S2+lig][col - OOff_col + NNwinColM1S2] = k2r * k2r + k2i * k2i;
-                    M_out[2][NNwinLigM1S2+lig][col - OOff_col + NNwinColM1S2] = k3r * k3r + k3i * k3i;
+                    k1r = _MC_in[hh][2 * col]
+                    k1i = _MC_in[hh][2 * col + 1]
+                    k2r = (_MC_in[hv][2 * col] + _MC_in[vh][2 * col]) / math.sqrt(2.)
+                    k2i = (_MC_in[hv][2 * col + 1] + _MC_in[vh][2 * col + 1]) / math.sqrt(2.)
+                    k3r = _MC_in[vv][2 * col]
+                    k3i = _MC_in[vv][2 * col + 1]
+                    M_out[0][NNwinLigM1S2 + lig][col - OOff_col + NNwinColM1S2] = k1r * k1r + k1i * k1i
+                    M_out[1][NNwinLigM1S2 + lig][col - OOff_col + NNwinColM1S2] = k2r * k2r + k2i * k2i
+                    M_out[2][NNwinLigM1S2 + lig][col - OOff_col + NNwinColM1S2] = k3r * k3r + k3i * k3i
                 if PolType == "IPPpp5":
-                    k1r = _MC_in[hh][2*col]; k1i = _MC_in[hh][2*col+1];
-                    k2r = _MC_in[vh][2*col]; k2i = _MC_in[vh][2*col+1];
-                    M_out[0][NNwinLigM1S2+lig][col - OOff_col + NNwinColM1S2] = k1r * k1r + k1i * k1i;
-                    M_out[1][NNwinLigM1S2+lig][col - OOff_col + NNwinColM1S2] = k2r * k2r + k2i * k2i;
+                    k1r = _MC_in[hh][2 * col]
+                    k1i = _MC_in[hh][2 * col + 1]
+                    k2r = _MC_in[vh][2 * col]
+                    k2i = _MC_in[vh][2 * col + 1]
+                    M_out[0][NNwinLigM1S2 + lig][col - OOff_col + NNwinColM1S2] = k1r * k1r + k1i * k1i
+                    M_out[1][NNwinLigM1S2 + lig][col - OOff_col + NNwinColM1S2] = k2r * k2r + k2i * k2i
                 if PolType == "IPPpp6":
-                    k1r = _MC_in[vv][2*col]; k1i = _MC_in[vv][2*col+1];
-                    k2r = _MC_in[hv][2*col]; k2i = _MC_in[hv][2*col+1];
-                    M_out[0][NNwinLigM1S2+lig][col - OOff_col + NNwinColM1S2] = k1r * k1r + k1i * k1i;
-                    M_out[1][NNwinLigM1S2+lig][col - OOff_col + NNwinColM1S2] = k2r * k2r + k2i * k2i;
+                    k1r = _MC_in[vv][2 * col]
+                    k1i = _MC_in[vv][2 * col + 1]
+                    k2r = _MC_in[hv][2 * col]
+                    k2i = _MC_in[hv][2 * col + 1]
+                    M_out[0][NNwinLigM1S2 + lig][col - OOff_col + NNwinColM1S2] = k1r * k1r + k1i * k1i
+                    M_out[1][NNwinLigM1S2 + lig][col - OOff_col + NNwinColM1S2] = k2r * k2r + k2i * k2i
                 if PolType == "IPPpp7":
-                    k1r = _MC_in[hh][2*col]; k1i = _MC_in[hh][2*col+1];
-                    k2r = _MC_in[vv][2*col]; k2i = _MC_in[vv][2*col+1];
-                    M_out[0][NNwinLigM1S2+lig][col - OOff_col + NNwinColM1S2] = k1r * k1r + k1i * k1i;
-                    M_out[1][NNwinLigM1S2+lig][col - OOff_col + NNwinColM1S2] = k2r * k2r + k2i * k2i;
+                    k1r = _MC_in[hh][2 * col]
+                    k1i = _MC_in[hh][2 * col + 1]
+                    k2r = _MC_in[vv][2 * col]
+                    k2i = _MC_in[vv][2 * col + 1]
+                    M_out[0][NNwinLigM1S2 + lig][col - OOff_col + NNwinColM1S2] = k1r * k1r + k1i * k1i
+                    M_out[1][NNwinLigM1S2 + lig][col - OOff_col + NNwinColM1S2] = k2r * k2r + k2i * k2i
                 if PolType == "T3":
-                    k1r = (_MC_in[hh][2*col] + _MC_in[vv][2*col]) / sqrt(2.);
-                    k1i = (_MC_in[hh][2*col+1] + _MC_in[vv][2*col+1]) / sqrt(2.);
-                    k2r = (_MC_in[hh][2*col] - _MC_in[vv][2*col]) / sqrt(2.);
-                    k2i = (_MC_in[hh][2*col+1] - _MC_in[vv][2*col+1]) / sqrt(2.);
-                    k3r = (_MC_in[hv][2*col] + _MC_in[vh][2*col]) / sqrt(2.);
-                    k3i = (_MC_in[hv][2*col+1] + _MC_in[vh][2*col+1]) / sqrt(2.);
+                    k1r = (_MC_in[hh][2 * col] + _MC_in[vv][2 * col]) / math.sqrt(2.)
+                    k1i = (_MC_in[hh][2 * col + 1] + _MC_in[vv][2 * col + 1]) / math.sqrt(2.)
+                    k2r = (_MC_in[hh][2 * col] - _MC_in[vv][2 * col]) / math.sqrt(2.)
+                    k2i = (_MC_in[hh][2 * col + 1] - _MC_in[vv][2 * col + 1]) / math.sqrt(2.)
+                    k3r = (_MC_in[hv][2 * col] + _MC_in[vh][2 * col]) / math.sqrt(2.)
+                    k3i = (_MC_in[hv][2 * col + 1] + _MC_in[vh][2 * col + 1]) / math.sqrt(2.)
 
-                    M_out[T311][NNwinLigM1S2+lig][col - OOff_col + NNwinColM1S2] = k1r * k1r + k1i * k1i;
-                    M_out[T312_re][NNwinLigM1S2+lig][col - OOff_col + NNwinColM1S2] = k1r * k2r + k1i * k2i;
-                    M_out[T312_im][NNwinLigM1S2+lig][col - OOff_col + NNwinColM1S2] = k1i * k2r - k1r * k2i;
-                    M_out[T313_re][NNwinLigM1S2+lig][col - OOff_col + NNwinColM1S2] = k1r * k3r + k1i * k3i;
-                    M_out[T313_im][NNwinLigM1S2+lig][col - OOff_col + NNwinColM1S2] = k1i * k3r - k1r * k3i;
-                    M_out[T322][NNwinLigM1S2+lig][col - OOff_col + NNwinColM1S2] = k2r * k2r + k2i * k2i;
-                    M_out[T323_re][NNwinLigM1S2+lig][col - OOff_col + NNwinColM1S2] = k2r * k3r + k2i * k3i;
-                    M_out[T323_im][NNwinLigM1S2+lig][col - OOff_col + NNwinColM1S2] = k2i * k3r - k2r * k3i;
-                    M_out[T333][NNwinLigM1S2+lig][col - OOff_col + NNwinColM1S2] = k3r * k3r + k3i * k3i;
+                    M_out[util.T311][NNwinLigM1S2 + lig][col - OOff_col + NNwinColM1S2] = k1r * k1r + k1i * k1i
+                    M_out[util.T312_re][NNwinLigM1S2 + lig][col - OOff_col + NNwinColM1S2] = k1r * k2r + k1i * k2i
+                    M_out[util.T312_im][NNwinLigM1S2 + lig][col - OOff_col + NNwinColM1S2] = k1i * k2r - k1r * k2i
+                    M_out[util.T313_re][NNwinLigM1S2 + lig][col - OOff_col + NNwinColM1S2] = k1r * k3r + k1i * k3i
+                    M_out[util.T313_im][NNwinLigM1S2 + lig][col - OOff_col + NNwinColM1S2] = k1i * k3r - k1r * k3i
+                    M_out[util.T322][NNwinLigM1S2 + lig][col - OOff_col + NNwinColM1S2] = k2r * k2r + k2i * k2i
+                    M_out[util.T323_re][NNwinLigM1S2 + lig][col - OOff_col + NNwinColM1S2] = k2r * k3r + k2i * k3i
+                    M_out[util.T323_im][NNwinLigM1S2 + lig][col - OOff_col + NNwinColM1S2] = k2i * k3r - k2r * k3i
+                    M_out[util.T333][NNwinLigM1S2 + lig][col - OOff_col + NNwinColM1S2] = k3r * k3r + k3i * k3i
                 if PolType == "T4":
-                    k1r = (_MC_in[hh][2*col] + _MC_in[vv][2*col]) / sqrt(2.);
-                    k1i = (_MC_in[hh][2*col+1] + _MC_in[vv][2*col+1]) / sqrt(2.);
-                    k2r = (_MC_in[hh][2*col] - _MC_in[vv][2*col]) / sqrt(2.);
-                    k2i = (_MC_in[hh][2*col+1] - _MC_in[vv][2*col+1]) / sqrt(2.);
-                    k3r = (_MC_in[hv][2*col] + _MC_in[vh][2*col]) / sqrt(2.);
-                    k3i = (_MC_in[hv][2*col+1] + _MC_in[vh][2*col+1]) / sqrt(2.);
-                    k4r = (_MC_in[vh][2*col+1] - _MC_in[hv][2*col+1]) / sqrt(2.);
-                    k4i = (_MC_in[hv][2*col] - _MC_in[vh][2*col]) / sqrt(2.);
+                    k1r = (_MC_in[hh][2 * col] + _MC_in[vv][2 * col]) / math.sqrt(2.)
+                    k1i = (_MC_in[hh][2 * col + 1] + _MC_in[vv][2 * col + 1]) / math.sqrt(2.)
+                    k2r = (_MC_in[hh][2 * col] - _MC_in[vv][2 * col]) / math.sqrt(2.)
+                    k2i = (_MC_in[hh][2 * col + 1] - _MC_in[vv][2 * col + 1]) / math.sqrt(2.)
+                    k3r = (_MC_in[hv][2 * col] + _MC_in[vh][2 * col]) / math.sqrt(2.)
+                    k3i = (_MC_in[hv][2 * col + 1] + _MC_in[vh][2 * col + 1]) / math.sqrt(2.)
+                    k4r = (_MC_in[vh][2 * col + 1] - _MC_in[hv][2 * col + 1]) / math.sqrt(2.)
+                    k4i = (_MC_in[hv][2 * col] - _MC_in[vh][2 * col]) / math.sqrt(2.)
 
-                    M_out[T411][NNwinLigM1S2+lig][col - OOff_col + NNwinColM1S2] = k1r * k1r + k1i * k1i;
-                    M_out[T412_re][NNwinLigM1S2+lig][col - OOff_col + NNwinColM1S2] = k1r * k2r + k1i * k2i;
-                    M_out[T412_im][NNwinLigM1S2+lig][col - OOff_col + NNwinColM1S2] = k1i * k2r - k1r * k2i;
-                    M_out[T413_re][NNwinLigM1S2+lig][col - OOff_col + NNwinColM1S2] = k1r * k3r + k1i * k3i;
-                    M_out[T413_im][NNwinLigM1S2+lig][col - OOff_col + NNwinColM1S2] = k1i * k3r - k1r * k3i;
-                    M_out[T414_re][NNwinLigM1S2+lig][col - OOff_col + NNwinColM1S2] = k1r * k4r + k1i * k4i;
-                    M_out[T414_im][NNwinLigM1S2+lig][col - OOff_col + NNwinColM1S2] = k1i * k4r - k1r * k4i;
-                    M_out[T422][NNwinLigM1S2+lig][col - OOff_col + NNwinColM1S2] = k2r * k2r + k2i * k2i;
-                    M_out[T423_re][NNwinLigM1S2+lig][col - OOff_col + NNwinColM1S2] = k2r * k3r + k2i * k3i;
-                    M_out[T423_im][NNwinLigM1S2+lig][col - OOff_col + NNwinColM1S2] = k2i * k3r - k2r * k3i;
-                    M_out[T424_re][NNwinLigM1S2+lig][col - OOff_col + NNwinColM1S2] = k2r * k4r + k2i * k4i;
-                    M_out[T424_im][NNwinLigM1S2+lig][col - OOff_col + NNwinColM1S2] = k2i * k4r - k2r * k4i;
-                    M_out[T433][NNwinLigM1S2+lig][col - OOff_col + NNwinColM1S2] = k3r * k3r + k3i * k3i;
-                    M_out[T434_re][NNwinLigM1S2+lig][col - OOff_col + NNwinColM1S2] = k3r * k4r + k3i * k4i;
-                    M_out[T434_im][NNwinLigM1S2+lig][col - OOff_col + NNwinColM1S2] = k3i * k4r - k3r * k4i;
-                    M_out[T444][NNwinLigM1S2+lig][col - OOff_col + NNwinColM1S2] = k4r * k4r + k4i * k4i;
+                    M_out[util.T411][NNwinLigM1S2 + lig][col - OOff_col + NNwinColM1S2] = k1r * k1r + k1i * k1i
+                    M_out[util.T412_re][NNwinLigM1S2 + lig][col - OOff_col + NNwinColM1S2] = k1r * k2r + k1i * k2i
+                    M_out[util.T412_im][NNwinLigM1S2 + lig][col - OOff_col + NNwinColM1S2] = k1i * k2r - k1r * k2i
+                    M_out[util.T413_re][NNwinLigM1S2 + lig][col - OOff_col + NNwinColM1S2] = k1r * k3r + k1i * k3i
+                    M_out[util.T413_im][NNwinLigM1S2 + lig][col - OOff_col + NNwinColM1S2] = k1i * k3r - k1r * k3i
+                    M_out[util.T414_re][NNwinLigM1S2 + lig][col - OOff_col + NNwinColM1S2] = k1r * k4r + k1i * k4i
+                    M_out[util.T414_im][NNwinLigM1S2 + lig][col - OOff_col + NNwinColM1S2] = k1i * k4r - k1r * k4i
+                    M_out[util.T422][NNwinLigM1S2 + lig][col - OOff_col + NNwinColM1S2] = k2r * k2r + k2i * k2i
+                    M_out[util.T423_re][NNwinLigM1S2 + lig][col - OOff_col + NNwinColM1S2] = k2r * k3r + k2i * k3i
+                    M_out[util.T423_im][NNwinLigM1S2 + lig][col - OOff_col + NNwinColM1S2] = k2i * k3r - k2r * k3i
+                    M_out[util.T424_re][NNwinLigM1S2 + lig][col - OOff_col + NNwinColM1S2] = k2r * k4r + k2i * k4i
+                    M_out[util.T424_im][NNwinLigM1S2 + lig][col - OOff_col + NNwinColM1S2] = k2i * k4r - k2r * k4i
+                    M_out[util.T433][NNwinLigM1S2 + lig][col - OOff_col + NNwinColM1S2] = k3r * k3r + k3i * k3i
+                    M_out[util.T434_re][NNwinLigM1S2 + lig][col - OOff_col + NNwinColM1S2] = k3r * k4r + k3i * k4i
+                    M_out[util.T434_im][NNwinLigM1S2 + lig][col - OOff_col + NNwinColM1S2] = k3i * k4r - k3r * k4i
+                    M_out[util.T444][NNwinLigM1S2 + lig][col - OOff_col + NNwinColM1S2] = k4r * k4r + k4i * k4i
                 if PolType == "C3":
-                    k1r = _MC_in[hh][2*col];
-                    k1i = _MC_in[hh][2*col + 1];
-                    k2r = (_MC_in[hv][2*col] + _MC_in[vh][2*col]) / sqrt(2.);
-                    k2i = (_MC_in[hv][2*col + 1] + _MC_in[vh][2*col + 1]) / sqrt(2.);
-                    k3r = _MC_in[vv][2*col];
-                    k3i = _MC_in[vv][2*col + 1];
+                    k1r = _MC_in[hh][2 * col]
+                    k1i = _MC_in[hh][2 * col + 1]
+                    k2r = (_MC_in[hv][2 * col] + _MC_in[vh][2 * col]) / math.sqrt(2.)
+                    k2i = (_MC_in[hv][2 * col + 1] + _MC_in[vh][2 * col + 1]) / math.sqrt(2.)
+                    k3r = _MC_in[vv][2 * col]
+                    k3i = _MC_in[vv][2 * col + 1]
 
-                    M_out[C311][NNwinLigM1S2+lig][col - OOff_col + NNwinColM1S2] = k1r * k1r + k1i * k1i;
-                    M_out[C312_re][NNwinLigM1S2+lig][col - OOff_col + NNwinColM1S2] = k1r * k2r + k1i * k2i;
-                    M_out[C312_im][NNwinLigM1S2+lig][col - OOff_col + NNwinColM1S2] = k1i * k2r - k1r * k2i;
-                    M_out[C313_re][NNwinLigM1S2+lig][col - OOff_col + NNwinColM1S2] = k1r * k3r + k1i * k3i;
-                    M_out[C313_im][NNwinLigM1S2+lig][col - OOff_col + NNwinColM1S2] = k1i * k3r - k1r * k3i;
-                    M_out[C322][NNwinLigM1S2+lig][col - OOff_col + NNwinColM1S2] = k2r * k2r + k2i * k2i;
-                    M_out[C323_re][NNwinLigM1S2+lig][col - OOff_col + NNwinColM1S2] = k2r * k3r + k2i * k3i;
-                    M_out[C323_im][NNwinLigM1S2+lig][col - OOff_col + NNwinColM1S2] = k2i * k3r - k2r * k3i;
-                    M_out[C333][NNwinLigM1S2+lig][col - OOff_col + NNwinColM1S2] = k3r * k3r + k3i * k3i;
+                    M_out[util.C311][NNwinLigM1S2 + lig][col - OOff_col + NNwinColM1S2] = k1r * k1r + k1i * k1i
+                    M_out[util.C312_re][NNwinLigM1S2 + lig][col - OOff_col + NNwinColM1S2] = k1r * k2r + k1i * k2i
+                    M_out[util.C312_im][NNwinLigM1S2 + lig][col - OOff_col + NNwinColM1S2] = k1i * k2r - k1r * k2i
+                    M_out[util.C313_re][NNwinLigM1S2 + lig][col - OOff_col + NNwinColM1S2] = k1r * k3r + k1i * k3i
+                    M_out[util.C313_im][NNwinLigM1S2 + lig][col - OOff_col + NNwinColM1S2] = k1i * k3r - k1r * k3i
+                    M_out[util.C322][NNwinLigM1S2 + lig][col - OOff_col + NNwinColM1S2] = k2r * k2r + k2i * k2i
+                    M_out[util.C323_re][NNwinLigM1S2 + lig][col - OOff_col + NNwinColM1S2] = k2r * k3r + k2i * k3i
+                    M_out[util.C323_im][NNwinLigM1S2 + lig][col - OOff_col + NNwinColM1S2] = k2i * k3r - k2r * k3i
+                    M_out[util.C333][NNwinLigM1S2 + lig][col - OOff_col + NNwinColM1S2] = k3r * k3r + k3i * k3i
                 if PolType == "C4":
-                    k1r = _MC_in[hh][2*col];
-                    k1i = _MC_in[hh][2*col+1];
-                    k2r = _MC_in[hv][2*col];
-                    k2i = _MC_in[hv][2*col+1];
-                    k3r = _MC_in[vh][2*col];
-                    k3i = _MC_in[vh][2*col+1];
-                    k4r = _MC_in[vv][2*col];
-                    k4i = _MC_in[vv][2*col+1];
+                    k1r = _MC_in[hh][2 * col]
+                    k1i = _MC_in[hh][2 * col + 1]
+                    k2r = _MC_in[hv][2 * col]
+                    k2i = _MC_in[hv][2 * col + 1]
+                    k3r = _MC_in[vh][2 * col]
+                    k3i = _MC_in[vh][2 * col + 1]
+                    k4r = _MC_in[vv][2 * col]
+                    k4i = _MC_in[vv][2 * col + 1]
 
-                    M_out[C411][NNwinLigM1S2+lig][col - OOff_col + NNwinColM1S2] = k1r * k1r + k1i * k1i;
-                    M_out[C412_re][NNwinLigM1S2+lig][col - OOff_col + NNwinColM1S2] = k1r * k2r + k1i * k2i;
-                    M_out[C412_im][NNwinLigM1S2+lig][col - OOff_col + NNwinColM1S2] = k1i * k2r - k1r * k2i;
-                    M_out[C413_re][NNwinLigM1S2+lig][col - OOff_col + NNwinColM1S2] = k1r * k3r + k1i * k3i;
-                    M_out[C413_im][NNwinLigM1S2+lig][col - OOff_col + NNwinColM1S2] = k1i * k3r - k1r * k3i;
-                    M_out[C414_re][NNwinLigM1S2+lig][col - OOff_col + NNwinColM1S2] = k1r * k4r + k1i * k4i;
-                    M_out[C414_im][NNwinLigM1S2+lig][col - OOff_col + NNwinColM1S2] = k1i * k4r - k1r * k4i;
-                    M_out[C422][NNwinLigM1S2+lig][col - OOff_col + NNwinColM1S2] = k2r * k2r + k2i * k2i;
-                    M_out[C423_re][NNwinLigM1S2+lig][col - OOff_col + NNwinColM1S2] = k2r * k3r + k2i * k3i;
-                    M_out[C423_im][NNwinLigM1S2+lig][col - OOff_col + NNwinColM1S2] = k2i * k3r - k2r * k3i;
-                    M_out[C424_re][NNwinLigM1S2+lig][col - OOff_col + NNwinColM1S2] = k2r * k4r + k2i * k4i;
-                    M_out[C424_im][NNwinLigM1S2+lig][col - OOff_col + NNwinColM1S2] = k2i * k4r - k2r * k4i;
-                    M_out[C433][NNwinLigM1S2+lig][col - OOff_col + NNwinColM1S2] = k3r * k3r + k3i * k3i;
-                    M_out[C434_re][NNwinLigM1S2+lig][col - OOff_col + NNwinColM1S2] = k3r * k4r + k3i * k4i;
-                    M_out[C434_im][NNwinLigM1S2+lig][col - OOff_col + NNwinColM1S2] = k3i * k4r - k3r * k4i;
-                    M_out[C444][NNwinLigM1S2+lig][col - OOff_col + NNwinColM1S2] = k4r * k4r + k4i * k4i;
-
+                    M_out[util.C411][NNwinLigM1S2 + lig][col - OOff_col + NNwinColM1S2] = k1r * k1r + k1i * k1i
+                    M_out[util.C412_re][NNwinLigM1S2 + lig][col - OOff_col + NNwinColM1S2] = k1r * k2r + k1i * k2i
+                    M_out[util.C412_im][NNwinLigM1S2 + lig][col - OOff_col + NNwinColM1S2] = k1i * k2r - k1r * k2i
+                    M_out[util.C413_re][NNwinLigM1S2 + lig][col - OOff_col + NNwinColM1S2] = k1r * k3r + k1i * k3i
+                    M_out[util.C413_im][NNwinLigM1S2 + lig][col - OOff_col + NNwinColM1S2] = k1i * k3r - k1r * k3i
+                    M_out[util.C414_re][NNwinLigM1S2 + lig][col - OOff_col + NNwinColM1S2] = k1r * k4r + k1i * k4i
+                    M_out[util.C414_im][NNwinLigM1S2 + lig][col - OOff_col + NNwinColM1S2] = k1i * k4r - k1r * k4i
+                    M_out[util.C422][NNwinLigM1S2 + lig][col - OOff_col + NNwinColM1S2] = k2r * k2r + k2i * k2i
+                    M_out[util.C423_re][NNwinLigM1S2 + lig][col - OOff_col + NNwinColM1S2] = k2r * k3r + k2i * k3i
+                    M_out[util.C423_im][NNwinLigM1S2 + lig][col - OOff_col + NNwinColM1S2] = k2i * k3r - k2r * k3i
+                    M_out[util.C424_re][NNwinLigM1S2 + lig][col - OOff_col + NNwinColM1S2] = k2r * k4r + k2i * k4i
+                    M_out[util.C424_im][NNwinLigM1S2 + lig][col - OOff_col + NNwinColM1S2] = k2i * k4r - k2r * k4i
+                    M_out[util.C433][NNwinLigM1S2 + lig][col - OOff_col + NNwinColM1S2] = k3r * k3r + k3i * k3i
+                    M_out[util.C434_re][NNwinLigM1S2 + lig][col - OOff_col + NNwinColM1S2] = k3r * k4r + k3i * k4i
+                    M_out[util.C434_im][NNwinLigM1S2 + lig][col - OOff_col + NNwinColM1S2] = k3i * k4r - k3r * k4i
+                    M_out[util.C444][NNwinLigM1S2 + lig][col - OOff_col + NNwinColM1S2] = k4r * k4r + k4i * k4i
 
 
 @numba.njit(parallel=False)
@@ -1884,16 +1826,18 @@ def write_block_matrix3d_float(
 ):
     for n in range(nn_polar):
         for lig in range(sub_nnlig):
-            m_out[n][ooff_lig + lig][ooff_col : ooff_col + sub_nncol].tofile(
+            m_out[n][ooff_lig + lig][ooff_col: ooff_col + sub_nncol].tofile(
                 datafile[n]
             )
+
 
 def write_block_matrix_matrix3d_float(out_file, M_out, NNp, Sub_NNlig, Sub_NNcol, OOffLig, OOffCol, NNcol):
     eps = 1.E-30
     for lig in range(Sub_NNlig):
-        data = M_out[NNp][OOffLig + lig][OOffCol:OOffCol+Sub_NNcol]
+        data = M_out[NNp][OOffLig + lig][OOffCol:OOffCol + Sub_NNcol]
         data = np.where(np.isfinite(data), data, eps)
         out_file.write(data.tobytes())
+
 
 @util.enter_exit_func_decorator
 def write_block_matrix_float(out_file, m_out, Sub_NNlig, Sub_NNcol, OOffLig, OOffCol, NNcol):
@@ -1901,7 +1845,7 @@ def write_block_matrix_float(out_file, m_out, Sub_NNlig, Sub_NNcol, OOffLig, OOf
     Description : write a block of binary (float) file
     """
     for lig in range(Sub_NNlig):
-        data = m_out[OOffLig + lig][OOffCol : Sub_NNcol]
+        data = m_out[OOffLig + lig][OOffCol: Sub_NNcol]
         out_file.write(data.tobytes())
         # data.tofile(out_file)
 
@@ -1920,9 +1864,9 @@ def average_tci(m_in, valid, NNpolar, m_avg, lig, sub_nn_col, NNwinLig, NNwinCol
         if col == 0:
             NNvalid = 0.
             for k in range(-NNwinLigM1S2, 1 + NNwinLigM1S2):
-                for l in range(-NNwinColM1S2, 1 + NNwinColM1S2):
+                for n in range(-NNwinColM1S2, 1 + NNwinColM1S2):
                     idxY = NNwinLigM1S2_pls_lig + k
-                    idXy = NNwinColM1S2 + col + l
+                    idXy = NNwinColM1S2 + col + n
                     for Np in range(NNpolar):
                         mean[Np] = mean[Np] + m_in[Np][idxY][idXy] * valid[idxY][idXy]
                     NNvalid = NNvalid + valid[idxY][idXy]

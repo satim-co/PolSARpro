@@ -69,6 +69,7 @@ class RecursionAndStackLimit:
         self.default_recursion_limit = sys.getrecursionlimit()
         self.current_resource_limit = stack_size
         self.default_resource_limit = resource.getrlimit(resource.RLIMIT_STACK)
+
     def __enter__(self):
         sys.setrecursionlimit(self.current_recursion_limit)
         resource.setrlimit(resource.RLIMIT_STACK, self.current_resource_limit)
@@ -321,7 +322,7 @@ class Application:
 
 
 def my_isfinite(x):
-        return x == x and (x -x == 0.0) if True else False
+    return x == x and (x - x == 0.0) if True else False
 
 
 # /* S2 matrix */
@@ -498,14 +499,6 @@ T656_RE = 33
 T656_IM = 34
 T666 = 35
 
-#vc_in = None
-#vf_in = None
-#mc_in = None
-#mf_in = None
-#valid = None
-#m_in = None
-#m_grd = None
-#m_vol = None
 
 # %% [codecell] pol_type_config
 def pol_type_config(pol_type):
@@ -796,7 +789,7 @@ def pol_type_config(pol_type):
         pol_type = "C4"
         pol_type_in = "C4"
         pol_type_out = "C2rhv"
-    
+
     elif pol_type_tmp == "C4C2pi4":
         n_polar_in = 16
         n_polar_out = 4
@@ -1264,6 +1257,7 @@ def pol_type_config(pol_type):
         pol_type_out = "Ixx"
 
     return pol_type, n_polar_in, pol_type_in, n_polar_out, pol_type_out
+
 
 # %% [codecell] init_file_name
 def init_file_name(pol_type, file_dir):

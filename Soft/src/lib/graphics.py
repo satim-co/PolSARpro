@@ -1,11 +1,11 @@
 '''
-PolSARpro v5.0 is free software; you can redistribute it and/or 
-modify it under the terms of the GNU General Public License as 
+PolSARpro v5.0 is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License as
 published by the Free Software Foundation; either version 2 (1991) of
 the License, or any later version. This program is distributed in the
-hope that it will be useful, but WITHOUT ANY WARRANTY; without even 
+hope that it will be useful, but WITHOUT ANY WARRANTY; without even
 the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
-PURPOSE. 
+PURPOSE.
 
 See the GNU General Public License (Version 2, 1991) for more details
 
@@ -32,7 +32,7 @@ Bât. 11D - Campus de Beaulieu
 35042 RENNES Cedex
 Tel :(+33) 2 23 23 57 63
 Fax :(+33) 2 23 23 69 63
-e-mail : 
+e-mail :
 eric.pottier@univ-rennes1.fr, laurent.ferro-famil@univ-rennes1.fr
 '''
 
@@ -187,8 +187,8 @@ def bmp_wishart(mat, n_lig, n_col, nom, color_map):
     # Image writing
     for lig in range(n_lig):
         for col in range(n_col):
-            l = (int)(mat[n_lig - lig - 1][col])
-            bufimg[lig * n_col_bmp + col] = numpy.byte(l)
+            v = (int)(mat[n_lig - lig - 1][col])
+            bufimg[lig * n_col_bmp + col] = numpy.byte(v)
     bufimg.tofile(f_bmp)
     f_bmp.close()
 
@@ -274,8 +274,7 @@ def bmp_training_set(mat, n_lig, n_col, nom, color_map16):
     # Image writing
     for lig in range(n_lig):
         for col in range(n_col):
-            l = (int)(mat[n_lig - lig - 1][col])
-            bufimg[lig * n_col_bmp + col] = numpy.byte(l)
+            v = (int)(mat[n_lig - lig - 1][col])
+            bufimg[lig * n_col_bmp + col] = numpy.byte(v)
     bufimg.tofile(f_bmp)
     f_bmp.close()
-

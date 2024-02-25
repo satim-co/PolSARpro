@@ -7,7 +7,7 @@ the terms of the GNU General Public License as published by the Free Software
 Foundation; either version 2 (1991) of the License, or any later version.
 This program is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
-PARTICULAR PURPOSE. 
+PARTICULAR PURPOSE.
 
 See the GNU General Public License (Version 2, 1991) for more details.
 
@@ -37,7 +37,6 @@ e-mail : eric.pottier@univ-rennes1.fr, laurent.ferro-famil@univ-rennes1.fr
 '''
 
 import math
-import numpy
 import numba
 import itertools
 from . import util
@@ -339,9 +338,9 @@ def inverse_hermitian_matrix2(HM, IHM, eps):
     det[1] = 0.
 
     for k in range(2):
-        for l in range(2):
-            IHM[k][l][0] /= det[0]
-            IHM[k][l][1] /= det[0]
+        for n in range(2):
+            IHM[k][n][0] /= det[0]
+            IHM[k][n][1] /= det[0]
 
 
 @numba.njit(parallel=False)
@@ -361,7 +360,7 @@ def trace2_hm1xhm2(HM1, HM2):
     trace     : trace of the product
     '''
     trace = HM1[0][0][0] * HM2[0][0][0] + HM1[1][1][0] * HM2[1][1][0]
-    trace =  trace + 2 * (HM1[0][1][0] * HM2[0][1][0] + HM1[0][1][1] * HM2[0][1][1])
+    trace = trace + 2 * (HM1[0][1][0] * HM2[0][1][0] + HM1[0][1][1] * HM2[0][1][1])
     return trace
 
 
@@ -435,11 +434,11 @@ def inverse_hermitian_matrix3(HM, IHM):
     det[1] = HM[0][0][0] * IHM[0][0][1] + HM[0][0][1] * IHM[0][0][0] + HM[1][0][0] * IHM[0][1][1] + HM[1][0][1] * IHM[0][1][0] + HM[2][0][0] * IHM[0][2][1] + HM[2][0][1] * IHM[0][2][0]
 
     for k in range(3):
-        for l in range(3):
-            re = IHM[k][l][0]
-            im = IHM[k][l][1]
-            IHM[k][l][0] = (re * det[0] + im * det[1]) / (det[0] * det[0] + det[1] * det[1])
-            IHM[k][l][1] = (im * det[0] - re * det[1]) / (det[0] * det[0] + det[1] * det[1])
+        for n in range(3):
+            re = IHM[k][n][0]
+            im = IHM[k][n][1]
+            IHM[k][n][0] = (re * det[0] + im * det[1]) / (det[0] * det[0] + det[1] * det[1])
+            IHM[k][n][1] = (im * det[0] - re * det[1]) / (det[0] * det[0] + det[1] * det[1])
 
 
 @numba.njit(parallel=False)
@@ -585,11 +584,11 @@ def inverse_cmplx_matrix2(M, IM, eps):
     det[1] = det[1] - (M[0][1][0] * M[1][0][1] + M[0][1][1] * M[1][0][0]) + eps
 
     for k in range(2):
-        for l in range(2):
-            re = IM[k][l][0]
-            im = IM[k][l][1]
-            IM[k][l][0] = (re * det[0] + im * det[1]) / (det[0] * det[0] + det[1] * det[1])
-            IM[k][l][1] = (im * det[0] - re * det[1]) / (det[0] * det[0] + det[1] * det[1])
+        for n in range(2):
+            re = IM[k][n][0]
+            im = IM[k][n][1]
+            IM[k][n][0] = (re * det[0] + im * det[1]) / (det[0] * det[0] + det[1] * det[1])
+            IM[k][n][1] = (im * det[0] - re * det[1]) / (det[0] * det[0] + det[1] * det[1])
 
 
 @numba.njit(parallel=False)
@@ -640,9 +639,9 @@ def pseudo_inverse_hermitian_matrix4(HM, IHM):
     Tmp1 = matrix.matrix3d_float(4, 4, 2)
     diagonalisation(4, HM, V, lmda)
     for k in range(4):
-        for l in range(4):
-            VL[k][l][0] = 0.
-            VL[k][l][1] = 0.
+        for n in range(4):
+            VL[k][n][0] = 0.
+            VL[k][n][1] = 0.
 
     for k in range(4):
         if lmda[k] > 1.E-10:
@@ -650,9 +649,9 @@ def pseudo_inverse_hermitian_matrix4(HM, IHM):
 
     # Transpose Conjugate Matrix
     for k in range(4):
-        for l in range(4):
-            Vm1[k][l][0] = V[l][k][0]
-            Vm1[k][l][1] = -V[l][k][1]
+        for n in range(4):
+            Vm1[k][n][0] = V[n][k][0]
+            Vm1[k][n][1] = -V[n][k][1]
     product_cmplx_matrix(V, VL, Tmp1, 4)
     product_cmplx_matrix(Tmp1, Vm1, IHM, 4)
 
@@ -886,5 +885,3 @@ def determinant_hermitian_matrix4(HM, det, eps):
         det[0] = eps
     if det[1] < eps:
         det[1] = eps
-
-

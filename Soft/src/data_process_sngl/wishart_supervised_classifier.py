@@ -57,20 +57,20 @@ import logging
 import datetime
 import numba
 sys.path.append(r'../')
-import lib.util
-import lib.util_block
-import lib.util_convert
-import lib.matrix
-from lib.graphics import bmp_training_set
-from lib.processing import inverse_hermitian_matrix2
-from lib.processing import determinant_hermitian_matrix2
-from lib.processing import inverse_hermitian_matrix3
-from lib.processing import determinant_hermitian_matrix3
-from lib.processing import inverse_hermitian_matrix4
-from lib.processing import determinant_hermitian_matrix4
-from lib.processing import trace2_hm1xhm2
-from lib.processing import trace3_hm1xhm2
-from lib.processing import trace4_hm1xhm2
+import lib.util  # noqa: E402
+import lib.util_block  # noqa: E402
+import lib.util_convert  # noqa: E402
+import lib.matrix  # noqa: E402
+from lib.graphics import bmp_training_set  # noqa: E402
+from lib.processing import inverse_hermitian_matrix2  # noqa: E402
+from lib.processing import determinant_hermitian_matrix2  # noqa: E402
+from lib.processing import inverse_hermitian_matrix3  # noqa: E402
+from lib.processing import determinant_hermitian_matrix3  # noqa: E402
+from lib.processing import inverse_hermitian_matrix4  # noqa: E402
+from lib.processing import determinant_hermitian_matrix4  # noqa: E402
+from lib.processing import trace2_hm1xhm2  # noqa: E402
+from lib.processing import trace3_hm1xhm2  # noqa: E402
+from lib.processing import trace4_hm1xhm2  # noqa: E402
 
 
 numba.config.THREADING_LAYER = 'omp'
@@ -103,30 +103,29 @@ def create_class_map(file_name, class_map):
         print('Could not open configuration file: ', file_name)
         raise
 
-    tmp = None
     n_class = None
-    tmp = f.readline().strip()
+    f.readline().strip()  # skip line
     n_class = int(f.readline().strip())
-    areacoord_l = None
-    areacoord_c = None
+    nareacoord_l = None  # noqa: F841
+    areacoord_c = None  # noqa: F841
     zone = 0
     for classe in range(n_class):
-        tmp = f.readline().strip()
-        tmp = f.readline().strip()
-        tmp = f.readline().strip()
+        f.readline().strip()  # skip line
+        f.readline().strip()  # skip line
+        f.readline().strip()  # skip line
         n_area = int(f.readline().strip())
         for area in range(n_area):
             zone += 1
             class_map[zone] = (float)(classe + 1)
-            tmp = f.readline().strip()
-            tmp = f.readline().strip()
+            f.readline().strip()  # skip line
+            f.readline().strip()  # skip line
             n_tpt = int(f.readline().strip())
             for t_pt in range(n_tpt):
-                tmp = f.readline().strip()
-                tmp = f.readline().strip()
-                areacoord_l = float(f.readline().strip())
-                tmp = f.readline().strip()
-                areacoord_c = float(f.readline().strip())
+                f.readline().strip()  # skip line
+                f.readline().strip()  # skip line
+                areacoord_l = float(f.readline().strip())  # noqa: F841
+                f.readline().strip()  # skip line
+                areacoord_c = float(f.readline().strip())  # noqa: F841
     f.close()
 
 
@@ -145,9 +144,9 @@ def inverse_center_coherency_matrices_computation_ipp(n_area, cov_area_m1, cov_a
 def inverse_center_coherency_matrices_computation(n_area, n_pp, eps, det_area, coh, coh_area, pol_type_out, coh_m1, det, coh_area_m1):
     for area in range(1, n_area):
         for k in range(n_pp):
-            for l in range(n_pp):
-                coh[k][l][0] = coh_area[k][l][0][area]
-                coh[k][l][1] = coh_area[k][l][1][area]
+            for n in range(n_pp):
+                coh[k][n][0] = coh_area[k][n][0][area]
+                coh[k][n][1] = coh_area[k][n][1][area]
 
         if pol_type_out in ['C2', 'C2pp1', 'C2pp2', 'C2pp3']:
             inverse_hermitian_matrix2(coh, coh_m1, eps)
@@ -160,9 +159,9 @@ def inverse_center_coherency_matrices_computation(n_area, n_pp, eps, det_area, c
             determinant_hermitian_matrix4(coh, det, eps)
 
         for k in range(n_pp):
-            for l in range(n_pp):
-                coh_area_m1[k][l][0][area] = coh_m1[k][l][0]
-                coh_area_m1[k][l][1][area] = coh_m1[k][l][1]
+            for n in range(n_pp):
+                coh_area_m1[k][n][0][area] = coh_m1[k][n][0]
+                coh_area_m1[k][n][1][area] = coh_m1[k][n][1]
         det_area[0][area] = det[0]
         det_area[1][area] = det[1]
 
@@ -247,9 +246,9 @@ def f_not_ipp(col, n_area, n_pp, coh_area_m1, m_avg, distance, det_area, pol_typ
     # Seeking for the closest cluster center
     for area in range(1, n_area):
         for k in range(n_pp):
-            for l in range(n_pp):
-                coh_m1[k][l][0] = coh_area_m1[k][l][0][area]
-                coh_m1[k][l][1] = coh_area_m1[k][l][1][area]
+            for n in range(n_pp):
+                coh_m1[k][n][0] = coh_area_m1[k][n][0][area]
+                coh_m1[k][n][1] = coh_area_m1[k][n][1][area]
         distance[area] = math.log(math.sqrt(det_area[0][area] * det_area[0][area] + det_area[1][area] * det_area[1][area]))
         if pol_type_out in ['C2', 'C2pp1', 'C2pp2', 'C2pp3']:
             distance[area] = distance[area] + trace2_hm1xhm2(coh_m1, m)
@@ -576,14 +575,13 @@ class App(lib.util.Application):
         coh = lib.matrix.matrix3d_float(n_pp, n_pp, 2)
 
         for k in range(n_pp):
-            for l in range(n_pp):
-                tmp_coh_area[k][l][0] = lib.matrix.vector_float(n_area)
-                tmp_coh_area[k][l][1] = lib.matrix.vector_float(n_area)
-                tmp_coh_area_m1[k][l][0] = lib.matrix.vector_float(n_area)
-                tmp_coh_area_m1[k][l][1] = lib.matrix.vector_float(n_area)
+            for n in range(n_pp):
+                tmp_coh_area[k][n][0] = lib.matrix.vector_float(n_area)
+                tmp_coh_area[k][n][1] = lib.matrix.vector_float(n_area)
+                tmp_coh_area_m1[k][n][0] = lib.matrix.vector_float(n_area)
+                tmp_coh_area_m1[k][n][1] = lib.matrix.vector_float(n_area)
         coh_area = numpy.array(tmp_coh_area)
         coh_area_m1 = numpy.array(tmp_coh_area_m1)
-
 
         tmp_det_area[0] = lib.matrix.vector_float(n_area)
         tmp_det_area[1] = lib.matrix.vector_float(n_area)
@@ -823,8 +821,8 @@ class App(lib.util.Application):
             else:  # Case of C,T or I
                 lib.util_block.read_block_tci_noavg(in_datafile, self.m_in, n_polar_out, nb, nb_block, n_lig_block[nb], sub_n_col, n_win_l, n_win_c, off_lig, off_col, n_col, self.vf_in)
 
-            trace = 0.
-            dist_min = init_minmax
+            # trace = 0.
+            # dist_min = init_minmax
             # pragma omp parallel for private(col, k, l, area, M_avg, M, coh_m1) firstprivate(ligg, distance, trace, dist_min) shared(ligDone, mean_dist_area, mean_dist_area2, cpt_area)
             for lig in range(n_lig_block[nb]):
                 ligDone += 1

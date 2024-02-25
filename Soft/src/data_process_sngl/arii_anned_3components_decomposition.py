@@ -55,11 +55,11 @@ import logging
 import datetime
 import numba
 sys.path.append(r'../')
-import lib.util
-import lib.util_block
-import lib.util_convert
-import lib.processing
-import lib.matrix
+import lib.util  # noqa: E402
+import lib.util_block  # noqa: E402
+import lib.util_convert  # noqa: E402
+import lib.processing  # noqa: E402
+import lib.matrix  # noqa: E402
 
 numba.config.THREADING_LAYER = 'omp'
 # numpy.seterr(invalid='ignore')
@@ -124,7 +124,7 @@ def data_processing_inner_loop(lig, lmda, V, M, col, m_avg, iiopt, jjopt, xopt, 
                 a33 = math.inf
             else:
                 a33 = m_avg[lib.util.C333][col] / cv[ii][jj][lib.util.C333]
- 
+
             xmin = 0.
             xmax = a11
             if a22 <= xmax:
@@ -136,7 +136,7 @@ def data_processing_inner_loop(lig, lmda, V, M, col, m_avg, iiopt, jjopt, xopt, 
             xprevious = 0.
             test = 0.
             previous = 0.
- 
+
             while flagstop == 0:
                 xx = (xmax - xmin) / 2.
                 # Test if Reminder matrix is semi-definite positive
@@ -158,12 +158,12 @@ def data_processing_inner_loop(lig, lmda, V, M, col, m_avg, iiopt, jjopt, xopt, 
                 M[2][1][1] = -M[1][2][1]
                 M[2][2][0] = eps + m_avg[8][col] - xx * cv[ii][jj][8]
                 M[2][2][1] = 0.
- 
+
                 test = -1
                 lib.processing.diagonalisation(3, M, V, lmda)
                 if lmda[0] > 0. and lmda[1] > 0. and lmda[2] > 0.:
                     test = +1.
- 
+
                 if test == -1.:
                     if previous != +1.:
                         xmax = xx
@@ -177,7 +177,7 @@ def data_processing_inner_loop(lig, lmda, V, M, col, m_avg, iiopt, jjopt, xopt, 
                         flagstop = 1
                         xx = xprevious
                     previous = -1.
- 
+
                 if test == +1.:
                     xmax = xmax
                     xmin = xx
@@ -187,12 +187,12 @@ def data_processing_inner_loop(lig, lmda, V, M, col, m_avg, iiopt, jjopt, xopt, 
                         if math.fabs(xxx - xprevious) < (amax / 100.):
                             flagstop = 1
                             xx = xprevious
- 
+
                     if previous == -1.:
                         flagstop = 1
                         xx = xprevious
                     previous = +1.
- 
+
             M[0][0][0] = eps + m_avg[0][col] - xx * cv[ii][jj][0]
             M[0][0][1] = 0.
             M[0][1][0] = eps + m_avg[1][col] - xx * cv[ii][jj][1]
@@ -217,39 +217,39 @@ def data_processing_inner_loop(lig, lmda, V, M, col, m_avg, iiopt, jjopt, xopt, 
                 iiopt = ii
                 jjopt = jj
                 xopt = xx
- 
+
     # C reminder
     epsilon = m_avg[lib.util.C311][col] - xopt * cv[iiopt][jjopt][lib.util.C311]
     rho_re = m_avg[lib.util.C313_RE][col] - xopt * cv[iiopt][jjopt][lib.util.C313_RE]
     rho_im = m_avg[lib.util.C313_IM][col] - xopt * cv[iiopt][jjopt][lib.util.C313_IM]
     # nhu = m_avg[lib.util.C322][col] - xopt*self.cv[iiopt][jjopt][lib.util.C322]
     gamma = m_avg[lib.util.C333][col] - xopt * cv[iiopt][jjopt][lib.util.C333]
- 
+
     # Van Zyl algorithm
     delta = (epsilon - gamma) * (epsilon - gamma) + 4. * (rho_re * rho_re + rho_im * rho_im)
- 
+
     lambda1 = 0.5 * (epsilon + gamma + math.sqrt(delta))
     lambda2 = 0.5 * (epsilon + gamma - math.sqrt(delta))
- 
+
     OMEGA1 = lambda1 * (gamma - epsilon + math.sqrt(delta)) * (gamma - epsilon + math.sqrt(delta))
     OMEGA1 = OMEGA1 / ((gamma - epsilon + math.sqrt(delta)) * (gamma - epsilon + math.sqrt(delta)) + 4. * (rho_re * rho_re + rho_im * rho_im))
- 
+
     OMEGA2 = lambda2 * (gamma - epsilon - math.sqrt(delta)) * (gamma - epsilon - math.sqrt(delta))
     OMEGA2 = OMEGA2 / ((gamma - epsilon - math.sqrt(delta)) * (gamma - epsilon - math.sqrt(delta)) + 4. * (rho_re * rho_re + rho_im * rho_im))
- 
+
     hh1_re = 2. * rho_re / (gamma - epsilon + math.sqrt(delta))
     hh1_im = 2. * rho_im / (gamma - epsilon + math.sqrt(delta))
     vv1_re = 1.
     vv1_im = 0.
- 
+
     hh2_re = 2. * rho_re / (gamma - epsilon - math.sqrt(delta))
     hh2_im = 2. * rho_im / (gamma - epsilon - math.sqrt(delta))
- 
+
     A0A0 = (hh1_re + vv1_re) * (hh1_re + vv1_re) + (hh1_im + vv1_im) * (hh1_im + vv1_im)
     B0pB = (hh1_re - vv1_re) * (hh1_re - vv1_re) + (hh1_im - vv1_im) * (hh1_im - vv1_im)
- 
+
     ALPre = ALPim = BETre = BETim = OMEGA1 = OMEGA2 = OMEGAodd = OMEGAdbl = 0.
- 
+
     if A0A0 > B0pB:
         ALPre = hh1_re
         ALPim = hh1_im
@@ -264,25 +264,24 @@ def data_processing_inner_loop(lig, lmda, V, M, col, m_avg, iiopt, jjopt, xopt, 
         BETre = hh1_re
         BETim = hh1_im
         OMEGAdbl = OMEGA1
- 
+
     m_odd[lig][col] = OMEGAodd * (1. + ALPre * ALPre + ALPim * ALPim)
     m_dbl[lig][col] = OMEGAdbl * (1. + BETre * BETre + BETim * BETim)
     m_vol[lig][col] = xopt * (cv[iiopt][jjopt][lib.util.C311] + cv[iiopt][jjopt][lib.util.C322] + cv[iiopt][jjopt][lib.util.C333])
- 
+
     if m_odd[lig][col] < span_min:
         m_odd[lig][col] = span_min
     if m_dbl[lig][col] < span_min:
         m_dbl[lig][col] = span_min
     if m_vol[lig][col] < span_min:
         m_vol[lig][col] = span_min
- 
+
     if m_odd[lig][col] > span_max:
         m_odd[lig][col] = span_max
     if m_dbl[lig][col] > span_max:
         m_dbl[lig][col] = span_max
     if m_vol[lig][col] > span_max:
         m_vol[lig][col] = span_max
-
 
 
 @numba.njit(parallel=False, fastmath=True)
@@ -422,32 +421,32 @@ def data_processing_inner(ligDone, nb, n_lig_block, n_polar_out, sub_n_col, m_in
                 rho_im = m_avg[lib.util.C313_IM][col] - xopt * cv[iiopt][jjopt][lib.util.C313_IM]
                 # nhu = m_avg[lib.util.C322][col] - xopt*self.cv[iiopt][jjopt][lib.util.C322]
                 gamma = m_avg[lib.util.C333][col] - xopt * cv[iiopt][jjopt][lib.util.C333]
- 
+
                 # Van Zyl algorithm
                 delta = (epsilon - gamma) * (epsilon - gamma) + 4. * (rho_re * rho_re + rho_im * rho_im)
- 
+
                 lambda1 = 0.5 * (epsilon + gamma + math.sqrt(delta))
                 lambda2 = 0.5 * (epsilon + gamma - math.sqrt(delta))
- 
+
                 OMEGA1 = lambda1 * (gamma - epsilon + math.sqrt(delta)) * (gamma - epsilon + math.sqrt(delta))
                 OMEGA1 = OMEGA1 / ((gamma - epsilon + math.sqrt(delta)) * (gamma - epsilon + math.sqrt(delta)) + 4. * (rho_re * rho_re + rho_im * rho_im))
- 
+
                 OMEGA2 = lambda2 * (gamma - epsilon - math.sqrt(delta)) * (gamma - epsilon - math.sqrt(delta))
                 OMEGA2 = OMEGA2 / ((gamma - epsilon - math.sqrt(delta)) * (gamma - epsilon - math.sqrt(delta)) + 4. * (rho_re * rho_re + rho_im * rho_im))
- 
+
                 hh1_re = 2. * rho_re / (gamma - epsilon + math.sqrt(delta))
                 hh1_im = 2. * rho_im / (gamma - epsilon + math.sqrt(delta))
                 vv1_re = 1.
                 vv1_im = 0.
- 
+
                 hh2_re = 2. * rho_re / (gamma - epsilon - math.sqrt(delta))
                 hh2_im = 2. * rho_im / (gamma - epsilon - math.sqrt(delta))
- 
+
                 A0A0 = (hh1_re + vv1_re) * (hh1_re + vv1_re) + (hh1_im + vv1_im) * (hh1_im + vv1_im)
                 B0pB = (hh1_re - vv1_re) * (hh1_re - vv1_re) + (hh1_im - vv1_im) * (hh1_im - vv1_im)
 
                 ALPre = ALPim = BETre = BETim = OMEGA1 = OMEGA2 = OMEGAodd = OMEGAdbl = 0.
- 
+
                 if A0A0 > B0pB:
                     ALPre = hh1_re
                     ALPim = hh1_im
@@ -462,18 +461,18 @@ def data_processing_inner(ligDone, nb, n_lig_block, n_polar_out, sub_n_col, m_in
                     BETre = hh1_re
                     BETim = hh1_im
                     OMEGAdbl = OMEGA1
- 
+
                 m_odd[lig][col] = OMEGAodd * (1. + ALPre * ALPre + ALPim * ALPim)
                 m_dbl[lig][col] = OMEGAdbl * (1. + BETre * BETre + BETim * BETim)
                 m_vol[lig][col] = xopt * (cv[iiopt][jjopt][lib.util.C311] + cv[iiopt][jjopt][lib.util.C322] + cv[iiopt][jjopt][lib.util.C333])
- 
+
                 if m_odd[lig][col] < span_min:
                     m_odd[lig][col] = span_min
                 if m_dbl[lig][col] < span_min:
                     m_dbl[lig][col] = span_min
                 if m_vol[lig][col] < span_min:
                     m_vol[lig][col] = span_min
- 
+
                 if m_odd[lig][col] > span_max:
                     m_odd[lig][col] = span_max
                 if m_dbl[lig][col] > span_max:
@@ -484,7 +483,6 @@ def data_processing_inner(ligDone, nb, n_lig_block, n_polar_out, sub_n_col, m_in
                 m_odd[lig][col] = 0.
                 m_dbl[lig][col] = 0.
                 m_vol[lig][col] = 0.
-
 
 
 class App(lib.util.Application):
@@ -700,15 +698,15 @@ class App(lib.util.Application):
                 lib.util_convert.t3_to_c3(self.m_in, n_lig_block[nb], sub_n_col + n_win_c, 0, 0)
                 logging.info('--= Finished: t3_to_c3 in: %s sec =--' % (datetime.datetime.now() - init_time))
 
-            iiopt = jjopt = flagstop = 0
-            ALPre = ALPim = BETre = BETim = OMEGA1 = OMEGA2 = OMEGAodd = OMEGAdbl = 0.
-            delta = lambda1 = lambda2 = gamma = epsilon = rho_re = rho_im = 0.
-            hh1_re = hh1_im = vv1_re = vv1_im = hh2_re = hh2_im = A0A0 = B0pB = 0.
-            sig = phi = psig = qsig = xopt = xmin = xmax = xprevious = xx = xxx = test = previous = Pmin = 0.
-            amax = a11 = a22 = a33 = 0.
+            # iiopt = jjopt = flagstop = 0
+            # ALPre = ALPim = BETre = BETim = OMEGA1 = OMEGA2 = OMEGAodd = OMEGAdbl = 0.
+            # delta = lambda1 = lambda2 = gamma = epsilon = rho_re = rho_im = 0.
+            # hh1_re = hh1_im = vv1_re = vv1_im = hh2_re = hh2_im = A0A0 = B0pB = 0.
+            # sig = phi = psig = qsig = xopt = xmin = xmax = xprevious = xx = xxx = test = previous = Pmin = 0.
+            # amax = a11 = a22 = a33 = 0.
             init_time = datetime.datetime.now()
             logging.info('--= Started: data_processing_inner  =--')
-            #pragma omp parallel for private(col, ii, jj, m_avg, M, V, lmda) firstprivate(iiopt, jjopt, flagstop, ALPre, ALPim, BETre, BETim, OMEGA1, OMEGA2, OMEGAodd, OMEGAdbl, delta, lambda1, lambda2, gamma, epsilon, rho_re, rho_im, hh1_re, hh1_im, vv1_re, vv1_im, hh2_re, hh2_im, A0A0, B0pB, sig, phi, psig, qsig, xopt, xmin, xmax, xprevious, xx, test, previous, Pmin, amax, a11, a22, a33, a12, a13, a23, b, c, d) shared(ligDone)
+            # pragma omp parallel for private(col, ii, jj, m_avg, M, V, lmda) firstprivate(iiopt, jjopt, flagstop, ALPre, ALPim, BETre, BETim, OMEGA1, OMEGA2, OMEGAodd, OMEGAdbl, delta, lambda1, lambda2, gamma, epsilon, rho_re, rho_im, hh1_re, hh1_im, vv1_re, vv1_im, hh2_re, hh2_im, A0A0, B0pB, sig, phi, psig, qsig, xopt, xmin, xmax, xprevious, xx, test, previous, Pmin, amax, a11, a22, a33, a12, a13, a23, b, c, d) shared(ligDone)
             data_processing_inner(ligDone, nb, n_lig_block, n_polar_out, sub_n_col, self.m_in, self.valid, n_win_l, n_win_c, n_win_l_m1s2, n_win_c_m1s2, span_min, span_max, nn, lib.util.Application.EPS, self.cv, self.m_odd, self.m_dbl, self.m_vol)
             logging.info('--= Finished: data_processing_inner: %s sec =--' % (datetime.datetime.now() - init_time))
             # for lig in range(n_lig_block[nb]):

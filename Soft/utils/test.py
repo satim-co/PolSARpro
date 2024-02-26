@@ -7,6 +7,7 @@ import datetime
 import subprocess
 import time
 import math
+import json
 sys.path.append(r'../src/')
 sys.path.append(r'../src/data_process_sngl/')
 
@@ -46,9 +47,12 @@ WISHART_H_A_ALPHA_CLASSIFIER = 'wishart_h_a_alpha_classifier'
 
 
 class Logger(object):
+    timestamp = None
+
     def __init__(self):
         Logger.make_dirs(DIR_ARTIFACTS)
-        log_file_name = os.path.join(DIR_ARTIFACTS, datetime.datetime.now().strftime('log_%Y_%m_%d_%H_%M_%S.log'))
+        Logger.timestamp = datetime.datetime.now()
+        log_file_name = os.path.join(DIR_ARTIFACTS, Logger.timestamp.strftime('log_%Y_%m_%d_%H_%M_%S.log'))
         self.log = open(log_file_name, "w")
         print(f'The log file: {log_file_name} is created!')
         self.terminal = sys.stdout
@@ -123,6 +127,10 @@ class Module:
         self.dir_out = os.path.join(self.dir_out, Module.LANG)
         self.dir_bin = DIR_BIN
         self.skip = ''
+        self.result = 'SKIP'
+        time = datetime.datetime.now()
+        self.stdout = ''
+        self.time = time - time
 
     def check_md5sum(sela, file):
         params_md5sum = []
@@ -166,7 +174,6 @@ class Module:
         elif Module.LANG == 'c':
             ext = '.c'
         print(f'{"START":<10}: {self.name}{ext}')
-        result = 'SKIP'
         time_start = datetime.datetime.now()
         for i, (k, v) in enumerate(self.params.items()):
             if i == 0:
@@ -177,9 +184,9 @@ class Module:
         Logger.make_dirs(self.dir_out)
         Logger.make_dirs(self.dir_in)
         if self.skip != '' and Module.LANG == 'py':
-            time_finish = datetime.datetime.now() - time_start
-            print(f'\n{result} {self.name:<60}: - reason: {self.skip}')
-            return time_finish, result, self.skip
+            self.time = datetime.datetime.now() - time_start
+            print(f'\n{self.result} {self.name:<60}: - reason: {self.skip}')
+            return self.time, self.result, self.skip
         if Module.LANG == 'py':
             m = f'../src/data_process_sngl/{self.name}.{Module.LANG}'
             print(f'import module {m}')
@@ -195,15 +202,15 @@ class Module:
             while proc.poll() is None:
                 print(proc.stdout.read1().decode('utf-8'), end='')
                 time.sleep(0.5)
-        time_finish = datetime.datetime.now() - time_start
-        info = str(time_finish).split(".", 2)[0]
+        self.time = datetime.datetime.now() - time_start
+        info = str(self.time).split(".", 2)[0]
         if self.compare_result() is False:
-            result = 'FAIL'
+            self.result = 'FAIL'
         else:
-            result = 'PASS'
-        print(f'\n{"RESULT":<10}: {result}')
+            self.result = 'PASS'
+        print(f'\n{"RESULT":<10}: {self.result}')
         print(f'{"TIME":<10}: {info}')
-        return time_finish, result, ''
+        return self.time, self.result, ''
 
 
 class AriiAnned3ComponentsDecomposition(Module):
@@ -358,10 +365,81 @@ class ModuleLauncher:
     def __init__(self):
         sys.stdout = Logger()
 
+    def prepare_junit_result(self):
+        xml_test_suites = '''
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="Test modules" tests="{}" failures="{}" errors="{}" skipped="{}" assertions="{}" time="{}" timestamp="{}">
+    {}
+</testsuites>'''
+
+        xml_test_suite = '''
+    <testsuite name="Tests.Modules" tests="{}" failures="{}" errors="{}" skipped="{}" assertions="{}" time="{}" timestamp="{}" file="{}">
+       <system-out>{}</system-out>
+       <system-err>{}</system-err>
+       {}
+   </testsuite>'''
+
+        xml_test_case_skipped = '''
+       <testcase name="{}" classname="Tests.Modules" assertions="{}" time="{}" file="{}" line="{}">
+           <skipped message="{}" />
+       </testcase>'''
+
+        xml_test_case_failed = '''
+       <testcase name="{}" classname="Tests.Modules" assertions="{}" time="{}" file="{}" line="{}">
+           <system-out>{}</system-out>
+           <system-err>{}</system-err>
+           <failure message="{}" type="Fail">
+               <!-- Failure description or stack trace -->
+           </failure>
+        </testcase>'''
+
+        xml_test_case_error = '''
+       <testcase name="{}" classname="Tests.Modules" assertions="{}" time="{}" file="{}" line="{}">
+           <error message="{}" type="Error">
+               <!-- Error description or stack trace -->
+           </error>
+       </testcase>'''
+
+        xml_test_case_with_output = '''
+       <testcase name="{}" classname="Tests.Modules" assertions="{}" time="{}" file="{}" line="0">
+           <system-out>{}</system-out>
+           <system-err>{}</system-err>
+       </testcase>'''
+
+        number_of_tests = len(self.modules)  # in this file
+        number_of_failed_tests = len([x for x in self.modules if x.result == 'FAIL'])  # in this file
+        number_of_errored_tests = len([x for x in self.modules if x.result == 'ERROR'])  # in this file
+        number_of_skipped_tests = len([x for x in self.modules if x.result == 'SKIP'])  # in this file
+        number_of_assertions = 0  # for all tests in this file
+        time_aggregated = 0  # time of all tests in this file in seconds
+        timestamp = Logger.timestamp.strftime("%Y%m%dT%H%M%S")  # Date and time of when the test run was executed (in ISO 8601 format)
+        file = os.path.basename(sys.argv[0])
+        line = 0
+        junit_report_xml_tests = ''
+        for c, m in enumerate(self.modules):
+            total_seconds = m.time.total_seconds()
+            time_aggregated += total_seconds
+            if m.result == 'PASS':
+                junit_report_xml_tests += xml_test_case_with_output.format(m.name, number_of_assertions, total_seconds, file, line, m.stdout, '')
+            elif m.result == 'FAIL':
+                junit_report_xml_tests += xml_test_case_failed.format(m.name, number_of_assertions, total_seconds, file, line, m.stdout, '', 'FAIL')
+            elif m.result == 'SKIP':
+                junit_report_xml_tests += xml_test_case_skipped.format(m.name, number_of_assertions, total_seconds, file, line, m.skip)
+            elif m.result == 'ERROR':
+                junit_report_xml_tests += xml_test_case_error.format(m.name, number_of_assertions, total_seconds, file, line, m.stdout)
+
+        junit_report_xml_suite = xml_test_suite.format(number_of_tests, number_of_failed_tests, number_of_errored_tests, number_of_skipped_tests, number_of_assertions, time_aggregated, timestamp, file, '', '', junit_report_xml_tests)
+        junit_report_xml_suites = xml_test_suites.format(number_of_tests, number_of_failed_tests, number_of_errored_tests, number_of_skipped_tests, number_of_assertions, time_aggregated, timestamp, junit_report_xml_suite)
+
+        junit_report_xml = os.path.join(DIR_ARTIFACTS, f'{timestamp}.xml')
+        with open(junit_report_xml, 'w') as f:
+            f.write(junit_report_xml_suites)
+        print(f'Prepare: {junit_report_xml}\n')
+
     def prepare(self, lang):
         Module.LANG = lang
         self.modules = []
-        self.modules.append(AriiAnned3ComponentsDecomposition())  # 'long processing time'))
+        self.modules.append(AriiAnned3ComponentsDecomposition())
         self.modules.append(AriiNned3ComponentsDecomposition())
         self.modules.append(Freeman2ComponentsDecomposition())
         self.modules.append(IdClassGen())
@@ -397,10 +475,19 @@ class ModuleLauncher:
         print('============================================================================================')
         print(("{: >%s}" % 45).format('-== BEGIN ==-'))
         print('--------------------------------------------------------------------------------------------\n')
+        skip_modules_file = 'skip_modules.json'
+        skip_modules = None
+        if os.path.exists(skip_modules_file) is True:
+            with open(skip_modules_file, 'r') as f:
+                skip_modules = json.load(f)
+
         for c, m in enumerate(self.modules):
             if arg_verbose == 'verbose':
                 m.params['v'] = None
             if m.name == arg_module or arg_module == 'all':
+                if skip_modules is not None:
+                    for t in [v for v in skip_modules if v['name'] == m.name]:
+                        m.skip = t['reason']
                 t, r, i = m.run()
                 summary.append([c + 1, m.name, r, i, str(t).split(".", 2)[0]])
                 summary_time.append(t)
@@ -413,6 +500,7 @@ class ModuleLauncher:
         print('\nSUMMARY BEGIN\n')
         Logger.print_table(summary, footer)
         print('\nSUMMARY END\n')
+        self.prepare_junit_result()
 
 
 if __name__ == "__main__":

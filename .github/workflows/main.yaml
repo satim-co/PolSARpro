@@ -38,7 +38,7 @@ jobs:
         working-directory: Soft/utils/
         run: python test.py all py
 
-      - name: Copy Test Results
+      - name: Copy test results
         if: always()
         run: |
           cp -Lpr ~/polsarpro/out/artifacts/ test-results

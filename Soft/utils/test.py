@@ -366,17 +366,14 @@ class ModuleLauncher:
         sys.stdout = Logger()
 
     def prepare_junit_result(self):
-        xml_test_suites = '''
-<?xml version="1.0" encoding="UTF-8"?>
+        xml_test_suites = '''<?xml version="1.0" encoding="UTF-8" ?>
 <testsuites name="Test modules" tests="{}" failures="{}" errors="{}" skipped="{}" assertions="{}" time="{}" timestamp="{}">
     {}
 </testsuites>'''
 
-        xml_test_suite = '''
-    <testsuite name="Tests.Modules" tests="{}" failures="{}" errors="{}" skipped="{}" assertions="{}" time="{}" timestamp="{}" file="{}">
+        xml_test_suite = '''<testsuite name="Tests.Modules" tests="{}" failures="{}" errors="{}" skipped="{}" assertions="{}" time="{}" timestamp="{}" file="{}">
        <system-out>{}</system-out>
-       <system-err>{}</system-err>
-       {}
+       <system-err>{}</system-err>{}
    </testsuite>'''
 
         xml_test_case_skipped = '''

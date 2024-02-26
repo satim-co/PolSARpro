@@ -36,5 +36,6 @@ jobs:
           # ignora:e E501 line too long
           flake8 . --ignore E501
       - name: Run tests
-        run: Soft/utils/test.py all py
+        working-directory: Soft/utils/
+        run: test.py all py
 

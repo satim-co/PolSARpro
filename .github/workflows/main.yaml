@@ -44,14 +44,7 @@ jobs:
           cp -Lpr ~/polsarpro/out/artifacts/ test-results
         shell: bash
 
-      - name: Publish Test Results
-        uses: EnricoMi/publish-unit-test-result-action@v2
-        if: always()
-        with:
-          files: |
-            test-results/**/*.xml
-
-      - name: Publish Test Report 2
+      - name: Publish test report
         uses: mikepenz/action-junit-report@v4
         if: success() || failure() # always run even if the previous step fails
         with:

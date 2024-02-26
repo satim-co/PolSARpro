@@ -28,14 +28,26 @@ jobs:
       - name: Install dependencies
         run: pip install -r Soft/requirements.txt
 
-      - name: Install flake8
-        run: pip install flake8
-
-      - name: Lint with flake8
-        run:
+      - name: Install & run lint - flake8
+        run: |
+          pip install flake8
           # ignora:e E501 line too long
           flake8 . --ignore E501
+
       - name: Run tests
         working-directory: Soft/utils/
         run: python test.py all py
+
+      - name: Copy Test Results
+        if: always()
+        run: |
+          cp -Lpr ~/polsarpro/out/artifacts/ test-results
+        shell: bash
+
+      - name: Publish Test Results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always()
+        with:
+          files: |
+            test-results/**/*.xml
 

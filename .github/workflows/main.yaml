@@ -51,3 +51,10 @@ jobs:
           files: |
             test-results/**/*.xml
 
+      - name: Publish Test Report 2
+        uses: mikepenz/action-junit-report@v4
+        if: success() || failure() # always run even if the previous step fails
+        with:
+          report_paths: 'test-results/**/*.xml'
+      
+

@@ -50,5 +50,9 @@ jobs:
         if: success() || failure() # always run even if the previous step fails
         with:
           report_paths: 'test-results/**/*.xml'
-      
 
+      - name: Archive artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: artifact
+          path: ~/polsarpro/out/artifacts/

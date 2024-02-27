@@ -35,6 +35,7 @@ jobs:
           flake8 . --ignore E501
 
       - name: Run tests
+        if: always()
         working-directory: Soft/utils/
         run: python test.py all py
 

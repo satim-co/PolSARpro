@@ -48,13 +48,16 @@ WISHART_H_A_ALPHA_CLASSIFIER = 'wishart_h_a_alpha_classifier'
 
 class Logger(object):
     timestamp = None
+    log_dir = None
+    log_test = None
 
     def __init__(self):
-        Logger.make_dirs(DIR_ARTIFACTS)
         Logger.timestamp = datetime.datetime.now()
-        log_file_name = os.path.join(DIR_ARTIFACTS, Logger.timestamp.strftime('log_%Y_%m_%d_%H_%M_%S.log'))
-        self.log = open(log_file_name, "w")
-        print(f'The log file: {log_file_name} is created!')
+        Logger.log_dir = os.path.join(DIR_ARTIFACTS, Logger.timestamp.strftime('%Y%m%dT%H%M%S'))
+        Logger.make_dirs(Logger.log_dir)
+        self.log_file_name = os.path.join(Logger.log_dir, Logger.timestamp.strftime('all.txt'))
+        self.log_file = open(self.log_file_name, "w")
+        print(f'The log file: {self.log_file_name} is created!')
         self.terminal = sys.stdout
 
     @staticmethod
@@ -99,7 +102,9 @@ class Logger(object):
 
     def write(self, message):
         self.terminal.write(message)
-        self.log.write(message)
+        self.log_file.write(message)
+        if Logger.log_test is not None:
+            Logger.log_test.write(message)
 
     def flush(self):
         # this flush method is needed for python 3 compatibility.
@@ -123,14 +128,21 @@ class Module:
         self.dir_pattern = os.path.join(DIR_PATTERN, self.name.lower())
         self.dir_pattern = os.path.join(self.dir_pattern, Module.LANG)
         self.dir_in = os.path.join(DIR_IN, self.name.lower())
-        self.dir_out = os.path.join(DIR_OUT, self.name.lower())
-        self.dir_out = os.path.join(self.dir_out, Module.LANG)
+        self.dir_out = os.path.join(Logger.log_dir, self.name.lower())
         self.dir_bin = DIR_BIN
         self.skip = ''
         self.result = 'SKIP'
         time = datetime.datetime.now()
         self.stdout = ''
         self.time = time - time
+        Logger.make_dirs(self.dir_out)
+        self.log_file_name = os.path.join(Logger.log_dir, f'{self.name.lower()}.txt')
+        self.log_file = None
+
+    def get_log(self):
+        if self.log_file is None:
+            self.log_file = open(self.log_file_name, 'w')
+        return self.log_file
 
     def check_md5sum(sela, file):
         params_md5sum = []
@@ -173,6 +185,7 @@ class Module:
             ext = '.py'
         elif Module.LANG == 'c':
             ext = '.c'
+        Logger.log_test = self.get_log()
         print(f'{"START":<10}: {self.name}{ext}')
         time_start = datetime.datetime.now()
         for i, (k, v) in enumerate(self.params.items()):
@@ -186,6 +199,7 @@ class Module:
         if self.skip != '' and Module.LANG == 'py':
             self.time = datetime.datetime.now() - time_start
             print(f'\n{self.result} {self.name:<60}: - reason: {self.skip}')
+            Logger.log_test = None
             return self.time, self.result, self.skip
         if Module.LANG == 'py':
             m = f'../src/data_process_sngl/{self.name}.{Module.LANG}'
@@ -210,6 +224,7 @@ class Module:
             self.result = 'PASS'
         print(f'\n{"RESULT":<10}: {self.result}')
         print(f'{"TIME":<10}: {info}')
+        Logger.log_test = None
         return self.time, self.result, ''
 
 
@@ -428,7 +443,7 @@ class ModuleLauncher:
         junit_report_xml_suite = xml_test_suite.format(number_of_tests, number_of_failed_tests, number_of_errored_tests, number_of_skipped_tests, number_of_assertions, time_aggregated, timestamp, file, '', '', junit_report_xml_tests)
         junit_report_xml_suites = xml_test_suites.format(number_of_tests, number_of_failed_tests, number_of_errored_tests, number_of_skipped_tests, number_of_assertions, time_aggregated, timestamp, junit_report_xml_suite)
 
-        junit_report_xml = os.path.join(DIR_ARTIFACTS, f'{timestamp}.xml')
+        junit_report_xml = os.path.join(Logger.log_dir, 'junit_report.xml')
         with open(junit_report_xml, 'w') as f:
             f.write(junit_report_xml_suites)
         print(f'Prepare: {junit_report_xml}\n')

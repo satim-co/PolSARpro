@@ -52,6 +52,7 @@ jobs:
           report_paths: 'test-results/**/*.xml'
 
       - name: Archive artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: artifact

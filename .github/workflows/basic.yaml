@@ -44,7 +44,7 @@ jobs:
         run: |
           [ -d ~/s3-bucket ] || mkdir ~/s3-bucket
           sudo apt-get install -y s3fs
-          s3fs ${{secrets.AWS_BUCKET}} ~/s3-bucket
+          s3fs satim-polsarpro ~/s3-bucket
 
       - name: Run tests
         if: always()

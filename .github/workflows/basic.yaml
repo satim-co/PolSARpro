@@ -50,7 +50,7 @@ jobs:
         if: always()
         working-directory: Soft/utils/
         run: |
-          export CI=ON
+          export GITHUB_RUNNER_CI=ON
           python test.py all py
 
       - name: Copy test results

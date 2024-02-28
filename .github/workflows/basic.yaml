@@ -14,16 +14,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Setup repo
+      - name: Set up repo
         uses: actions/checkout@v4
 
-      - name: Setup Python ${{env.PYTHON_VERSION}}
+      - name: Set up Python ${{env.PYTHON_VERSION}}
         uses: actions/setup-python@v5  
         with:
           python-version: '${{env.PYTHON_VERSION}}'
-
-      - name: Display Python version
-        run: python -c "import sys; print(sys.version)"
 
       - name: Install dependencies
         run: pip install -r Soft/requirements.txt
@@ -35,6 +32,7 @@ jobs:
           flake8 . --ignore E501
 
       - name: Configure AWS Credentials
+        if: always()
         uses: aws-actions/configure-aws-credentials@v1
         with:
           aws-access-key-id: ${{secrets.AWS_ACCESS_KEY_ID}}

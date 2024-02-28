@@ -65,8 +65,10 @@ jobs:
           aws-secret-access-key: ${{secrets.AWS_SECRET_ACCESS_KEY}}
           aws-region: ${{secrets.AWS_REGION}}
       
-      #- name: Copy artifacts to AWS bucket
-      #  run: |
-      #    [ -d ~/s3-bucket ] || mkdir ~/s3-bucket
+      - name: Copy artifacts to AWS bucket
+        if: always()
+        run: |
+          [ -d ~/s3-bucket ] || mkdir ~/s3-bucket
+          ls ~/polsarpro/out/artifacts/
       #    s3fs ${{secrets.AWS_BUCKET}} ~/s3-bucket
       #    cp ~/polsarpro/out/artifacts/ ~/s3-bucket

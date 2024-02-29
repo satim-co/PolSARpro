@@ -51,7 +51,7 @@ jobs:
         working-directory: Soft/utils/
         run: |
           export GITHUB_RUNNER_CI=ON
-          python test.py all py
+          python test.py all
 
       - name: Copy test results
         if: always()
@@ -75,7 +75,5 @@ jobs:
       - name: Copy artifacts to AWS bucket
         if: always()
         run: |
-          [ -d ~/s3-bucket ] || mkdir ~/s3-bucket
           ls -alR ~/polsarpro/out/artifacts/
-      #    s3fs ${{secrets.AWS_BUCKET}} ~/s3-bucket
       #    cp ~/polsarpro/out/artifacts/ ~/s3-bucket

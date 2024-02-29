@@ -26,11 +26,18 @@ if platform.system().lower().startswith('win') is True:
     DIR_ARTIFACTS = os.path.join(DIR_OUT, 'artifacts')
 elif platform.system().lower().startswith('lin') is True:
     home = os.environ["HOME"]
-    DIR_PATTERN = os.path.join(home, 'polsarpro/pattern/')
-    DIR_IN = os.path.join(home, 'polsarpro/in/')
-    DIR_OUT = os.path.join(home, 'polsarpro/out/')
-    DIR_BIN = os.path.join(home, 'projects/polsarpro/Soft/bin/debug')
-    DIR_ARTIFACTS = os.path.join(DIR_OUT, 'artifacts')
+    if os.environ.get('GITHUB_RUNNER_CI') is not None:
+        aws_bucket_dir = os.path.join(home, 's3-bucket')
+        DIR_PATTERN = os.path.join(aws_bucket_dir, 'pattern')
+        DIR_IN = os.path.join(aws_bucket_dir, 'in/')
+        DIR_OUT = os.path.join(home, 'polsarpro/out/')
+        DIR_ARTIFACTS = os.path.join(DIR_OUT, 'artifacts')
+    else:
+        DIR_PATTERN = os.path.join(home, 'polsarpro/pattern/')
+        DIR_IN = os.path.join(home, 'polsarpro/in/')
+        DIR_OUT = os.path.join(home, 'polsarpro/out/')
+        DIR_BIN = os.path.join(home, 'projects/polsarpro/Soft/bin/debug')
+        DIR_ARTIFACTS = os.path.join(DIR_OUT, 'artifacts')
 else:
     print(f'unknown platform: {platform.system()}')
     sys.exit(1)
@@ -55,9 +62,8 @@ class Logger(object):
         Logger.timestamp = datetime.datetime.now()
         Logger.log_dir = os.path.join(DIR_ARTIFACTS, Logger.timestamp.strftime('%Y%m%dT%H%M%S'))
         Logger.make_dirs(Logger.log_dir)
-        self.log_file_name = os.path.join(Logger.log_dir, Logger.timestamp.strftime('all.txt'))
+        self.log_file_name = os.path.join(Logger.log_dir, Logger.timestamp.strftime('tests_log_all.txt'))
         self.log_file = open(self.log_file_name, "w")
-        print(f'The log file: {self.log_file_name} is created!')
         self.terminal = sys.stdout
 
     @staticmethod
@@ -116,27 +122,25 @@ class Logger(object):
     def make_dirs(path):
         if not os.path.exists(path):
             os.makedirs(path)
-            print(f'The directory: {path} is created!')
 
 
 class Module:
-    LANG = 'py'
 
-    def __init__(self, name):
+    def __init__(self, name, lang):
         self.name = name
+        self.lang = lang
         self.params = {}
         self.dir_pattern = os.path.join(DIR_PATTERN, self.name.lower())
-        self.dir_pattern = os.path.join(self.dir_pattern, Module.LANG)
         self.dir_in = os.path.join(DIR_IN, self.name.lower())
-        self.dir_out = os.path.join(Logger.log_dir, self.name.lower())
+        self.dir_artifacat_module = os.path.join(Logger.log_dir, self.name.lower())
+        self.dir_out = os.path.join(self.dir_artifacat_module, 'out')
         self.dir_bin = DIR_BIN
         self.skip = ''
         self.result = 'SKIP'
         time = datetime.datetime.now()
         self.stdout = ''
         self.time = time - time
-        Logger.make_dirs(self.dir_out)
-        self.log_file_name = os.path.join(Logger.log_dir, f'{self.name.lower()}.txt')
+        self.log_file_name = os.path.join(self.dir_artifacat_module, f'{self.name.lower()}.txt')
         self.log_file = None
 
     def get_log(self):
@@ -169,6 +173,8 @@ class Module:
         merged_files = zip(files_out, files_pattern)
         print('\nCOMPARE RESULTS WITH PATTERNS:')
         test_result = True
+        if len(files_out) != len(files_pattern):
+            test_result = False
         for o, p in merged_files:
             md5sum_o = self.check_md5sum(o)
             md5sum_p = self.check_md5sum(p)
@@ -180,13 +186,9 @@ class Module:
         return test_result
 
     def run(self):
-        ext = None
-        if Module.LANG == 'py':
-            ext = '.py'
-        elif Module.LANG == 'c':
-            ext = '.c'
+        Logger.make_dirs(self.dir_out)
         Logger.log_test = self.get_log()
-        print(f'{"START":<10}: {self.name}{ext}')
+        print(f'{"START":<10}: {self.name}')
         time_start = datetime.datetime.now()
         for i, (k, v) in enumerate(self.params.items()):
             if i == 0:
@@ -196,17 +198,17 @@ class Module:
         Logger.make_dirs(self.dir_pattern)
         Logger.make_dirs(self.dir_out)
         Logger.make_dirs(self.dir_in)
-        if self.skip != '' and Module.LANG == 'py':
+        if self.skip != '' and self.lang == 'py':
             self.time = datetime.datetime.now() - time_start
-            print(f'\n{self.result} {self.name:<60}: - reason: {self.skip}')
+            print(f'\n{"RESULT":<10}: {self.result} - reason: {self.skip}')
             Logger.log_test = None
             return self.time, self.result, self.skip
-        if Module.LANG == 'py':
-            m = f'../src/data_process_sngl/{self.name}.{Module.LANG}'
+        if self.lang == 'py':
+            m = f'../src/data_process_sngl/{self.name}.{self.lang}'
             print(f'import module {m}')
             module = __import__(self.name)
             module.main(**self.params)
-        elif Module.LANG == 'c':
+        elif self.lang == 'c':
             params = []
             params.append(os.path.join(self.dir_bin, f'{self.name}.exe'))
             for k, v in self.params.items():
@@ -229,8 +231,8 @@ class Module:
 
 
 class AriiAnned3ComponentsDecomposition(Module):
-    def __init__(self, skip=''):
-        super().__init__(ARII_ANNED_3COMPONENTS_DECOMPOSITION)
+    def __init__(self, skip='', lang='py'):
+        super().__init__(ARII_ANNED_3COMPONENTS_DECOMPOSITION, lang)
         self.skip = skip
         self.params['id'] = self.dir_in
         self.params['od'] = self.dir_out
@@ -246,8 +248,8 @@ class AriiAnned3ComponentsDecomposition(Module):
 
 
 class AriiNned3ComponentsDecomposition(Module):
-    def __init__(self, skip=''):
-        super().__init__(ARII_NNED_3COMPONENTS_DECOMPOSITION)
+    def __init__(self, skip='', lang='py'):
+        super().__init__(ARII_NNED_3COMPONENTS_DECOMPOSITION, lang)
         self.skip = skip
         self.params['id'] = self.dir_in
         self.params['od'] = self.dir_out
@@ -263,8 +265,8 @@ class AriiNned3ComponentsDecomposition(Module):
 
 
 class Freeman2ComponentsDecomposition(Module):
-    def __init__(self, skip=''):
-        super().__init__(FREEMAN_2COMPONENTS_DECOMPOSITION)
+    def __init__(self, skip='', lang='py'):
+        super().__init__(FREEMAN_2COMPONENTS_DECOMPOSITION, lang)
         self.skip = skip
         self.params['id'] = self.dir_in
         self.params['od'] = self.dir_out
@@ -280,8 +282,8 @@ class Freeman2ComponentsDecomposition(Module):
 
 
 class IdClassGen(Module):
-    def __init__(self, skip=''):
-        super().__init__(ID_CLASS_GEN)
+    def __init__(self, skip='', lang='py'):
+        super().__init__(ID_CLASS_GEN, lang)
         self.skip = skip
         self.params['id'] = self.dir_in
         self.params['od'] = self.dir_out
@@ -296,8 +298,8 @@ class IdClassGen(Module):
 
 
 class Opce(Module):
-    def __init__(self, skip=''):
-        super().__init__(OPCE)
+    def __init__(self, skip='', lang='py'):
+        super().__init__(OPCE, lang)
         self.skip = skip
         self.params['id'] = self.dir_in
         self.params['od'] = self.dir_out
@@ -314,8 +316,8 @@ class Opce(Module):
 
 
 class Vanzyl92_3ComponentsDecomposition(Module):
-    def __init__(self, skip=''):
-        super().__init__(VANZYL92_3COMPONENTS_DECOMPOSITION)
+    def __init__(self, skip='', lang='py'):
+        super().__init__(VANZYL92_3COMPONENTS_DECOMPOSITION, lang)
         self.skip = skip
         self.params['id'] = self.dir_in
         self.params['od'] = self.dir_out
@@ -331,8 +333,8 @@ class Vanzyl92_3ComponentsDecomposition(Module):
 
 
 class WishartSupervisedClassifier(Module):
-    def __init__(self, skip=''):
-        super().__init__(WISHART_SUPERVISED_CLASSIFIER)
+    def __init__(self, skip='', lang='py'):
+        super().__init__(WISHART_SUPERVISED_CLASSIFIER, lang)
         self.skip = skip
         self.params['id'] = self.dir_in
         self.params['od'] = self.dir_out
@@ -352,8 +354,8 @@ class WishartSupervisedClassifier(Module):
 
 
 class WishartHAAlphaClassifier(Module):
-    def __init__(self, skip=''):
-        super().__init__(WISHART_H_A_ALPHA_CLASSIFIER)
+    def __init__(self, skip='', lang='py'):
+        super().__init__(WISHART_H_A_ALPHA_CLASSIFIER, lang)
         self.skip = skip
         self.params['id'] = self.dir_in
         self.params['od'] = self.dir_out
@@ -449,40 +451,39 @@ class ModuleLauncher:
         print(f'Prepare: {junit_report_xml}\n')
 
     def prepare(self, lang):
-        Module.LANG = lang
         self.modules = []
-        self.modules.append(AriiAnned3ComponentsDecomposition())
-        self.modules.append(AriiNned3ComponentsDecomposition())
-        self.modules.append(Freeman2ComponentsDecomposition())
-        self.modules.append(IdClassGen())
-        self.modules.append(Opce())
-        self.modules.append(Vanzyl92_3ComponentsDecomposition())
-        self.modules.append(WishartSupervisedClassifier())
-        self.modules.append(WishartHAAlphaClassifier())
+        self.modules.append(AriiAnned3ComponentsDecomposition(lang=lang))
+        self.modules.append(AriiNned3ComponentsDecomposition(lang=lang))
+        self.modules.append(Freeman2ComponentsDecomposition(lang=lang))
+        self.modules.append(IdClassGen(lang=lang))
+        self.modules.append(Opce(lang=lang))
+        self.modules.append(Vanzyl92_3ComponentsDecomposition(lang=lang))
+        self.modules.append(WishartSupervisedClassifier(lang=lang))
+        self.modules.append(WishartHAAlphaClassifier(lang=lang))
 
     def print_usage(self):
         print('\nUsage:')
         self.prepare('py')
         for m in self.modules:
-            print(f'\t{sys.argv[0]} {m.name} py|c [verbose]')
-        print(f'\t{sys.argv[0]} all py|cpp [verbose]')
+            print(f'\t{sys.argv[0]} {m.name} [py|c] [verbose]')
+        print(f'\t{sys.argv[0]} all [py|cpp] [verbose]')
         print('\n')
 
     def run(self):
-        if len(sys.argv) < 3:
+        if len(sys.argv) < 2:
             self.print_usage()
             return
-        arg_module = sys.argv[1]
-        arg_lang = sys.argv[2]
-        if arg_lang not in ['py', 'c']:
-            self.print_usage()
-            return
-        arg_verbose = None
-        if len(sys.argv) > 3:
-            arg_verbose = sys.argv[3]
-        print(arg_verbose)
+        module = sys.argv[1]
+        lang = 'py'
+        verbose = ''
+        for i in range(len(sys.argv)):
+            arg = sys.argv[i]
+            if arg in ['py', 'c']:
+                lang = arg
+            elif arg == 'verbose':
+                verbose = arg
         summary_time = []
-        self.prepare(arg_lang)
+        self.prepare(lang)
         summary = [['Np.', 'MODULE', 'RESULT', 'INFO', 'TIME']]
         print('============================================================================================')
         print(("{: >%s}" % 45).format('-== BEGIN ==-'))
@@ -494,9 +495,9 @@ class ModuleLauncher:
                 skip_modules = json.load(f)
 
         for c, m in enumerate(self.modules):
-            if arg_verbose == 'verbose':
+            if verbose == 'verbose':
                 m.params['v'] = None
-            if m.name == arg_module or arg_module == 'all':
+            if m.name == module or module == 'all':
                 if skip_modules is not None:
                     for t in [v for v in skip_modules if v['name'] == m.name]:
                         m.skip = t['reason']

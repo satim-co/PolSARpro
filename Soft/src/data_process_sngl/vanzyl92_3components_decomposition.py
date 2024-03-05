@@ -85,19 +85,18 @@ else:
 @numba.njit(parallel=False, fastmath=True)
 def span_determination(s_min, s_max, nb, n_lig_block, n_polar_out, sub_n_col, m_in, valid, n_win_l, n_win_c, n_win_l_m1s2, n_win_c_m1s2):
     ligDone = 0
+    m_avg = lib.matrix.matrix_float(n_polar_out, sub_n_col)
     for lig in range(n_lig_block[nb]):
         ligDone += 1
         if numba_get_thread_id() == 0:
             lib.util.printf_line(ligDone, n_lig_block[nb])
-        m_avg = lib.matrix.matrix_float(n_polar_out, sub_n_col)
+        m_avg.fill(0)
         lib.util_block.average_tci(m_in, valid, n_polar_out, m_avg, lig, sub_n_col, n_win_l, n_win_c, n_win_l_m1s2, n_win_c_m1s2)
         for col in range(sub_n_col):
             if valid[n_win_l_m1s2 + lig][n_win_c_m1s2 + col] == 1.:
                 span = m_avg[lib.util.C311][col] + m_avg[lib.util.C322][col] + m_avg[lib.util.C333][col]
-                if span >= s_max:
-                    s_max = span
-                if span <= s_min:
-                    s_min = span
+                s_max = max(s_max, span)
+                s_min = min(s_min, span)
     return s_min, s_max
 
 
@@ -107,6 +106,7 @@ def van_zyl_1992_algorithm(n_lig_block, nb, n_polar_out, sub_n_col, m_in, valid,
     ALPre = ALPim = BETre = BETim = A0A0 = B0pB = 0.
     HHHH = HVHV = VVVV = HHVVre = HHVVim = 0.
     sq_rt = Lambda1 = Lambda2 = OMEGA1 = OMEGA2 = 0.
+    m_avg = lib.matrix.matrix_float(n_polar_out, sub_n_col)
     # #pragma omp parallel for private(col, M_avg) firstprivate(ALPre, ALPim, BETre, BETim, A0A0, B0pB, HHHH, HVHV, VVVV, HHVVre, HHVVim, sq_rt, Lambda1, Lambda2, OMEGA1, OMEGA2) shared(ligDone)
     for lig in numba.prange(n_lig_block[nb]):
         ligDone += 1
@@ -114,7 +114,7 @@ def van_zyl_1992_algorithm(n_lig_block, nb, n_polar_out, sub_n_col, m_in, valid,
         #     PrintfLine(ligDone,NligBlock[Nb]);
         if numba_get_thread_id() == 0:
             lib.util.printf_line(ligDone, n_lig_block[nb])
-        m_avg = numpy.zeros((n_polar_out, sub_n_col), dtype=numpy.float32)
+        m_avg.fill(0)
         lib.util_block.average_tci(m_in, valid, n_polar_out, m_avg, lig, sub_n_col, n_win_l, n_win_c, n_win_l_m1s2, n_win_c_m1s2)
         for col in range(sub_n_col):
             if valid[n_win_l_m1s2 + lig][n_win_c_m1s2 + col] == 1.:

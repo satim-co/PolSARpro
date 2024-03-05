@@ -99,9 +99,8 @@ def span_determination(s_min, s_max, nb, n_lig_block, n_polar_out, sub_n_col, m_
     return s_min, s_max
 
 
-@numba.njit(parallel=False, fastmath=True)
+@numba.njit(parallel=True, fastmath=True)
 def freeman2_components_algorithm(_nb, _n_lig_block, _n_polar_out, _m_in, _valid, _sub_n_col, _n_win_l, _n_win_c, _n_win_l_m1s2, _n_win_c_m1s2, _m_vol, _m_grd, _span_min, _span_max, _eps):
-    CC11 = CC13_re = CC13_im = CC22 = CC33 = 0.
     HHHH = HVHV = VVVV = HHVVre = HHVVim = FV = FG = RHO = 0.
     x = y = z1 = z2r = z2i = z3r = z3i = 0.
     ligDone = 0
@@ -112,19 +111,13 @@ def freeman2_components_algorithm(_nb, _n_lig_block, _n_polar_out, _m_in, _valid
             lib.util.printf_line(ligDone, _n_lig_block[_nb])
         m_avg.fill(0)
         lib.util_block.average_tci(_m_in, _valid, _n_polar_out, m_avg, lig, _sub_n_col, _n_win_l, _n_win_c, _n_win_l_m1s2, _n_win_c_m1s2)
-        for col in range(_sub_n_col):
+        for col in numba.prange(_sub_n_col):
             if _valid[_n_win_l_m1s2 + lig][_n_win_c_m1s2 + col] == 1:
-                CC11 = m_avg[lib.util.C311][col]
-                CC13_re = m_avg[lib.util.C313_RE][col]
-                CC13_im = m_avg[lib.util.C313_IM][col]
-                CC22 = m_avg[lib.util.C322][col]
-                CC33 = m_avg[lib.util.C333][col]
-
-                HHHH = CC11
-                HVHV = CC22 / 2.
-                VVVV = CC33
-                HHVVre = CC13_re
-                HHVVim = CC13_im
+                HHHH = m_avg[lib.util.C311][col]
+                HVHV = m_avg[lib.util.C322][col] / 2.
+                VVVV = m_avg[lib.util.C333][col]
+                HHVVre = m_avg[lib.util.C313_RE][col]
+                HHVVim = m_avg[lib.util.C313_IM][col]
 
                 # /*Freeman - 2 Components algorithm*/
 
@@ -144,11 +137,7 @@ def freeman2_components_algorithm(_nb, _n_lig_block, _n_polar_out, _m_in, _valid
                 x = 1. + (y * z3r / (z3i + _eps))
 
                 tmp = (1. - x * x - y * y)
-                if tmp == 0.:
-                    # logging.info(f'tmp == 0.0 - {lig=}, {col=}, {x=}, {y=}')
-                    FG = -math.inf
-                else:
-                    FG = z1 / tmp
+                FG = -math.inf if tmp == 0 else z1 / tmp
                 FV = HHHH - FG
                 RHO = 1. - (2. * HVHV / FV)
 
@@ -396,7 +385,7 @@ if __name__ == "__main__":
             dir_out = 'c:\\Projekty\\polsarpro.svn\\out\\freeman_2components_decomposition\\py\\'
         elif platform.system().lower().startswith('lin') is True:
             dir_in = '/home/krzysiek/polsarpro/in/freeman_2components_decomposition/'
-            dir_out = '/home/krzysiek/polsarpro/out/freeman_2components_decomposition/py'
+            dir_out = '/home/krzysiek/polsarpro/out/freeman_2components_decomposition/'
             params['v'] = None
         else:
             logging.error(f'unknown platform: {platform.system()}')

@@ -47,37 +47,32 @@ def process_s2_to_t6(lig, Ncol, NwinCol, hh, hv, vh, vv, S_in1, S_in2, M_in):
         M_in[0][lig][col] = k1r * k1r + k1i * k1i
 
 
-@numba.njit()
+@numba.njit(parallel=False, fastmath=True)
 def t3_to_c3(M_in, Nlig, Ncol, NwinLig, NwinCol):
     """Description : create an array of the C3 matrix from T3 matrix"""
-    # int lig, col;
-    # float T11, T12_re, T12_im, T13_re, T13_im;
-    # float T22, T23_re, T23_im;
-    # float T33;
-
-    # T11 = T12_re = T12_im = T13_re = T13_im = 0.
-    # T22 = T23_re = T23_im = T33 = 0.
     # pragma omp parallel for private(col) firstprivate(T11, T12_re, T12_im, T13_re, T13_im, T22, T23_re, T23_im, T33)
+    sqrt_2 = math.sqrt(2)
     for lig in range(Nlig + NwinLig):
         for col in range(Ncol + NwinCol):
-            T11 = M_in[util.T311][lig][col]
-            T12_re = M_in[util.T312_RE][lig][col]
-            T12_im = M_in[util.T312_IM][lig][col]
-            T13_re = M_in[util.T313_RE][lig][col]
-            T13_im = M_in[util.T313_IM][lig][col]
-            T22 = M_in[util.T322][lig][col]
-            T23_re = M_in[util.T323_RE][lig][col]
-            T23_im = M_in[util.T323_IM][lig][col]
-            T33 = M_in[util.T333][lig][col]
-
+            T11, T12_re, T12_im, T13_re, T13_im, T22, T23_re, T23_im, T33 = [
+                M_in[util.T311][lig][col],
+                M_in[util.T312_RE][lig][col],
+                M_in[util.T312_IM][lig][col],
+                M_in[util.T313_RE][lig][col],
+                M_in[util.T313_IM][lig][col],
+                M_in[util.T322][lig][col],
+                M_in[util.T323_RE][lig][col],
+                M_in[util.T323_IM][lig][col],
+                M_in[util.T333][lig][col]
+            ]
             M_in[util.C311][lig][col] = (T11 + 2 * T12_re + T22) / 2
-            M_in[util.C312_RE][lig][col] = (T13_re + T23_re) / math.sqrt(2)
-            M_in[util.C312_IM][lig][col] = (T13_im + T23_im) / math.sqrt(2)
+            M_in[util.C312_RE][lig][col] = (T13_re + T23_re) / sqrt_2
+            M_in[util.C312_IM][lig][col] = (T13_im + T23_im) / sqrt_2
             M_in[util.C313_RE][lig][col] = (T11 - T22) / 2
             M_in[util.C313_IM][lig][col] = -T12_im
             M_in[util.C322][lig][col] = T33
-            M_in[util.C323_RE][lig][col] = (T13_re - T23_re) / math.sqrt(2)
-            M_in[util.C323_IM][lig][col] = (-T13_im + T23_im) / math.sqrt(2)
+            M_in[util.C323_RE][lig][col] = (T13_re - T23_re) / sqrt_2
+            M_in[util.C323_IM][lig][col] = (-T13_im + T23_im) / sqrt_2
             M_in[util.C333][lig][col] = (T11 - 2 * T12_re + T22) / 2
 
 

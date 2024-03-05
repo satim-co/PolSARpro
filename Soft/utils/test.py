@@ -43,14 +43,6 @@ else:
     sys.exit(1)
 
 
-ARII_ANNED_3COMPONENTS_DECOMPOSITION = 'arii_anned_3components_decomposition'
-ARII_NNED_3COMPONENTS_DECOMPOSITION = 'arii_nned_3components_decomposition'
-FREEMAN_2COMPONENTS_DECOMPOSITION = 'freeman_2components_decomposition'
-ID_CLASS_GEN = 'id_class_gen'
-OPCE = 'OPCE'
-VANZYL92_3COMPONENTS_DECOMPOSITION = 'vanzyl92_3components_decomposition'
-WISHART_SUPERVISED_CLASSIFIER = 'wishart_supervised_classifier'
-WISHART_H_A_ALPHA_CLASSIFIER = 'wishart_h_a_alpha_classifier'
 
 
 class Logger(object):
@@ -231,8 +223,10 @@ class Module:
 
 
 class AriiAnned3ComponentsDecomposition(Module):
+    MODULE_NAME = 'arii_anned_3components_decomposition'
+
     def __init__(self, skip='', lang='py'):
-        super().__init__(ARII_ANNED_3COMPONENTS_DECOMPOSITION, lang)
+        super().__init__(AriiAnned3ComponentsDecomposition.MODULE_NAME, lang)
         self.skip = skip
         self.params['id'] = self.dir_in
         self.params['od'] = self.dir_out
@@ -248,8 +242,10 @@ class AriiAnned3ComponentsDecomposition(Module):
 
 
 class AriiNned3ComponentsDecomposition(Module):
+    MODULE_NAME = 'arii_nned_3components_decomposition'
+
     def __init__(self, skip='', lang='py'):
-        super().__init__(ARII_NNED_3COMPONENTS_DECOMPOSITION, lang)
+        super().__init__(AriiNned3ComponentsDecomposition.MODULE_NAME, lang)
         self.skip = skip
         self.params['id'] = self.dir_in
         self.params['od'] = self.dir_out
@@ -265,8 +261,10 @@ class AriiNned3ComponentsDecomposition(Module):
 
 
 class Freeman2ComponentsDecomposition(Module):
+    MODULE_NAME = 'freeman_2components_decomposition'
+
     def __init__(self, skip='', lang='py'):
-        super().__init__(FREEMAN_2COMPONENTS_DECOMPOSITION, lang)
+        super().__init__(Freeman2ComponentsDecomposition.MODULE_NAME, lang)
         self.skip = skip
         self.params['id'] = self.dir_in
         self.params['od'] = self.dir_out
@@ -282,8 +280,10 @@ class Freeman2ComponentsDecomposition(Module):
 
 
 class IdClassGen(Module):
+    MODULE_NAME = ID_CLASS_GEN = 'id_class_gen'
+
     def __init__(self, skip='', lang='py'):
-        super().__init__(ID_CLASS_GEN, lang)
+        super().__init__(IdClassGen.MODULE_NAME, lang)
         self.skip = skip
         self.params['id'] = self.dir_in
         self.params['od'] = self.dir_out
@@ -298,8 +298,10 @@ class IdClassGen(Module):
 
 
 class Opce(Module):
+    MODULE_NAME = 'OPCE'
+
     def __init__(self, skip='', lang='py'):
-        super().__init__(OPCE, lang)
+        super().__init__(Opce.MODULE_NAME, lang)
         self.skip = skip
         self.params['id'] = self.dir_in
         self.params['od'] = self.dir_out
@@ -316,8 +318,10 @@ class Opce(Module):
 
 
 class Vanzyl92_3ComponentsDecomposition(Module):
+    MODULE_NAME  = 'vanzyl92_3components_decomposition'
+
     def __init__(self, skip='', lang='py'):
-        super().__init__(VANZYL92_3COMPONENTS_DECOMPOSITION, lang)
+        super().__init__(Vanzyl92_3ComponentsDecomposition.MODULE_NAME, lang)
         self.skip = skip
         self.params['id'] = self.dir_in
         self.params['od'] = self.dir_out
@@ -333,8 +337,10 @@ class Vanzyl92_3ComponentsDecomposition(Module):
 
 
 class WishartSupervisedClassifier(Module):
+    MODULE_NAME  = 'wishart_supervised_classifier'
+
     def __init__(self, skip='', lang='py'):
-        super().__init__(WISHART_SUPERVISED_CLASSIFIER, lang)
+        super().__init__(WishartSupervisedClassifier.MODULE_NAME, lang)
         self.skip = skip
         self.params['id'] = self.dir_in
         self.params['od'] = self.dir_out
@@ -354,8 +360,10 @@ class WishartSupervisedClassifier(Module):
 
 
 class WishartHAAlphaClassifier(Module):
+    MODULE_NAME  = 'wishart_h_a_alpha_classifier'
+
     def __init__(self, skip='', lang='py'):
-        super().__init__(WISHART_H_A_ALPHA_CLASSIFIER, lang)
+        super().__init__(WishartHAAlphaClassifier.MODULE_NAME, lang)
         self.skip = skip
         self.params['id'] = self.dir_in
         self.params['od'] = self.dir_out
@@ -450,40 +458,65 @@ class ModuleLauncher:
             f.write(junit_report_xml_suites)
         print(f'Prepare: {junit_report_xml}\n')
 
-    def prepare(self, lang):
+    def prepare(self, module, lang):
         self.modules = []
-        self.modules.append(AriiAnned3ComponentsDecomposition(lang=lang))
-        self.modules.append(AriiNned3ComponentsDecomposition(lang=lang))
-        self.modules.append(Freeman2ComponentsDecomposition(lang=lang))
-        self.modules.append(IdClassGen(lang=lang))
-        self.modules.append(Opce(lang=lang))
-        self.modules.append(Vanzyl92_3ComponentsDecomposition(lang=lang))
-        self.modules.append(WishartSupervisedClassifier(lang=lang))
-        self.modules.append(WishartHAAlphaClassifier(lang=lang))
+        if module == 'all' or module == AriiAnned3ComponentsDecomposition.MODULE_NAME:
+            self.modules.append(AriiAnned3ComponentsDecomposition(lang=lang))
+        if module == 'all' or module == AriiNned3ComponentsDecomposition.MODULE_NAME:
+            self.modules.append(AriiNned3ComponentsDecomposition(lang=lang))
+        if module == 'all' or module == Freeman2ComponentsDecomposition.MODULE_NAME:
+            self.modules.append(Freeman2ComponentsDecomposition(lang=lang))
+        if module == 'all' or module == IdClassGen.MODULE_NAME:
+            self.modules.append(IdClassGen(lang=lang))
+        if module == 'all' or module == Opce.MODULE_NAME:
+            self.modules.append(Opce(lang=lang))
+        if module == 'all' or module == Vanzyl92_3ComponentsDecomposition.MODULE_NAME:
+            self.modules.append(Vanzyl92_3ComponentsDecomposition(lang=lang))
+        if module == 'all' or module == WishartSupervisedClassifier.MODULE_NAME:
+            self.modules.append(WishartSupervisedClassifier(lang=lang))
+        if module == 'all' or module == WishartHAAlphaClassifier.MODULE_NAME:
+            self.modules.append(WishartHAAlphaClassifier(lang=lang))
+
+    def preaper_modules_name(self):
+        self.modules_name = []
+        self.modules_name.append(AriiAnned3ComponentsDecomposition.MODULE_NAME)
+        self.modules_name.append(AriiNned3ComponentsDecomposition.MODULE_NAME)
+        self.modules_name.append(Freeman2ComponentsDecomposition.MODULE_NAME)
+        self.modules_name.append(IdClassGen.MODULE_NAME)
+        self.modules_name.append(Opce.MODULE_NAME)
+        self.modules_name.append(Vanzyl92_3ComponentsDecomposition.MODULE_NAME)
+        self.modules_name.append(WishartSupervisedClassifier.MODULE_NAME)
+        self.modules_name.append(WishartHAAlphaClassifier.MODULE_NAME)
+
 
     def print_usage(self):
         print('\nUsage:')
-        self.prepare('py')
-        for m in self.modules:
-            print(f'\t{sys.argv[0]} {m.name} [py|c] [verbose]')
-        print(f'\t{sys.argv[0]} all [py|cpp] [verbose]')
+        self.prepare(module='all', lang='py')
+        for m in self.modules_name:
+            print(f'\t{sys.argv[0]} [{m}] [py|c] [verbose]')
+        print(f'\t{sys.argv[0]} [all] [py|cpp] [verbose]')
+        print(f'\tNo arguments means: {sys.argv[0]} all py')
         print('\n')
 
     def run(self):
-        if len(sys.argv) < 2:
-            self.print_usage()
-            return
-        module = sys.argv[1]
+        self.preaper_modules_name()
+        module = 'all'
         lang = 'py'
         verbose = ''
-        for i in range(len(sys.argv)):
+        for i in range(1, len(sys.argv)):
             arg = sys.argv[i]
-            if arg in ['py', 'c']:
+            if arg in self.modules_name:
+                module = arg
+            elif arg in ['py', 'c']:
                 lang = arg
             elif arg == 'verbose':
                 verbose = arg
+            elif arg == '-h':
+                self.print_usage()
+                exit(0)
+        print(f'module: {module} lang: {lang}')
         summary_time = []
-        self.prepare(lang)
+        self.prepare(module, lang)
         summary = [['Np.', 'MODULE', 'RESULT', 'INFO', 'TIME']]
         print('============================================================================================')
         print(("{: >%s}" % 45).format('-== BEGIN ==-'))

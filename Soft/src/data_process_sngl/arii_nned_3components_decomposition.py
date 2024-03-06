@@ -86,23 +86,22 @@ else:
 @numba.njit(parallel=False, fastmath=True)
 def span_determination(s_min, s_max, nb, n_lig_block, n_polar_out, sub_n_col, m_in, valid, n_win_l, n_win_c, n_win_l_m1s2, n_win_c_m1s2):
     ligDone = 0
+    m_avg = lib.matrix.matrix_float(n_polar_out, sub_n_col)
     for lig in range(n_lig_block[nb]):
         ligDone += 1
         if numba_get_thread_id() == 0:
             lib.util.printf_line(ligDone, n_lig_block[nb])
-        m_avg = numpy.zeros((n_polar_out, sub_n_col), dtype=numpy.float32)
+        m_avg.fill(0)
         lib.util_block.average_tci(m_in, valid, n_polar_out, m_avg, lig, sub_n_col, n_win_l, n_win_c, n_win_l_m1s2, n_win_c_m1s2)
         for col in range(sub_n_col):
             if valid[n_win_l_m1s2 + lig][n_win_c_m1s2 + col] == 1.:
                 span = m_avg[lib.util.C311][col] + m_avg[lib.util.C322][col] + m_avg[lib.util.C333][col]
-                if span >= s_max:
-                    s_max = span
-                if span <= s_min:
-                    s_min = span
+                s_max = max(s_max, span)
+                s_min = min(s_min, span)
     return s_min, s_max
 
 
-@numba.njit(parallel=False)
+@numba.njit(parallel=True)
 def arii_nned_van_zyl_algorithm(n_lig_block, nb, n_polar_out, sub_n_col, m_in, valid, n_win_l, n_win_c, n_win_l_m1s2, n_win_c_m1s2, m_odd, m_dbl, m_vol, span_min, span_max):
     ALPre = ALPim = BETre = BETim = OMEGA1 = OMEGA2 = OMEGAodd = OMEGAdbl = 0.
     x1 = x2 = xmax = fv = a = b = z = delta = lambda1 = lambda2 = 0.
@@ -110,15 +109,14 @@ def arii_nned_van_zyl_algorithm(n_lig_block, nb, n_polar_out, sub_n_col, m_in, v
     hh1_re = hh1_im = vv1_re = vv1_im = hh2_re = hh2_im = A0A0 = B0pB = 0.
     # #pragma omp parallel for private(col, M_avg) firstprivate(ALPre, ALPim, BETre, BETim, OMEGA1, OMEGA2, OMEGAodd, OMEGAdbl, x1, x2, xmax, fv, a, b, z, delta, lambda1, lambda2, gamma, epsilon, rho_re, rho_im, nhu, gamma_veg, epsilon_veg, rho_re_veg, rho_im_veg, nhu_veg, hh1_re, hh1_im, vv1_re, vv1_im, hh2_re, hh2_im, A0A0, B0pB) shared(ligDone)
     ligDone = 0
+    m_avg = lib.matrix.matrix_float(n_polar_out, sub_n_col)
     for lig in range(n_lig_block[nb]):
         ligDone += 1
-        #    if (omp_get_thread_num() == 0) PrintfLine(ligDone,NligBlock[Nb]);
-        # if get_thread_num() == 0:
         if numba_get_thread_id() == 0:
             lib.util.printf_line(ligDone, n_lig_block[nb])
-        m_avg = numpy.zeros((n_polar_out, sub_n_col), dtype=numpy.float32)
+        m_avg.fill(0)
         lib.util_block.average_tci(m_in, valid, n_polar_out, m_avg, lig, sub_n_col, n_win_l, n_win_c, n_win_l_m1s2, n_win_c_m1s2)
-        for col in range(sub_n_col):
+        for col in numba.prange(sub_n_col):
             if valid[n_win_l_m1s2 + lig][n_win_c_m1s2 + col] == 1.:
                 epsilon = m_avg[lib.util.C311][col]
                 rho_re = m_avg[lib.util.C313_RE][col]
@@ -197,19 +195,13 @@ def arii_nned_van_zyl_algorithm(n_lig_block, nb, n_polar_out, sub_n_col, m_in, v
                 m_dbl[lig][col] = OMEGAdbl * (1. + BETre * BETre + BETim * BETim)
                 m_vol[lig][col] = xmax * (epsilon_veg + nhu_veg + gamma_veg)
 
-                if m_odd[lig][col] < span_min:
-                    m_odd[lig][col] = span_min
-                if m_dbl[lig][col] < span_min:
-                    m_dbl[lig][col] = span_min
-                if m_vol[lig][col] < span_min:
-                    m_vol[lig][col] = span_min
+                m_odd[lig][col] = max(m_odd[lig][col], span_min)
+                m_dbl[lig][col] = max(span_min, m_dbl[lig][col])
+                m_vol[lig][col] = max(span_min, m_vol[lig][col])
 
-                if m_odd[lig][col] > span_max:
-                    m_odd[lig][col] = span_max
-                if m_dbl[lig][col] > span_max:
-                    m_dbl[lig][col] = span_max
-                if m_vol[lig][col] > span_max:
-                    m_vol[lig][col] = span_max
+                m_odd[lig][col] = min(m_odd[lig][col], span_max)
+                m_dbl[lig][col] = min(m_dbl[lig][col], span_max)
+                m_vol[lig][col] = min(m_vol[lig][col], span_max)
             else:
                 m_odd[lig][col] = 0.
                 m_dbl[lig][col] = 0.

@@ -353,19 +353,13 @@ class App(lib.util.Application):
                 lib.util_block.ks_read_block_s2_noavg(in_datafile, self.m_in, pol_type_out, n_polar_out, nb, nb_block, n_lig_block[nb], sub_n_col, n_win_l, n_win_c, off_lig, off_col, n_col, self.mc_in)
             else:    # Case of C,T or I
                 logging.info('--= Started: read_block_tci_noavg  =--')
-                init_time = datetime.datetime.now()
                 lib.util_block.read_block_tci_noavg(in_datafile, self.m_in, n_polar_out, nb, nb_block, n_lig_block[nb], sub_n_col, n_win_l, n_win_c, off_lig, off_col, n_col, self.vf_in)
-                logging.info('--= Finished: read_block_tci_noavg in: %s sec =--' % (datetime.datetime.now() - init_time))
             if pol_type_out == 'T3':
                 logging.info('--= Started: t3_to_c3  =--')
-                init_time = datetime.datetime.now()
                 lib.util_convert.t3_to_c3(self.m_in, n_lig_block[nb], sub_n_col + n_win_c, 0, 0)
-                logging.info('--= Finished: t3_to_c3 in: %s sec =--' % (datetime.datetime.now() - init_time))
 
             logging.info('--= Started: span_determination  =--')
-            init_time = datetime.datetime.now()
             span_min, span_max = span_determination(span_min, span_max, nb, n_lig_block, n_polar_out, sub_n_col, self.m_in, self.valid, n_win_l, n_win_c, n_win_l_m1s2, n_win_c_m1s2)
-            logging.info('--= Finished: span_determination in: %s sec =--' % (datetime.datetime.now() - init_time))
 
         if span_min < lib.util.Application.EPS:
             span_min = lib.util.Application.EPS
@@ -375,7 +369,6 @@ class App(lib.util.Application):
 
         # DATA PROCESSING
         logging.info('--= Started: data processing =--')
-        init_time = datetime.datetime.now()
         for np in range(n_polar_in):
             self.rewind(in_datafile[np])
         if flag_valid is True:
@@ -400,7 +393,6 @@ class App(lib.util.Application):
             lib.util_block.write_block_matrix_float(out_odd, self.m_odd, n_lig_block[nb], sub_n_col, 0, 0, sub_n_col)
             lib.util_block.write_block_matrix_float(out_dbl, self.m_dbl, n_lig_block[nb], sub_n_col, 0, 0, sub_n_col)
             lib.util_block.write_block_matrix_float(out_vol, self.m_vol, n_lig_block[nb], sub_n_col, 0, 0, sub_n_col)
-        logging.info('--= Finished: data processing in: %s sec =--' % (datetime.datetime.now() - init_time))
 
 
 def main(*args, **kwargs):

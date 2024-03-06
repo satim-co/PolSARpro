@@ -162,14 +162,14 @@ def data_processing_routine(_nb, _n_lig_block, _n_lig_g, _sub_n_col, _class_out,
                 _cpt_al1_al2[(int)(_class_in[lig][col])][(int)(class_al1_al2)] = _cpt_al1_al2[(int)(_class_in[lig][col])][(int)(class_al1_al2)] + 1.
 
 
-@numba.njit(parallel=False, fastmath=True)
+@numba.njit(parallel=True, fastmath=True)
 def data_processing_routine_id_class(_nb, _n_lig_block, _n_lig_g, _sub_n_col, _class_out, _class_in, _valid, _class_vec):
     lig_g = 0
     for lig in range(_n_lig_block[_nb]):
         if numba_get_thread_id() == 0:
             lib.util.printf_line(lig, _n_lig_block[_nb])
         lig_g = lig + _n_lig_g
-        for col in range(_sub_n_col):
+        for col in numba.prange(_sub_n_col):
             _class_out[lig_g][col] = 0.
             if _valid[lig][col] == 1.:
                 if _class_vec[(int)(_class_in[lig][col])][CL_H_A] == 2:
@@ -181,14 +181,14 @@ def data_processing_routine_id_class(_nb, _n_lig_block, _n_lig_g, _sub_n_col, _c
                 _class_out[lig_g][col] = class_type
 
 
-@numba.njit(parallel=False, fastmath=True)
+@numba.njit(parallel=True, fastmath=True)
 def data_processing_routine_vol_class(_nb, _n_lig_block, _n_lig_g, _sub_n_col, _class_out, _class_in, _valid, _class_vec):
     lig_g = 0
     for lig in range(_n_lig_block[_nb]):
         if numba_get_thread_id() == 0:
             lib.util.printf_line(lig, _n_lig_block[_nb])
         lig_g = lig + _n_lig_g
-        for col in range(_sub_n_col):
+        for col in numba.prange(_sub_n_col):
             _class_out[lig_g][col] = 0.
             if _valid[lig][col] == 1.:
                 if _class_vec[(int)(_class_in[lig][col])][CL_H_A] == 2:
@@ -200,14 +200,14 @@ def data_processing_routine_vol_class(_nb, _n_lig_block, _n_lig_g, _sub_n_col, _
                 _class_out[lig_g][col] = (class_type == 1) * 2
 
 
-@numba.njit(parallel=False, fastmath=True)
+@numba.njit(parallel=True, fastmath=True)
 def data_processing_routine_sgl_class(_nb, _n_lig_block, _n_lig_g, _sub_n_col, _class_out, _class_in, _valid, _class_vec):
     lig_g = 0
     for lig in range(_n_lig_block[_nb]):
         if numba_get_thread_id() == 0:
             lib.util.printf_line(lig, _n_lig_block[_nb])
         lig_g = lig + _n_lig_g
-        for col in range(_sub_n_col):
+        for col in numba.prange(_sub_n_col):
             _class_out[lig_g][col] = 0.
             if _valid[lig][col] == 1.:
                 if _class_vec[(int)(_class_in[lig][col])][CL_H_A] == 2:
@@ -219,14 +219,14 @@ def data_processing_routine_sgl_class(_nb, _n_lig_block, _n_lig_g, _sub_n_col, _
                 _class_out[lig_g][col] = (class_type == 12) * 12 + (class_type == 5) * 5
 
 
-@numba.njit(parallel=False, fastmath=True)
+@numba.njit(parallel=True, fastmath=True)
 def data_processing_routine_dbl_class(_nb, _n_lig_block, _n_lig_g, _sub_n_col, _class_out, _class_in, _valid, _class_vec):
     lig_g = 0
     for lig in range(_n_lig_block[_nb]):
         if numba_get_thread_id() == 0:
             lib.util.printf_line(lig, _n_lig_block[_nb])
         lig_g = lig + _n_lig_g
-        for col in range(_sub_n_col):
+        for col in numba.prange(_sub_n_col):
             _class_out[lig_g][col] = 0.
             if _valid[lig][col] == 1.:
                 if _class_vec[(int)(_class_in[lig][col])][CL_H_A] == 2:
@@ -418,7 +418,6 @@ class App(lib.util.Application):
 
         # DATA PROCESSING
         logging.info('--= Started: data processing =--')
-        init_time = datetime.datetime.now()
         self.rewind(file_class)
         if flag_valid is True:
             self.rewind(in_valid)
@@ -470,62 +469,7 @@ class App(lib.util.Application):
             lib.util_block.read_block_matrix_float(filep2, self.mp2_in, nb, nb_block, n_lig_block[nb], sub_n_col, 1, 1, off_lig, off_col, n_col, self.vf_in)
 
             logging.info('--= Started: data_processing_routine  =--')
-            init_time = datetime.datetime.now()
             data_processing_routine(nb, n_lig_block, n_lig_g, sub_n_col, self.class_out, self.class_in, self.valid, self.mh_in, self.ma_in, self.mal1_in, self.mal2_in, self.mbe1_in, self.mbe2_in, self.mp1_in, self.mp2_in, self.cpt_h_a, self.cpt_al1, self.cpt_al1_al2, lib.util.Application.PI)
-            logging.info('--= Finished: data_processing_routine in: %s sec =--' % (datetime.datetime.now() - init_time))
-            # for lig in range(n_lig_block[nb]):
-            #     lig_g = lig + n_lig_g
-            #     lib.util.printf_line(lig, n_lig_block[nb])
-            #     for col in range(sub_n_col):
-            #         self.class_out[lig_g][col] = 0.
-            #         if self.valid[lig][col] == 1.:
-            #             h1 = (self.mh_in[lig][col] <= LIM_H1)
-            #             h2 = (self.mh_in[lig][col] <= LIM_H2)
-            #             a1 = (self.ma_in[lig][col] <= LIM_A)
-
-            #             # ZONE 1 (top right)
-            #             r1 = (not h1) * (not a1)
-            #             # ZONE 2 (bottom right)
-            #             r2 = (not h1) * a1
-            #             # ZONE 3 (top center)
-            #             r3 = h1 * (not h2) * (not a1)
-            #             # ZONE 4 (bottom center)
-            #             r4 = h1 * (not h2) * a1
-            #             # ZONE 1 (top left)
-            #             r5 = h2 * (not a1)
-            #             # ZONE 2 (bottom left)
-            #             r6 = h2 * a1
-
-            #             # segment values ranging from 1 to 9
-            #             class_H_A = (float)(r6 * 11 + r5 * 10 + r4 * 5 + r3 * 6 + r2 * 1 + r1 * 2)
-            #             self.class_out[lig_g][col] = class_H_A
-            #             self.mal1_in[lig][col] *= self.PI / 180
-            #             self.mal2_in[lig][col] *= self.PI / 180
-            #             self.mbe1_in[lig][col] *= self.PI / 180
-            #             self.mbe2_in[lig][col] *= self.PI / 180
-            #             class_al1 = (self.mal1_in[lig][col] < self.PI / 4.)
-            #             bid1 = self.mp1_in[lig][col] * math.cos(self.mal1_in[lig][col]) + self.mp2_in[lig][col] * math.cos(self.mal2_in[lig][col])
-            #             bid2 = self.mp1_in[lig][col] * math.sin(self.mal1_in[lig][col]) * math.cos(self.mbe1_in[lig][col]) + self.mp2_in[lig][col] * math.sin(self.mal2_in[lig][col]) * math.cos(self.mbe2_in[lig][col])
-            #             class_al1_al2 = bid1 > bid2
-
-            #             if class_H_A == 0:
-            #                 class_H_A = 0.0
-            #             if class_H_A == 1:
-            #                 class_H_A = 2.0
-            #             if class_H_A == 2:
-            #                 class_H_A = 2.0
-            #             if class_H_A == 5:
-            #                 class_H_A = 0.0
-            #             if class_H_A == 6:
-            #                 class_H_A = 1.0
-            #             if class_H_A == 10:
-            #                 class_H_A = 0.0
-            #             if class_H_A == 11:
-            #                 class_H_A = 0.0
-
-            #             self.cpt_h_a[(int)(self.class_in[lig][col])][(int)(class_H_A)] = self.cpt_h_a[(int)(self.class_in[lig][col])][(int)(class_H_A)] + 1.
-            #             self.cpt_al1[(int)(self.class_in[lig][col])][(int)(class_al1)] = self.cpt_al1[(int)(self.class_in[lig][col])][(int)(class_al1)] + 1.
-            #             self.cpt_al1_al2[(int)(self.class_in[lig][col])][(int)(class_al1_al2)] = self.cpt_al1_al2[(int)(self.class_in[lig][col])][(int)(class_al1_al2)] + 1.
             n_lig_g += n_lig_block[nb]
 
         lib.graphics.bmp_wishart(self.class_out, sub_n_lig, sub_n_col, os.path.join(f'{out_dir}', 'id_scatt'), color_map_wishart)
@@ -533,31 +477,9 @@ class App(lib.util.Application):
         # ********************************************************************
         logging.info('--= Started: my_max  =--')
         data_processing_routine_max(n_class, self.cpt_h_a, self.class_vec, self.cpt_al1, self.cpt_al1_al2, lib.util.Application.INIT_MINMAX)
-        # my_max = 0.0
-        # for lig in range(n_class):
-        #     my_max = -lib.util.Application.INIT_MINMAX
-        #     for col in range(NCLASS_POL):
-        #         if self.cpt_h_a[lig][col] > my_max:
-        #             my_max = self.cpt_h_a[lig][col]
-        #             self.class_vec[lig][CL_H_A] = col
-
-        # for lig in range(n_class):
-        #     my_max = -lib.util.Application.INIT_MINMAX
-        #     for col in range(NCLASS_POL):
-        #         if self.cpt_al1[lig][col] > my_max:
-        #             my_max = self.cpt_al1[lig][col]
-        #             self.class_vec[lig][CL_AL1] = col
-
-        # for lig in range(n_class):
-        #     my_max = -lib.util.Application.INIT_MINMAX
-        #     for col in range(NCLASS_POL):
-        #         if self.cpt_al1_al2[lig][col] > my_max:
-        #             my_max = self.cpt_al1_al2[lig][col]
-        #             self.class_vec[lig][CL_AL1_AL2] = col
 
         # ********************************************************************
         logging.info('--= Started: processing - id_class  =--')
-        init_time = datetime.datetime.now()
         self.rewind(file_class)
         if flag_valid is True:
             self.rewind(in_valid)
@@ -573,29 +495,12 @@ class App(lib.util.Application):
 
             # pragma omp parallel for private(col, ligg)
             data_processing_routine_id_class(nb, n_lig_block, n_lig_g, sub_n_col, self.class_out, self.class_in, self.valid, self.class_vec)
-            # for lig in range(n_lig_block[nb]):
-            #     with numba.objmode():
-            #         if numba_get_thread_id() == 0:
-            #             lib.util.printf_line(lig, n_lig_block[nb])
-            #     lig_g = lig + n_lig_g
-            #     for col in range(sub_n_col):
-            #         self.class_out[lig_g][col] = 0.
-            #         if self.valid[lig][col] == 1.:
-            #             if self.class_vec[(int)(self.class_in[lig][col])][CL_H_A] == 2:
-            #                 class_type = 1
-            #             if self.class_vec[(int)(self.class_in[lig][col])][CL_H_A] == 0:
-            #                 class_type = 6 - self.class_vec[(int)(self.class_in[lig][col])][CL_AL1]
-            #             if self.class_vec[(int)(self.class_in[lig][col])][CL_H_A] == 1:
-            #                 class_type = 14 - 2 * self.class_vec[(int)(self.class_in[lig][col])][CL_AL1_AL2]
-            #             self.class_out[lig_g][col] = class_type
             n_lig_g += n_lig_block[nb]
 
         lib.graphics.bmp_wishart(self.class_out, sub_n_lig, sub_n_col, os.path.join(f'{out_dir}', 'id_class'), color_map_wishart)
-        logging.info('--= Finished:  processing - id_class in: %s sec =--' % (datetime.datetime.now() - init_time))
 
         # ********************************************************************
         logging.info('--= Started: processing - vol_class  =--')
-        init_time = datetime.datetime.now()
         self.rewind(file_class)
         if flag_valid is True:
             self.rewind(in_valid)
@@ -611,21 +516,6 @@ class App(lib.util.Application):
 
             # pragma omp parallel for private(col, ligg)
             data_processing_routine_vol_class(nb, n_lig_block, n_lig_g, sub_n_col, self.class_out, self.class_in, self.valid, self.class_vec)
-            # for lig in range(n_lig_block[nb]):
-            #     with numba.objmode():
-            #         if numba_get_thread_id() == 0:
-            #             lib.util.printf_line(lig, n_lig_block[nb])
-            #     lig_g = lig + n_lig_g
-            #     for col in range(sub_n_col):
-            #         self.class_out[lig_g][col] = 0.
-            #         if self.valid[lig][col] == 1.:
-            #             if self.class_vec[(int)(self.class_in[lig][col])][CL_H_A] == 2:
-            #                 class_type = 1
-            #             if self.class_vec[(int)(self.class_in[lig][col])][CL_H_A] == 0:
-            #                 class_type = 6 - self.class_vec[(int)(self.class_in[lig][col])][CL_AL1]
-            #             if self.class_vec[(int)(self.class_in[lig][col])][CL_H_A] == 1:
-            #                 class_type = 14 - 2 * self.class_vec[(int)(self.class_in[lig][col])][CL_AL1_AL2]
-            #             self.class_out[lig_g][col] = (class_type == 1) * 2
             n_lig_g += n_lig_block[nb]
 
         lib.graphics.bmp_wishart(self.class_out, sub_n_lig, sub_n_col, os.path.join(f'{out_dir}', 'vol_class'), color_map_wishart)
@@ -634,10 +524,8 @@ class App(lib.util.Application):
         with self.open_file(os.path.join(f'{out_dir}', 'vol_class.bin'), 'wb') as out_file:
             lib.util_block.write_block_matrix_float(out_file, self.class_out, sub_n_lig, sub_n_col, 0, 0, sub_n_col)
 
-        logging.info('--= Finished:  processing - vol_class in: %s sec =--' % (datetime.datetime.now() - init_time))
         # ********************************************************************
         logging.info('--= Started: processing - sgl_class  =--')
-        init_time = datetime.datetime.now()
         self.rewind(file_class)
         if flag_valid is True:
             self.rewind(in_valid)
@@ -653,21 +541,6 @@ class App(lib.util.Application):
 
             # pragma omp parallel for private(col, ligg)
             data_processing_routine_sgl_class(nb, n_lig_block, n_lig_g, sub_n_col, self.class_out, self.class_in, self.valid, self.class_vec)
-            # for lig in range(n_lig_block[nb]):
-            #     with numba.objmode():
-            #         if numba_get_thread_id() == 0:
-            #             lib.util.printf_line(lig, n_lig_block[nb])
-            #     lig_g = lig + n_lig_g
-            #     for col in range(sub_n_col):
-            #         self.class_out[lig_g][col] = 0.
-            #         if self.valid[lig][col] == 1.:
-            #             if self.class_vec[(int)(self.class_in[lig][col])][CL_H_A] == 2:
-            #                 class_type = 1
-            #             if self.class_vec[(int)(self.class_in[lig][col])][CL_H_A] == 0:
-            #                 class_type = 6 - self.class_vec[(int)(self.class_in[lig][col])][CL_AL1]
-            #             if self.class_vec[(int)(self.class_in[lig][col])][CL_H_A] == 1:
-            #                 class_type = 14 - 2 * self.class_vec[(int)(self.class_in[lig][col])][CL_AL1_AL2]
-            #             self.class_out[lig_g][col] = (class_type == 12) * 12 + (class_type == 5) * 5
             n_lig_g += n_lig_block[nb]
 
         lib.graphics.bmp_wishart(self.class_out, sub_n_lig, sub_n_col, os.path.join(f'{out_dir}', 'sgl_class'), color_map_wishart)
@@ -675,11 +548,9 @@ class App(lib.util.Application):
         # OUTPUT FILE
         with self.open_file(os.path.join(f'{out_dir}', 'sgl_class.bin'), 'wb') as out_file:
             lib.util_block.write_block_matrix_float(out_file, self.class_out, sub_n_lig, sub_n_col, 0, 0, sub_n_col)
-        logging.info('--= Finished:  processing - sgl_class in: %s sec =--' % (datetime.datetime.now() - init_time))
 
         # ********************************************************************
         logging.info('--= Started: processing - dbl_class  =--')
-        init_time = datetime.datetime.now()
         self.rewind(file_class)
         if flag_valid is True:
             self.rewind(in_valid)
@@ -695,21 +566,6 @@ class App(lib.util.Application):
 
             # pragma omp parallel for private(col, ligg)
             data_processing_routine_dbl_class(nb, n_lig_block, n_lig_g, sub_n_col, self.class_out, self.class_in, self.valid, self.class_vec)
-            # for lig in range(n_lig_block[nb]):
-            #     with numba.objmode():
-            #         if numba_get_thread_id() == 0:
-            #             lib.util.printf_line(lig, n_lig_block[nb])
-            #     lig_g = lig + n_lig_g
-            #     for col in range(sub_n_col):
-            #         self.class_out[lig_g][col] = 0.
-            #         if self.valid[lig][col] == 1.:
-            #             if self.class_vec[(int)(self.class_in[lig][col])][CL_H_A] == 2:
-            #                 class_type = 1
-            #             if self.class_vec[(int)(self.class_in[lig][col])][CL_H_A] == 0:
-            #                 class_type = 6 - self.class_vec[(int)(self.class_in[lig][col])][CL_AL1]
-            #             if self.class_vec[(int)(self.class_in[lig][col])][CL_H_A] == 1:
-            #                 class_type = 14 - 2 * self.class_vec[(int)(self.class_in[lig][col])][CL_AL1_AL2]
-            #             self.class_out[lig_g][col] = (class_type == 14) * 14 + (class_type == 6) * 6
             n_lig_g += n_lig_block[nb]
 
         lib.graphics.bmp_wishart(self.class_out, sub_n_lig, sub_n_col, os.path.join(f'{out_dir}', 'dbl_class'), color_map_wishart)
@@ -717,9 +573,7 @@ class App(lib.util.Application):
         # OUTPUT FILE
         with self.open_file(os.path.join(f'{out_dir}', 'dbl_class.bin'), 'wb') as out_file:
             lib.util_block.write_block_matrix_float(out_file, self.class_out, sub_n_lig, sub_n_col, 0, 0, sub_n_col)
-        logging.info('--= Finished:  processing - dbl_class in: %s sec =--' % (datetime.datetime.now() - init_time))
 
-        logging.info('--= Finished: data processing in: %s sec =--' % (datetime.datetime.now() - init_time))
 
 
 def main(*args, **kwargs):

@@ -140,13 +140,6 @@ def bmp_wishart(mat, n_lig, n_col, nom, color_map):
     bufcolor = matrix.vector_char(1024)
 
     nom = f'{nom}.bmp'
-    f_bmp = None
-    try:
-        f_bmp = open(nom, "wb")
-    except IOError:
-        print("Could not open file: ", nom)
-        raise
-
     my_min = 1.
     my_max = -20.
     for lig in range(n_lig):
@@ -154,43 +147,32 @@ def bmp_wishart(mat, n_lig, n_col, nom, color_map):
             if mat[lig][col] > my_max:
                 my_max = mat[lig][col]
 
-    header(n_lig, n_col, my_max, my_min, f_bmp)
-    write_bmp_hdr(n_lig, n_col, my_max, my_min, 8, nom)
-
-    # Definition of the Colormap
-    f_color_map = None
-    try:
-        f_color_map = open(color_map, "r")
-    except IOError:
-        print("Could not open the bitmap file: ", color_map)
-        raise
-
-    # Colormap Definition
-    f_color_map.readline()
-    f_color_map.readline()
-    n_color = int(f_color_map.readline().strip())
-    for k in range(n_color):
-        line = f_color_map.readline().strip()
-        red[k] = line.split(sep=' ')[0]
-        green[k] = line.split(sep=' ')[1]
-        blue[k] = line.split(sep=' ')[2]
-    f_color_map.close()
-
-    # Bitmap colormap writing
-    for col in range(256):
-        bufcolor[4 * col] = numpy.byte(blue[col])
-        bufcolor[4 * col + 1] = numpy.byte(green[col])
-        bufcolor[4 * col + 2] = numpy.byte(red[col])
-        bufcolor[4 * col + 3] = numpy.byte(0)
-    bufcolor.tofile(f_bmp)
-
-    # Image writing
-    for lig in range(n_lig):
-        for col in range(n_col):
-            v = (int)(mat[n_lig - lig - 1][col])
-            bufimg[lig * n_col_bmp + col] = numpy.byte(v)
-    bufimg.tofile(f_bmp)
-    f_bmp.close()
+    with open(nom, "wb") as f_bmp:
+        header(n_lig, n_col, my_max, my_min, f_bmp)
+        write_bmp_hdr(n_lig, n_col, my_max, my_min, 8, nom)
+        # Colormap Definition
+        with open(color_map, "r") as f_color_map:
+            f_color_map.readline()
+            f_color_map.readline()
+            n_color = int(f_color_map.readline().strip())
+            for k in range(n_color):
+                line = f_color_map.readline().strip()
+                red[k] = line.split(sep=' ')[0]
+                green[k] = line.split(sep=' ')[1]
+                blue[k] = line.split(sep=' ')[2]
+        # Bitmap colormap writing
+        for col in range(256):
+            bufcolor[4 * col] = numpy.byte(blue[col])
+            bufcolor[4 * col + 1] = numpy.byte(green[col])
+            bufcolor[4 * col + 2] = numpy.byte(red[col])
+            bufcolor[4 * col + 3] = numpy.byte(0)
+        bufcolor.tofile(f_bmp)
+        # Image writing
+        for lig in range(n_lig):
+            for col in range(n_col):
+                v = (int)(mat[n_lig - lig - 1][col])
+                bufimg[lig * n_col_bmp + col] = numpy.byte(v)
+        bufimg.tofile(f_bmp)
 
 
 def bmp_training_set(mat, n_lig, n_col, nom, color_map16):

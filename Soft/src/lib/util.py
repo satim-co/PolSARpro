@@ -7,7 +7,6 @@ util
 import errno
 import os
 import sys
-import resource
 import argparse
 import datetime
 import math
@@ -63,24 +62,6 @@ class Termination:
         sys.exit(1)
 
 
-class RecursionAndStackLimit:
-    def __init__(self, recursion_limit, stack_size):
-        self.current_recursion_limit = recursion_limit
-        self.default_recursion_limit = sys.getrecursionlimit()
-        self.current_resource_limit = stack_size
-        self.default_resource_limit = resource.getrlimit(resource.RLIMIT_STACK)
-
-    def __enter__(self):
-        sys.setrecursionlimit(self.current_recursion_limit)
-        resource.setrlimit(resource.RLIMIT_STACK, self.current_resource_limit)
-        logging.info(f'setrecursionlimit: {self.current_recursion_limit}, setrlimit: {self.current_resource_limit}')
-
-    def __exit__(self, type, value, traceback):
-        sys.setrecursionlimit(self.default_recursion_limit)
-        resource.setrlimit(resource.RLIMIT_STACK, self.default_resource_limit)
-        logging.info(f'setrecursionlimit: {self.default_recursion_limit}, setrlimit: {self.default_resource_limit}')
-
-
 class ParseArgs:
     """
     Parse command line arguments.
@@ -90,7 +71,7 @@ class ParseArgs:
     def get_args(*args, **kwargs):
         local_args = None
         if len(args) > 0:
-            local_args = args[0]
+            local_args = args
         else:
             local_args = []
             for k, v in kwargs.items():
@@ -306,12 +287,6 @@ class Application:
 
     def rewind(self, f):
         f.seek(0)
-
-    def allocate_matrices(self, n_col, n_polar_out, n_win_l, n_win_c, n_lig_block, sub_n_col):
-        '''
-        Allocate matrices with given dimensions
-        '''
-        raise NotImplementedError('Fix me - please Implement this method')
 
     def run(self):
         '''

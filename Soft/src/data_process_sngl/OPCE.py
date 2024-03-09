@@ -98,52 +98,59 @@ def read_coord(file_name):
     Returned values  :
     '''
 
-    with open(file_name, 'r') as file:
-        n_class = None
+    file = None
+    try:
+        file = open(file_name, 'r')
+    except IOError:
+        print('Could not open configuration file: ', file_name)
+        raise
+
+    n_class = None
+    file.readline()  # skip line
+    n_class = (int)(file.readline())
+
+    n_area = lib.matrix.vector_int(n_class)
+
+    n_t_pt = [None] * n_class
+    area_coord_l = [None] * n_class
+    area_coord_c = [None] * n_class
+
+    zone = 0
+
+    for classe in range(n_class):
         file.readline()  # skip line
-        n_class = (int)(file.readline())
+        file.readline()  # skip line
+        file.readline()  # skip line
+        n_area[classe] = numpy.int32(file.readline())
 
-        n_area = lib.matrix.vector_int(n_class)
+        n_t_pt[classe] = lib.matrix.vector_int(n_area[classe])
+        area_coord_l[classe] = [None] * n_area[classe]
+        area_coord_c[classe] = [None] * n_area[classe]
 
-        n_t_pt = [None] * n_class
-        area_coord_l = [None] * n_class
-        area_coord_c = [None] * n_class
-
-        zone = 0
-
-        for classe in range(n_class):
+        for area in range(n_area[classe]):
+            zone += 1
             file.readline()  # skip line
             file.readline()  # skip line
-            file.readline()  # skip line
-            n_area[classe] = numpy.int32(file.readline())
-
-            n_t_pt[classe] = lib.matrix.vector_int(n_area[classe])
-            area_coord_l[classe] = [None] * n_area[classe]
-            area_coord_c[classe] = [None] * n_area[classe]
-
-            for area in range(n_area[classe]):
-                zone += 1
+            n_t_pt[classe][area] = numpy.int32(file.readline())
+            area_coord_l[classe][area] = lib.matrix.vector_float(n_t_pt[classe][area] + 1)
+            area_coord_c[classe][area] = lib.matrix.vector_float(n_t_pt[classe][area] + 1)
+            t_pt = 0
+            for t_pt in range(n_t_pt[classe][area]):
                 file.readline()  # skip line
                 file.readline()  # skip line
-                n_t_pt[classe][area] = numpy.int32(file.readline())
-                area_coord_l[classe][area] = lib.matrix.vector_float(n_t_pt[classe][area] + 1)
-                area_coord_c[classe][area] = lib.matrix.vector_float(n_t_pt[classe][area] + 1)
-                t_pt = 0
-                for t_pt in range(n_t_pt[classe][area]):
-                    file.readline()  # skip line
-                    file.readline()  # skip line
-                    area_coord_l[classe][area][t_pt] = numpy.float32(file.readline())
-                    file.readline()  # skip line
-                    area_coord_c[classe][area][t_pt] = numpy.float32(file.readline())
-                area_coord_l[classe][area][t_pt + 1] = area_coord_l[classe][area][0]
-                area_coord_c[classe][area][t_pt + 1] = area_coord_c[classe][area][0]
-        class_map = lib.matrix.vector_float(zone + 1)
-        class_map[0] = 0
-        zone = 0
-        for classe in range(n_class):
-            for area in range(n_area[classe]):
-                zone += 1
-                class_map[zone] = numpy.float32(classe + 1.)
+                area_coord_l[classe][area][t_pt] = numpy.float32(file.readline())
+                file.readline()  # skip line
+                area_coord_c[classe][area][t_pt] = numpy.float32(file.readline())
+            area_coord_l[classe][area][t_pt + 1] = area_coord_l[classe][area][0]
+            area_coord_c[classe][area][t_pt + 1] = area_coord_c[classe][area][0]
+    class_map = lib.matrix.vector_float(zone + 1)
+    class_map[0] = 0
+    zone = 0
+    for classe in range(n_class):
+        for area in range(n_area[classe]):
+            zone += 1
+            class_map[zone] = numpy.float32(classe + 1.)
+    file.close()
     return n_class, n_area, n_t_pt, area_coord_l, area_coord_c
 
 
@@ -177,6 +184,7 @@ def create_borders(border_map, n_class, n_area, n_t_pt, area_coord_c, area_coord
                 y = y0
                 sig_x = (float)(x1 > x0) - (float)(x1 < x0)
                 sig_y = (float)(y1 > y0) - (float)(y1 < y0)
+                logging.info(f'{sig_x=}, {sig_y=}')
                 border_map[(int)(y)][(int)(x)] = label_area
                 if x0 == x1:
                     # Vertical segment
@@ -385,14 +393,17 @@ def create_areas(border_map, n_lig, n_col, n_class, n_area, n_t_pt, area_coord_c
 @numba.njit(parallel=True, fastmath=True)
 def determine_the_opce_puissance(ligDone, nb, n_lig_block, sub_n_col_opce, m_in, valid, n_polar_out, lig, n_win_l, n_win_c, n_win_l_m1s2, n_win_c_m1s2, eps, g0, g1, g2, g3, h0, h1, h2, h3, m_out):
     # pragma omp parallel for private(col, M_avg) firstprivate(KT1, KT2, KT3, KT4, KT5, KT6, KT7, KT8, KT9, KT10, A0, A1, A2, A3) shared(ligDone)
-    m_avg = lib.matrix.matrix_float(n_polar_out, sub_n_col_opce)
-    for lig in range(n_lig_block[nb]):
+    # m_avg = lib.matrix.matrix_float(n_polar_out, sub_n_col_opce)
+    for lig in numba.prange(n_lig_block[nb]):
         ligDone += 1
+        # logging.info(f'--= Started: Determine the OPCE Puissance 1 {lig=}=--')
+        # print(lig)
         if numba_get_thread_id() == 0:
             lib.util.printf_line(ligDone, n_lig_block[nb])
-        m_avg.fill(0.0)
+        # m_avg.fill(0.0)
+        m_avg = lib.matrix.matrix_float(n_polar_out, sub_n_col_opce)
         lib.util_block.average_tci(m_in, valid, n_polar_out, m_avg, lig, sub_n_col_opce, n_win_l, n_win_c, n_win_l_m1s2, n_win_c_m1s2)
-        for col in numba.prange(sub_n_col_opce):
+        for col in range(sub_n_col_opce):
             if valid[n_win_l_m1s2 + lig][n_win_c_m1s2 + col] == 1.:
                 # Average Kennaugh matrix determination
                 KT1 = eps + 0.5 * (m_avg[lib.util.T311][col] + m_avg[lib.util.T322][col] + m_avg[lib.util.T333][col])
@@ -553,7 +564,9 @@ class App(lib.util.Application):
         # Training Area coordinates reading
         n_class, n_area, n_t_pt, area_coord_l, area_coord_c = read_coord(file_area)
 
-        self.border_map.fill(-1.0)
+        for lig in range(n_lig):
+            for col in range(n_col):
+                self.border_map[lig][col] = -1.0
 
         logging.info('--= Started: create_borders =--')
         create_borders(self.border_map, n_class, n_area, n_t_pt, area_coord_c, area_coord_l)
@@ -653,7 +666,6 @@ class App(lib.util.Application):
                                 for n in range(coh_area_size):
                                     coh_area[k][n][0][zone] = coh_area[k][n][0][zone] + t[k][n][0]
                                     coh_area[k][n][1][zone] = coh_area[k][n][1][zone] + t[k][n][1]
-
                             cpt_zones[zone] = cpt_zones[zone] + 1.
 
                             # Check if the pixel has already been assigned to a previous class
@@ -898,6 +910,37 @@ class App(lib.util.Application):
                 # pragma omp parallel for private(col, M_avg) firstprivate(KT1, KT2, KT3, KT4, KT5, KT6, KT7, KT8, KT9, KT10, A0, A1, A2, A3) shared(ligDone)
                 logging.info(f'--= Started: Determine the OPCE Puissance {n_lig_block[nb]=}=--')
                 determine_the_opce_puissance(ligDone, nb, n_lig_block, sub_n_col_opce, self.m_in, self.valid, n_polar_out, lig, n_win_l, n_win_c, n_win_l_m1s2, n_win_c_m1s2, eps, g0, g1, g2, g3, h0, h1, h2, h3, self.m_out)
+                # m_avg = lib.matrix.matrix_float(n_polar_out, sub_n_col_opce)
+                # for lig in range(n_lig_block[nb]):
+                #     ligDone += 1
+                #     logging.info(f'--= Started: Determine the OPCE Puissance 1 {lig=}=--')
+                #     determine_the_opce_puissance(ligDone, nb, n_lig_block, m_avg, sub_n_col_opce, self.m_in, self.valid, n_polar_out, lig, n_win_l, n_win_c, n_win_l_m1s2, n_win_c_m1s2, eps, g0, g1, g2, g3, h0, h1, h2, h3, self.m_out)
+                #     # if numba_get_thread_id() == 0:
+                #     #     lib.util.printf_line(ligDone, n_lig_block[nb])
+                #     # m_avg.fill(0.0)
+                #     # lib.util_block.average_tci(self.m_in, self.valid, n_polar_out, m_avg, lig, sub_n_col_opce, n_win_l, n_win_c, n_win_l_m1s2, n_win_c_m1s2)
+                #     # logging.info(f'--= Started: Determine the OPCE Puissance 2 {lig=} {sub_n_col_opce=} =--')
+                #     # for col in range(sub_n_col_opce):
+                #     #     if self.valid[n_win_l_m1s2 + lig][n_win_c_m1s2 + col] == 1.:
+                #     #         # Average Kennaugh matrix determination
+                #     #         KT1 = eps + 0.5 * (m_avg[lib.util.T311][col] + m_avg[lib.util.T322][col] + m_avg[lib.util.T333][col])
+                #     #         KT2 = eps + m_avg[lib.util.T312_RE][col]
+                #     #         KT3 = eps + m_avg[lib.util.T313_RE][col]
+                #     #         KT4 = eps + m_avg[lib.util.T323_IM][col]
+                #     #         KT5 = eps + 0.5 * (m_avg[lib.util.T311][col] + m_avg[lib.util.T322][col] - m_avg[lib.util.T333][col])
+                #     #         KT6 = eps + m_avg[lib.util.T323_RE][col]
+                #     #         KT7 = eps + m_avg[lib.util.T313_IM][col]
+                #     #         KT8 = eps + 0.5 * (m_avg[lib.util.T311][col] - m_avg[lib.util.T322][col] + m_avg[lib.util.T333][col])
+                #     #         KT9 = eps - m_avg[lib.util.T312_IM][col]
+                #     #         KT10 = eps + 0.5 * (-m_avg[lib.util.T311][col] + m_avg[lib.util.T322][col] + m_avg[lib.util.T333][col])
+
+                #     #         A0 = g0 * KT1 + g1 * KT2 + g2 * KT3 + g3 * KT4
+                #     #         A1 = g0 * KT2 + g1 * KT5 + g2 * KT6 + g3 * KT7
+                #     #         A2 = g0 * KT3 + g1 * KT6 + g2 * KT8 + g3 * KT9
+                #     #         A3 = g0 * KT4 + g1 * KT7 + g2 * KT9 + g3 * KT10
+                #     #         self.m_out[lig][col] = h0 * A0 + h1 * A1 + h2 * A2 + h3 * A3
+                #     #     else:
+                #     #         self.m_out[lig][col] = 0.
                 lib.util_block.write_block_matrix_float(fbin, self.m_out, n_lig_block[nb], sub_n_col_opce, 0, 0, sub_n_col_opce)
 
         logging.info('--= Finished: data processing in: %s sec =--' % (datetime.datetime.now() - init_time))

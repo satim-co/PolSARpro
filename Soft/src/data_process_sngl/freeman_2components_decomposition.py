@@ -51,6 +51,7 @@ import platform
 import numpy
 import math
 import logging
+import datetime
 import numba
 sys.path.append(r'../')
 import lib.util  # noqa: E402
@@ -314,6 +315,7 @@ class App(lib.util.Application):
 
         # DATA PROCESSING
         logging.info('--= Started: data processing =--')
+        init_time = datetime.datetime.now()
         for np in range(n_polar_in):
             self.rewind(in_datafile[np])
         if flag_valid is True:

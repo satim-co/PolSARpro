@@ -126,7 +126,7 @@ def average_complex_coherency_matrix_determination_1(sub_n_col, valid, n_win_l_m
                 m[2][2][0] = eps + m_avg[8][col]
                 m[2][2][1] = 0.0
 
-            elif pol_type_out in ['C4', 'T4']:
+            if pol_type_out in ['C4', 'T4']:
                 # Average complex coherency matrix determination
                 m[0][0][0] = eps + m_avg[0][col]
                 m[0][0][1] = 0.0
@@ -193,7 +193,11 @@ def average_complex_coherency_matrix_determination_1(sub_n_col, valid, n_win_l_m
 
             # Class center coherency matrices are initialized
             # according to the H_alpha classification results
-            coh_area[:n_pp, :n_pp, :2, area] += m[:n_pp, :n_pp, :2]
+            for k in range(n_pp):
+                for n in range(n_pp):
+                    coh_area[k][n][0][area] = coh_area[k][n][0][area] + m[k][n][0]
+                    coh_area[k][n][1][area] = coh_area[k][n][1][area] + m[k][n][1]
+
             cpt_area[area] = cpt_area[area] + 1.0
             class_im[lig_g][col] = numpy.float32(area)
 
@@ -212,14 +216,20 @@ def prepare_coh_area_for_inverse_center_coherency_matrices_computation(n_area, c
 def inverse_center_coherency_matrices_computation_1(n_area, cpt_area, n_pp, coh, coh_area, pol_type_out, coh_m1, det, eps, coh_area_m1, det_area):
     for area in range(1, n_area + 1):
         if cpt_area[area] != 0.:
-            coh[:n_pp, :n_pp, :2] = coh_area[:n_pp, :n_pp, :2, area]
+            for k in range(n_pp):
+                for n in range(n_pp):
+                    coh[k][n][0] = coh_area[k][n][0][area]
+                    coh[k][n][1] = coh_area[k][n][1][area]
             if pol_type_out in ['C3', 'T3']:
                 inverse_hermitian_matrix3(coh, coh_m1)
                 determinant_hermitian_matrix3(coh, det, eps)
-            elif pol_type_out in ['C4', 'T4']:
+            if pol_type_out in ['C4', 'T4']:
                 inverse_hermitian_matrix4(coh, coh_m1, eps)
                 determinant_hermitian_matrix4(coh, det, eps)
-            coh_area_m1[:n_pp, :n_pp, :2, area] = coh_m1[:n_pp, :n_pp, :2]
+            for k in range(n_pp):
+                for n in range(n_pp):
+                    coh_area_m1[k][n][0][area] = coh_m1[k][n][0]
+                    coh_area_m1[k][n][1][area] = coh_m1[k][n][1]
             det_area[0][area] = det[0]
             det_area[1][area] = det[1]
 
@@ -250,7 +260,7 @@ def average_complex_coherency_matrix_determination_2(modif, sub_n_col, valid, n_
                 m[2][2][0] = eps + m_avg[8][col]
                 m[2][2][1] = 0.
 
-            elif pol_type_out in ['C4', 'T4']:
+            if pol_type_out in ['C4', 'T4']:
                 # Average complex coherency matrix determination
                 m[0][0][0] = eps + m_avg[0][col]
                 m[0][0][1] = 0.
@@ -288,11 +298,14 @@ def average_complex_coherency_matrix_determination_2(modif, sub_n_col, valid, n_
             # Seeking for the closest cluster center
             for area in range(1, n_area + 1):
                 if cpt_area[area] != 0.:
-                    coh_m1[:n_pp, :n_pp, :2] = coh_area_m1[:n_pp, :n_pp, :2, area]
+                    for k in range(n_pp):
+                        for n in range(n_pp):
+                            coh_m1[k][n][0] = coh_area_m1[k][n][0][area]
+                            coh_m1[k][n][1] = coh_area_m1[k][n][1][area]
                     distance[area] = math.log(math.sqrt(det_area[0][area] * det_area[0][area] + det_area[1][area] * det_area[1][area]))
                     if pol_type_out in ['C3', 'T3']:
                         distance[area] = distance[area] + trace3_hm1xhm2(coh_m1, m)
-                    elif pol_type_out in ['C4', 'T4']:
+                    if pol_type_out in ['C4', 'T4']:
                         distance[area] = distance[area] + trace4_hm1xhm2(coh_m1, m)
             dist_min = init_minmax
             for area in range(1, n_area + 1):
@@ -332,7 +345,7 @@ def average_complex_coherency_matrix_determination_3(sub_n_col, valid, n_win_l_m
                 m[2][2][0] = eps + m_avg[8][col]
                 m[2][2][1] = 0.
 
-            elif pol_type_out in ['C4', 'T4']:
+            if pol_type_out in ['C4', 'T4']:
                 # Average complex coherency matrix determination
                 m[0][0][0] = eps + m_avg[0][col]
                 m[0][0][1] = 0.
@@ -368,7 +381,12 @@ def average_complex_coherency_matrix_determination_3(sub_n_col, valid, n_win_l_m
                 m[3][3][1] = 0.
 
             area = numpy.int32(class_im[lig_g][col])
-            coh_area[:n_pp, :n_pp, :2, area] += m[:n_pp, :n_pp, :2]
+
+            for k in range(n_pp):
+                for n in range(n_pp):
+                    coh_area[k][n][0][area] = coh_area[k][n][0][area] + m[k][n][0]
+                    coh_area[k][n][1][area] = coh_area[k][n][1][area] + m[k][n][1]
+
             cpt_area[area] = cpt_area[area] + 1.
 
 
@@ -376,14 +394,20 @@ def average_complex_coherency_matrix_determination_3(sub_n_col, valid, n_win_l_m
 def inverse_center_coherency_matrices_computation_3a(n_area, cpt_area, n_pp, coh, coh_area, pol_type_out, coh_m1, det, eps, coh_area_m1, det_area):
     for area in range(1, n_area + 1):
         if cpt_area[area] != 0.:
-            coh[:n_pp, :n_pp, :2] = coh_area[:n_pp, :n_pp, :2, area]
+            for k in range(n_pp):
+                for n in range(n_pp):
+                    coh[k][n][0] = coh_area[k][n][0][area]
+                    coh[k][n][1] = coh_area[k][n][1][area]
             if pol_type_out in ['C3', 'T3']:
                 inverse_hermitian_matrix3(coh, coh_m1)
                 determinant_hermitian_matrix3(coh, det, eps)
-            elif pol_type_out in ['C4', 'T4']:
+            if pol_type_out in ['C4', 'T4']:
                 inverse_hermitian_matrix4(coh, coh_m1, eps)
                 determinant_hermitian_matrix4(coh, det, eps)
-            coh_area_m1[:n_pp, :n_pp, :2, area] = coh_m1[:n_pp, :n_pp, :2]
+            for k in range(n_pp):
+                for n in range(n_pp):
+                    coh_area_m1[k][n][0][area] = coh_m1[k][n][0]
+                    coh_area_m1[k][n][1][area] = coh_m1[k][n][1]
             det_area[0][area] = det[0]
             det_area[1][area] = det[1]
 
@@ -413,7 +437,7 @@ def average_complex_coherency_matrix_determination_4(sub_n_col, valid, n_win_l_m
                 m[2][2][0] = eps + m_avg[8][col]
                 m[2][2][1] = 0.
 
-            elif pol_type_out in ['C4', 'T4']:
+            if pol_type_out in ['C4', 'T4']:
                 # Average complex coherency matrix determination
                 m[0][0][0] = eps + m_avg[0][col]
                 m[0][0][1] = 0.
@@ -454,7 +478,10 @@ def average_complex_coherency_matrix_determination_4(sub_n_col, valid, n_win_l_m
 
             # Class center coherency matrices are initialize
             # according to the H_alpha classification results
-            coh_area[:n_pp, :n_pp, :2, area] += m[:n_pp, :n_pp, :2]
+            for k in range(n_pp):
+                for n in range(n_pp):
+                    coh_area[k][n][0][area] = coh_area[k][n][0][area] + m[k][n][0]
+                    coh_area[k][n][1][area] = coh_area[k][n][1][area] + m[k][n][1]
             cpt_area[area] = cpt_area[area] + 1.
             class_im[lig_g][col] = numpy.float32(area)
 
@@ -463,14 +490,20 @@ def average_complex_coherency_matrix_determination_4(sub_n_col, valid, n_win_l_m
 def inverse_center_coherency_matrices_computation_4a(n_area, cpt_area, n_pp, coh, coh_area, pol_type_out, coh_m1, det, eps, coh_area_m1, det_area):
     for area in range(1, n_area + 1):
         if cpt_area[area] != 0.:
-            coh[:n_pp, :n_pp, :2] = coh_area[:n_pp, :n_pp, :2, area]
+            for k in range(n_pp):
+                for n in range(n_pp):
+                    coh[k][n][0] = coh_area[k][n][0][area]
+                    coh[k][n][1] = coh_area[k][n][1][area]
             if pol_type_out in ['C3', 'T3']:
                 inverse_hermitian_matrix3(coh, coh_m1)
                 determinant_hermitian_matrix3(coh, det, eps)
-            elif pol_type_out in ['C4', 'T4']:
+            if pol_type_out in ['C4', 'T4']:
                 inverse_hermitian_matrix4(coh, coh_m1, eps)
                 determinant_hermitian_matrix4(coh, det, eps)
-            coh_area_m1[:n_pp, :n_pp, :2, area] = coh_m1[:n_pp, :n_pp, :2]
+            for k in range(n_pp):
+                for n in range(n_pp):
+                    coh_area_m1[k][n][0][area] = coh_m1[k][n][0]
+                    coh_area_m1[k][n][1][area] = coh_m1[k][n][1]
             det_area[0][area] = det[0]
             det_area[1][area] = det[1]
 
@@ -501,7 +534,7 @@ def average_complex_coherency_matrix_determination_5(modif, sub_n_col, valid, n_
                 m[2][2][0] = eps + m_avg[8][col]
                 m[2][2][1] = 0.
 
-            elif pol_type_out in ['C4', 'T4']:
+            if pol_type_out in ['C4', 'T4']:
                 # Average complex coherency matrix determination
                 m[0][0][0] = eps + m_avg[0][col]
                 m[0][0][1] = 0.
@@ -539,11 +572,14 @@ def average_complex_coherency_matrix_determination_5(modif, sub_n_col, valid, n_
             # Seeking for the closest cluster center */
             for area in range(1, n_area + 1):
                 if cpt_area[area] != 0.:
-                    coh_m1[:n_pp, :n_pp, :2] = coh_area_m1[:n_pp, :n_pp, :2, area]
+                    for k in range(n_pp):
+                        for n in range(n_pp):
+                            coh_m1[k][n][0] = coh_area_m1[k][n][0][area]
+                            coh_m1[k][n][1] = coh_area_m1[k][n][1][area]
                     distance[area] = math.log(math.sqrt(det_area[0][area] * det_area[0][area] + det_area[1][area] * det_area[1][area]))
                     if pol_type_out in ['C3', 'T3']:
                         distance[area] = distance[area] + trace3_hm1xhm2(coh_m1, m)
-                    elif pol_type_out in ['C4', 'T4']:
+                    if pol_type_out in ['C4', 'T4']:
                         distance[area] = distance[area] + trace4_hm1xhm2(coh_m1, m)
             dist_min = init_minmax
             for area in range(1, n_area + 1):
@@ -582,7 +618,7 @@ def average_complex_coherency_matrix_determination_6(sub_n_col, valid, n_win_l_m
                 m[2][2][0] = eps + m_avg[8][col]
                 m[2][2][1] = 0.
 
-            elif pol_type_out in ['C4', 'T4']:
+            if pol_type_out in ['C4', 'T4']:
                 # Average complex coherency matrix determination
                 m[0][0][0] = eps + m_avg[0][col]
                 m[0][0][1] = 0.
@@ -618,7 +654,11 @@ def average_complex_coherency_matrix_determination_6(sub_n_col, valid, n_win_l_m
                 m[3][3][1] = 0.
 
             area = numpy.int32(class_im[lig_g][col])
-            coh_area[:n_pp, :n_pp, :2, area] += m[:n_pp, :n_pp, :2]
+
+            for k in range(n_pp):
+                for n in range(n_pp):
+                    coh_area[k][n][0][area] = coh_area[k][n][0][area] + m[k][n][0]
+                    coh_area[k][n][1][area] = coh_area[k][n][1][area] + m[k][n][1]
             cpt_area[area] = cpt_area[area] + 1.
 
 
@@ -626,14 +666,20 @@ def average_complex_coherency_matrix_determination_6(sub_n_col, valid, n_win_l_m
 def inverse_center_coherency_matrices_computation_6a(n_area, cpt_area, n_pp, coh_area, coh, pol_type_out, coh_m1, det, eps, coh_area_m1, det_area):
     for area in range(1, n_area + 1):
         if cpt_area[area] != 0.:
-            coh[:n_pp, :n_pp, :2] = coh_area[:n_pp, :n_pp, :2, area]
+            for k in range(n_pp):
+                for n in range(n_pp):
+                    coh[k][n][0] = coh_area[k][n][0][area]
+                    coh[k][n][1] = coh_area[k][n][1][area]
             if pol_type_out in ['C3', 'T3']:
                 lib.processing.inverse_hermitian_matrix3(coh, coh_m1)
                 lib.processing.determinant_hermitian_matrix3(coh, det, eps)
-            elif pol_type_out in ['C4', 'T4']:
+            if pol_type_out in ['C4', 'T4']:
                 lib.processing.inverse_hermitian_matrix4(coh, coh_m1, eps)
                 lib.processing.determinant_hermitian_matrix4(coh, det, eps)
-            coh_area_m1[:n_pp, :n_pp, :2, area] = coh_m1[:n_pp, :n_pp, :2]
+            for k in range(n_pp):
+                for n in range(n_pp):
+                    coh_area_m1[k][n][0][area] = coh_m1[k][n][0]
+                    coh_area_m1[k][n][1][area] = coh_m1[k][n][1]
             det_area[0][area] = det[0]
             det_area[1][area] = det[1]
 
@@ -812,6 +858,7 @@ class App(lib.util.Application):
 
         # DATA PROCESSING
         logging.info('--= Started: data processing =--')
+        init_time_data_processing = datetime.datetime.now()
         # Training class matrix memory allocation
         n_pp = None
         if pol_type_out in ['C3', 'T3']:
@@ -838,13 +885,15 @@ class App(lib.util.Application):
         tmp_det_area[1] = lib.matrix.vector_float(n_area)
         det_area = numpy.array(tmp_det_area)
 
-        self.cpt_area[1: n_area + 1] = 0.
+        for area in range(1, n_area + 1):
+            self.cpt_area[area] = 0.
 
         n_lig_g = 0
         lig_g = 0
         eps = lib.util.Application.EPS
 
         logging.info('--= Started: Inverse center coherency matrices computation =--')
+        init_time = datetime.datetime.now()
 
         NNwinLigM1S2 = (n_win_l - 1) // 2
         vf_in_readingLines = [None] * nb_block
@@ -894,8 +943,11 @@ class App(lib.util.Application):
         logging.info('--= Started: Inverse center coherency matrices computation: inverse_center_coherency_matrices_computation_1 =--')
         inverse_center_coherency_matrices_computation_1(n_area, self.cpt_area, n_pp, coh, coh_area, pol_type_out, coh_m1, det, eps, coh_area_m1, det_area)
 
+        logging.info('--= Finished: Inverse center coherency matrices in: %s sec =--' % (datetime.datetime.now() - init_time))
+
         # START OF THE WISHART H-ALPHA CLASSIFICATION
         logging.info('--= Started: WISHART H-ALPHA CLASSIFICATION =--')
+        init_time = datetime.datetime.now()
         flag_stop = 0
         nit = 0
         while flag_stop == 0:
@@ -952,11 +1004,12 @@ class App(lib.util.Application):
 
             if flag_stop == 0:
                 # Calcul des nouveaux centres de classe
-                # KS for area in range(1, n_area + 1):
-                # KS     self.cpt_area[area] = 0.
-                # KS     coh_area[:n_pp, :n_pp, :2, area] = 0.
-                self.cpt_area[1: n_area + 1] = 0.
-                coh_area[:n_pp, :n_pp, :2, 1: n_area + 1] = 0.
+                for area in range(1, n_area + 1):
+                    self.cpt_area[area] = 0.
+                    for k in range(n_pp):
+                        for n in range(n_pp):
+                            coh_area[k][n][0][area] = 0.
+                            coh_area[k][n][1][area] = 0.
                 for np in range(n_polar_in):
                     self.rewind(in_datafile[np])
                 if flag_valid is True:
@@ -995,9 +1048,11 @@ class App(lib.util.Application):
 
                 # Inverse center coherency matrices computation
                 inverse_center_coherency_matrices_computation_3a(n_area, self.cpt_area, n_pp, coh, coh_area, pol_type_out, coh_m1, det, eps, coh_area_m1, det_area)
+        logging.info('--= Finished: WISHART H-ALPHA CLASSIFICATION in: %s sec =--' % (datetime.datetime.now() - init_time))
 
         # Saving wishart_H_alpha classification results bin and bitmap
         logging.info('--= Started: Saving wishart_H_alpha classification results bin and bitmap =--')
+        init_time = datetime.datetime.now()
         self.class_im[0][0] = 1.
         self.class_im[1][1] = 8.
         lib.util_block.write_block_matrix_float(w_h_alpha_file, self.class_im, sub_n_lig, sub_n_col, 0, 0, sub_n_col)
@@ -1006,9 +1061,11 @@ class App(lib.util.Application):
             file_name = os.path.join(f'{out_dir}', f'wishart_H_alpha_class_{n_win_l}x{n_win_c}')
             lib.graphics.bmp_wishart(self.class_im, sub_n_lig, sub_n_col, file_name, color_map_wishart8)
 
+        logging.info('--= Finished: wishart_H_alpha classification results bin and bitmap in: %s sec =--' % (datetime.datetime.now() - init_time))
         # END OF THE WISHART H-ALPHA CLASSIFICATION
 
         logging.info('--= Started: PRE WISHART H-A-ALPHA CLASSIFICATION =--')
+        init_time = datetime.datetime.now()
 
         for np in range(n_polar_in):
             self.rewind(in_datafile[np])
@@ -1016,11 +1073,12 @@ class App(lib.util.Application):
             self.rewind(in_valid)
 
         n_area = 20
-        # KS for area in range(1, n_area + 1):
-        # KS     self.cpt_area[area] = 0.
-        # KS     coh_area[:n_pp, :n_pp, :2, area] = 0.
-        self.cpt_area[1: n_area + 1] = 0.
-        coh_area[:n_pp, :n_pp, :2, 1: n_area + 1] = 0.
+        for area in range(1, n_area + 1):
+            self.cpt_area[area] = 0.
+            for k in range(n_pp):
+                for n in range(n_pp):
+                    coh_area[k][n][0][area] = 0.
+                    coh_area[k][n][1][area] = 0.
 
         n_lig_g = 0
         lig_g = 0
@@ -1060,8 +1118,11 @@ class App(lib.util.Application):
             # Inverse center coherency matrices computation
             inverse_center_coherency_matrices_computation_4a(n_area, self.cpt_area, n_pp, coh, coh_area, pol_type_out, coh_m1, det, eps, coh_area_m1, det_area)
 
+        logging.info('--= Finished: Inverse center coherency matrices computation in: %s sec =--' % (datetime.datetime.now() - init_time))
+
         # START OF THE WISHART H-A-ALPHA CLASSIFICATION
         logging.info('--= Started: WISHART H-A-ALPHA CLASSIFICATION =--')
+        init_time = datetime.datetime.now()
 
         flag_stop = 0
         nit = 0
@@ -1114,11 +1175,12 @@ class App(lib.util.Application):
 
             if flag_stop == 0:
                 # Calcul des nouveaux centres de classe
-                # KS for area in range(1, n_area + 1):
-                # KS     self.cpt_area[area] = 0.
-                # KS     coh_area[:n_pp, :n_pp, :2, area] = 0.
-                self.cpt_area[1:n_area + 1] = 0.
-                coh_area[:n_pp, :n_pp, :2, 1:n_area + 1] = 0.
+                for area in range(1, n_area + 1):
+                    self.cpt_area[area] = 0.
+                    for k in range(n_pp):
+                        for n in range(n_pp):
+                            coh_area[k][n][0][area] = 0.
+                            coh_area[k][n][1][area] = 0.
                 for np in range(n_polar_in):
                     self.rewind(in_datafile[np])
                 if flag_valid is True:
@@ -1161,8 +1223,11 @@ class App(lib.util.Application):
                 # Inverse center coherency matrices computation
                 inverse_center_coherency_matrices_computation_6a(n_area, self.cpt_area, n_pp, coh_area, coh, pol_type_out, coh_m1, det, eps, coh_area_m1, det_area)
 
+        logging.info('--= Finished: WISHART H-A-ALPHA CLASSIFICATION in: %s sec =--' % (datetime.datetime.now() - init_time))
+
         # Saving wishart_H_A_alpha classification results bin and bitmap
         logging.info('--= Started: Saving wishart_H_alpha classification results bin and bitmap =--')
+        init_time = datetime.datetime.now()
         self.class_im[0][0] = 1.
         self.class_im[1][1] = 16.
 
@@ -1171,7 +1236,11 @@ class App(lib.util.Application):
         if bmp_flag == 1:
             file_name = os.path.join(f'{out_dir}', f'wishart_H_A_alpha_class_{n_win_l}x{n_win_c}')
             lib.graphics.bmp_wishart(self.class_im, sub_n_lig, sub_n_col, file_name, color_map_wishart16)
+
+        logging.info('--= Finished: Saving wishart_H_A_alpha classification results bin and bitmap in: %s sec =--' % (datetime.datetime.now() - init_time))
+
         # END OF THE WISHART H-A-ALPHA CLASSIFICATION
+        logging.info('--= Finished: data processing in: %s sec =--' % (datetime.datetime.now() - init_time_data_processing))
 
 
 def main(*args, **kwargs):

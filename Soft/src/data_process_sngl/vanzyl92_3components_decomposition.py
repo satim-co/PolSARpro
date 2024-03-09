@@ -52,6 +52,7 @@ import platform
 import numpy
 import math
 import logging
+import datetime
 import numba
 sys.path.append(r'../')
 import lib.util  # noqa: E402
@@ -99,7 +100,7 @@ def span_determination(s_min, s_max, nb, n_lig_block, n_polar_out, sub_n_col, m_
     return s_min, s_max
 
 
-@numba.njit(parallel=True, fastmath=True)
+@numba.njit(parallel=False)
 def van_zyl_1992_algorithm(n_lig_block, nb, n_polar_out, sub_n_col, m_in, valid, n_win_l, n_win_c, n_win_l_m1s2, n_win_c_m1s2, m_odd, m_dbl, m_vol, span_min, span_max, eps):
     ligDone = 0
     ALPre = ALPim = BETre = BETim = A0A0 = B0pB = 0.
@@ -107,13 +108,15 @@ def van_zyl_1992_algorithm(n_lig_block, nb, n_polar_out, sub_n_col, m_in, valid,
     sq_rt = Lambda1 = Lambda2 = OMEGA1 = OMEGA2 = 0.
     m_avg = lib.matrix.matrix_float(n_polar_out, sub_n_col)
     # #pragma omp parallel for private(col, M_avg) firstprivate(ALPre, ALPim, BETre, BETim, A0A0, B0pB, HHHH, HVHV, VVVV, HHVVre, HHVVim, sq_rt, Lambda1, Lambda2, OMEGA1, OMEGA2) shared(ligDone)
-    for lig in range(n_lig_block[nb]):
+    for lig in numba.prange(n_lig_block[nb]):
         ligDone += 1
+        # if (omp_get_thread_num() == 0)
+        #     PrintfLine(ligDone,NligBlock[Nb]);
         if numba_get_thread_id() == 0:
             lib.util.printf_line(ligDone, n_lig_block[nb])
         m_avg.fill(0)
         lib.util_block.average_tci(m_in, valid, n_polar_out, m_avg, lig, sub_n_col, n_win_l, n_win_c, n_win_l_m1s2, n_win_c_m1s2)
-        for col in numba.prange(sub_n_col):
+        for col in range(sub_n_col):
             if valid[n_win_l_m1s2 + lig][n_win_c_m1s2 + col] == 1.:
                 HHHH = m_avg[lib.util.C311][col]
                 HHVVre = m_avg[lib.util.C313_RE][col]
@@ -149,13 +152,19 @@ def van_zyl_1992_algorithm(n_lig_block, nb, n_polar_out, sub_n_col, m_in, valid,
                     m_odd[lig][col] = OMEGA2 * (1. + BETre * BETre + BETim * BETim)
                 m_vol[lig][col] = 2 * HVHV
 
-                m_odd[lig][col] = max(m_odd[lig][col], span_min)
-                m_dbl[lig][col] = max(m_dbl[lig][col], span_min)
-                m_vol[lig][col] = max(m_vol[lig][col], span_min)
+                if m_odd[lig][col] < span_min:
+                    m_odd[lig][col] = span_min
+                if m_dbl[lig][col] < span_min:
+                    m_dbl[lig][col] = span_min
+                if m_vol[lig][col] < span_min:
+                    m_vol[lig][col] = span_min
 
-                m_odd[lig][col] = min(m_odd[lig][col], span_max)
-                m_dbl[lig][col] = min(m_dbl[lig][col], span_max)
-                m_vol[lig][col] = min(m_vol[lig][col], span_max)
+                if m_odd[lig][col] > span_max:
+                    m_odd[lig][col] = span_max
+                if m_dbl[lig][col] > span_max:
+                    m_dbl[lig][col] = span_max
+                if m_vol[lig][col] > span_max:
+                    m_vol[lig][col] = span_max
             else:
                 m_odd[lig][col] = 0.
                 m_dbl[lig][col] = 0.
@@ -307,13 +316,19 @@ class App(lib.util.Application):
                 lib.util_block.ks_read_block_s2_noavg(in_datafile, self.m_in, pol_type_out, n_polar_out, nb, nb_block, n_lig_block[nb], sub_n_col, n_win_l, n_win_c, off_lig, off_col, n_col, self.mc_in)
             else:    # Case of C,T or I
                 logging.info('--= Started: read_block_tci_noavg  =--')
+                init_time = datetime.datetime.now()
                 lib.util_block.read_block_tci_noavg(in_datafile, self.m_in, n_polar_out, nb, nb_block, n_lig_block[nb], sub_n_col, n_win_l, n_win_c, off_lig, off_col, n_col, self.vf_in)
+                logging.info('--= Finished: read_block_tci_noavg in: %s sec =--' % (datetime.datetime.now() - init_time))
             if pol_type_out == 'T3':
                 logging.info('--= Started: t3_to_c3  =--')
+                init_time = datetime.datetime.now()
                 lib.util_convert.t3_to_c3(self.m_in, n_lig_block[nb], sub_n_col + n_win_c, 0, 0)
+                logging.info('--= Finished: t3_to_c3 in: %s sec =--' % (datetime.datetime.now() - init_time))
 
             logging.info('--= Started: average_tci  =--')
+            init_time = datetime.datetime.now()
             span_min, span_max = span_determination(span_min, span_max, nb, n_lig_block, n_polar_out, sub_n_col, self.m_in, self.valid, n_win_l, n_win_c, n_win_l_m1s2, n_win_c_m1s2)
+            logging.info('--= Finished: average_tci in: %s sec =--' % (datetime.datetime.now() - init_time))
 
         if span_min < lib.util.Application.EPS:
             span_min = lib.util.Application.EPS
@@ -323,6 +338,7 @@ class App(lib.util.Application):
 
         # DATA PROCESSING
         logging.info('--= Started: data processing =--')
+        init_time = datetime.datetime.now()
         for np in range(n_polar_in):
             self.rewind(in_datafile[np])
         if flag_valid is True:
@@ -347,6 +363,7 @@ class App(lib.util.Application):
             lib.util_block.write_block_matrix_float(out_odd, self.m_odd, n_lig_block[nb], sub_n_col, 0, 0, sub_n_col)
             lib.util_block.write_block_matrix_float(out_dbl, self.m_dbl, n_lig_block[nb], sub_n_col, 0, 0, sub_n_col)
             lib.util_block.write_block_matrix_float(out_vol, self.m_vol, n_lig_block[nb], sub_n_col, 0, 0, sub_n_col)
+        logging.info('--= Finished: data processing in: %s sec =--' % (datetime.datetime.now() - init_time))
 
 
 def main(*args, **kwargs):

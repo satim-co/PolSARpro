@@ -36,5 +36,10 @@ def matrix_float(nrh, nch):
 
 
 @numba.njit(parallel=False)
+def matrix_int(nrh, nch):
+    return numpy.zeros((nrh, nch), dtype=numpy.int32)
+
+
+@numba.njit(parallel=False)
 def matrix3d_float(nz, nrh, nch):
     return numpy.zeros((nz + 1, nrh + 1, nch + 1), dtype=numpy.float32)

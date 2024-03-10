@@ -1235,8 +1235,6 @@ def read_block_spp_noavg(datafile, M_out, PolType, NNpolar, NNblock, NNbBlock, S
                     k2i = _MC_in[Chx2][2 * col + 1]
                     M_out[Chx1][NNwinLigM1S2 + lig][col - OOff_col + NNwinColM1S2] = k1r * k1r + k1i * k1i
                     M_out[Chx2][NNwinLigM1S2 + lig][col - OOff_col + NNwinColM1S2] = k2r * k2r + k2i * k2i
-    # else SPP
-    return 1
 
 
 @numba.njit(parallel=False)

@@ -10,6 +10,7 @@ import math
 import json
 sys.path.append(r'../src/')
 sys.path.append(r'../src/data_process_sngl/')
+sys.path.append(r'../src/speckle_filter/')
 
 
 DIR_BIN = None
@@ -41,8 +42,6 @@ elif platform.system().lower().startswith('lin') is True:
 else:
     print(f'unknown platform: {platform.system()}')
     sys.exit(1)
-
-
 
 
 class Logger(object):
@@ -105,9 +104,6 @@ class Logger(object):
             Logger.log_test.write(message)
 
     def flush(self):
-        # this flush method is needed for python 3 compatibility.
-        # this handles the flush command by doing nothing.
-        # you might want to specify some extra behavior here.
         pass
 
     @staticmethod
@@ -117,13 +113,17 @@ class Logger(object):
 
 
 class Module:
+    ADD_MODULE_TO_DIR_IN = False
 
     def __init__(self, name, lang):
         self.name = name
         self.lang = lang
         self.params = {}
         self.dir_pattern = os.path.join(DIR_PATTERN, self.name.lower())
-        self.dir_in = os.path.join(DIR_IN, self.name.lower())
+        if Module.ADD_MODULE_TO_DIR_IN is True:
+            self.dir_in = os.path.join(DIR_IN, self.name.lower())
+        else:
+            self.dir_in = DIR_IN
         self.dir_artifacat_module = os.path.join(Logger.log_dir, self.name.lower())
         self.dir_out = os.path.join(self.dir_artifacat_module, 'out')
         self.dir_bin = DIR_BIN
@@ -188,8 +188,11 @@ class Module:
             else:
                 print(f'{"":<10}  {k}: {v}')
         Logger.make_dirs(self.dir_pattern)
+        print(f'{"PATTERN":<10}: {self.dir_pattern}')
         Logger.make_dirs(self.dir_out)
+        print(f'{"DIR_OUT":<10}: {self.dir_out}')
         Logger.make_dirs(self.dir_in)
+        print(f'{"DIR_IN":<10}: {self.dir_in}')
         if self.skip != '' and self.lang == 'py':
             self.time = datetime.datetime.now() - time_start
             print(f'\n{"RESULT":<10}: {self.result} - reason: {self.skip}')
@@ -197,7 +200,7 @@ class Module:
             return self.time, self.result, self.skip
         if self.lang == 'py':
             m = f'../src/data_process_sngl/{self.name}.{self.lang}'
-            print(f'import module {m}')
+            print(f'\nimport module {m}')
             module = __import__(self.name)
             module.main(**self.params)
         elif self.lang == 'c':
@@ -318,7 +321,7 @@ class Opce(Module):
 
 
 class Vanzyl92_3ComponentsDecomposition(Module):
-    MODULE_NAME  = 'vanzyl92_3components_decomposition'
+    MODULE_NAME = 'vanzyl92_3components_decomposition'
 
     def __init__(self, skip='', lang='py'):
         super().__init__(Vanzyl92_3ComponentsDecomposition.MODULE_NAME, lang)
@@ -337,7 +340,7 @@ class Vanzyl92_3ComponentsDecomposition(Module):
 
 
 class WishartSupervisedClassifier(Module):
-    MODULE_NAME  = 'wishart_supervised_classifier'
+    MODULE_NAME = 'wishart_supervised_classifier'
 
     def __init__(self, skip='', lang='py'):
         super().__init__(WishartSupervisedClassifier.MODULE_NAME, lang)
@@ -360,7 +363,7 @@ class WishartSupervisedClassifier(Module):
 
 
 class WishartHAAlphaClassifier(Module):
-    MODULE_NAME  = 'wishart_h_a_alpha_classifier'
+    MODULE_NAME = 'wishart_h_a_alpha_classifier'
 
     def __init__(self, skip='', lang='py'):
         super().__init__(WishartHAAlphaClassifier.MODULE_NAME, lang)
@@ -386,7 +389,30 @@ class WishartHAAlphaClassifier(Module):
         self.params['mask'] = os.path.join(self.dir_in, 'mask_valid_pixels.bin')
 
 
+class LeeRefinedFilter(Module):
+    MODULE_NAME = 'lee_refined_filter'
+
+    def __init__(self, skip='', lang='py'):
+        super().__init__(LeeRefinedFilter.MODULE_NAME, lang)
+        self.skip = skip
+        self.params['id'] = self.dir_in
+        self.params['od'] = self.dir_out
+        self.params['iodf'] = 'T3'
+        self.params['nw'] = 7
+        self.params['nlk'] = 7
+        self.params['ofr'] = 0
+        self.params['ofc'] = 0
+        self.params['fnr'] = 18432
+        self.params['fnc'] = 1248
+        self.params['errf'] = os.path.join(self.dir_out, 'MemoryAllocError.txt')
+        self.params['mask'] = os.path.join(self.dir_in, 'mask_valid_pixels.bin')
+
+
 class ModuleLauncher:
+    ARG_HELP = '-h'
+    ARG_VERBOSE = '-v'
+    ARG_ADD_MODULE_TO_DIR_IN = '--add-module-to-dir-in'
+
     def __init__(self):
         sys.stdout = Logger()
 
@@ -476,6 +502,8 @@ class ModuleLauncher:
             self.modules.append(WishartSupervisedClassifier(lang=lang))
         if module == 'all' or module == WishartHAAlphaClassifier.MODULE_NAME:
             self.modules.append(WishartHAAlphaClassifier(lang=lang))
+        if module == 'all' or module == LeeRefinedFilter.MODULE_NAME:
+            self.modules.append(LeeRefinedFilter(lang=lang))
 
     def preaper_modules_name(self):
         self.modules_name = []
@@ -487,14 +515,14 @@ class ModuleLauncher:
         self.modules_name.append(Vanzyl92_3ComponentsDecomposition.MODULE_NAME)
         self.modules_name.append(WishartSupervisedClassifier.MODULE_NAME)
         self.modules_name.append(WishartHAAlphaClassifier.MODULE_NAME)
-
+        self.modules_name.append(LeeRefinedFilter.MODULE_NAME)
 
     def print_usage(self):
         print('\nUsage:')
-        self.prepare(module='all', lang='py')
+        print(f'\t{sys.argv[0]} [module] [lang] [{ModuleLauncher.ARG_VERBOSE}] [{ModuleLauncher.ARG_ADD_MODULE_TO_DIR_IN}]')
         for m in self.modules_name:
-            print(f'\t{sys.argv[0]} [{m}] [py|c] [verbose]')
-        print(f'\t{sys.argv[0]} [all] [py|cpp] [verbose]')
+            print(f'\t{sys.argv[0]} [{m}] [py|c] [{ModuleLauncher.ARG_VERBOSE}] [{ModuleLauncher.ARG_ADD_MODULE_TO_DIR_IN}]')
+        print(f'\t{sys.argv[0]} [all] [py|cpp] [{ModuleLauncher.ARG_VERBOSE}] [{ModuleLauncher.ARG_ADD_MODULE_TO_DIR_IN}]')
         print(f'\tNo arguments means: {sys.argv[0]} all py')
         print('\n')
 
@@ -503,17 +531,20 @@ class ModuleLauncher:
         module = 'all'
         lang = 'py'
         verbose = ''
+        Module.ADD_MODULE_TO_DIR_IN = False
         for i in range(1, len(sys.argv)):
             arg = sys.argv[i]
             if arg in self.modules_name:
                 module = arg
             elif arg in ['py', 'c']:
                 lang = arg
-            elif arg == 'verbose':
-                verbose = arg
-            elif arg == '-h':
+            elif arg == ModuleLauncher.ARG_VERBOSE:
+                verbose = 'verbose'
+            elif arg == ModuleLauncher.ARG_HELP:
                 self.print_usage()
                 exit(0)
+            elif arg == ModuleLauncher.ARG_ADD_MODULE_TO_DIR_IN:
+                Module.ADD_MODULE_TO_DIR_IN = True
         print(f'module: {module} lang: {lang}')
         summary_time = []
         self.prepare(module, lang)

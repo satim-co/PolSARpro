@@ -224,6 +224,20 @@ class Application:
             raise
         return out_datafile
 
+    def open_output_files(self, file_name_out, n_polar_out, mode='wb'):
+        '''
+        Open output files and return the file objects.
+        '''
+        out_datafile = []
+        print(f'{file_name_out=}, {n_polar_out=}')
+        for n_pol in range(n_polar_out):
+            try:
+                out_datafile.append(open(file_name_out[n_pol], mode))
+            except IOError:
+                print('Could not open output file : ', file_name_out[n_pol])
+                raise
+        return out_datafile
+
     def check_free_memory(self):
         if platform.system().lower().startswith('win') is True:
             output = os.popen("wmic OS get FreePhysicalMemory")

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 '''
-********************************************************************/
+********************************************************************
 PolSARpro v5.0 is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License as
 published by the Free Software Foundation; either version 2 (1991) of
@@ -41,7 +41,7 @@ e-mail: eric.pottier@univ-rennes1.fr
 
 Description :  BoxCar fully polarimetric speckle filter
 
-********************************************************************/
+********************************************************************
 '''
 
 

@@ -428,6 +428,26 @@ class BoxcarFilter(Module):
         self.params['mask'] = os.path.join(self.dir_in, 'mask_valid_pixels.bin')
 
 
+class CloudexDecomposition(Module):
+    MODULE_NAME = 'cloude_decomposition'
+
+    def __init__(self, skip='', lang='py'):
+        super().__init__(CloudexDecomposition.MODULE_NAME, lang)
+        self.skip = skip
+        self.skip = skip
+        self.params['id'] = self.dir_in
+        self.params['od'] = self.dir_out
+        self.params['iodf'] = 'T3'
+        self.params['nwr'] = 7
+        self.params['nwc'] = 7
+        self.params['ofr'] = 0
+        self.params['ofc'] = 0
+        self.params['fnr'] = 18432
+        self.params['fnc'] = 1248
+        self.params['errf'] = os.path.join(self.dir_out, 'MemoryAllocError.txt')
+        self.params['mask'] = os.path.join(self.dir_in, 'mask_valid_pixels.bin')
+
+
 class ModuleLauncher:
     ARG_HELP = '-h'
     ARG_VERBOSE = '-v'
@@ -474,17 +494,17 @@ class ModuleLauncher:
            <system-err>{}</system-err>
        </testcase>'''
 
-        number_of_tests = len(self.modules)  # in this file
-        number_of_failed_tests = len([x for x in self.modules if x.result == 'FAIL'])  # in this file
-        number_of_errored_tests = len([x for x in self.modules if x.result == 'ERROR'])  # in this file
-        number_of_skipped_tests = len([x for x in self.modules if x.result == 'SKIP'])  # in this file
+        number_of_tests = len(self.running_modules)  # in this file
+        number_of_failed_tests = len([x for x in self.running_modules if x.result == 'FAIL'])  # in this file
+        number_of_errored_tests = len([x for x in self.running_modules if x.result == 'ERROR'])  # in this file
+        number_of_skipped_tests = len([x for x in self.running_modules if x.result == 'SKIP'])  # in this file
         number_of_assertions = 0  # for all tests in this file
         time_aggregated = 0  # time of all tests in this file in seconds
         timestamp = Logger.timestamp.strftime("%Y%m%dT%H%M%S")  # Date and time of when the test run was executed (in ISO 8601 format)
         file = os.path.basename(sys.argv[0])
         line = 0
         junit_report_xml_tests = ''
-        for c, m in enumerate(self.modules):
+        for c, m in enumerate(self.running_modules):
             total_seconds = m.time.total_seconds()
             time_aggregated += total_seconds
             if m.result == 'PASS':
@@ -504,61 +524,38 @@ class ModuleLauncher:
             f.write(junit_report_xml_suites)
         print(f'Prepare: {junit_report_xml}\n')
 
-    def prepare(self, module, lang):
+    def preaper_modules(self):
         self.modules = []
-        if module == 'all' or module == AriiAnned3ComponentsDecomposition.MODULE_NAME:
-            self.modules.append(AriiAnned3ComponentsDecomposition(lang=lang))
-        if module == 'all' or module == AriiNned3ComponentsDecomposition.MODULE_NAME:
-            self.modules.append(AriiNned3ComponentsDecomposition(lang=lang))
-        if module == 'all' or module == Freeman2ComponentsDecomposition.MODULE_NAME:
-            self.modules.append(Freeman2ComponentsDecomposition(lang=lang))
-        if module == 'all' or module == IdClassGen.MODULE_NAME:
-            self.modules.append(IdClassGen(lang=lang))
-        if module == 'all' or module == Opce.MODULE_NAME:
-            self.modules.append(Opce(lang=lang))
-        if module == 'all' or module == Vanzyl92_3ComponentsDecomposition.MODULE_NAME:
-            self.modules.append(Vanzyl92_3ComponentsDecomposition(lang=lang))
-        if module == 'all' or module == WishartSupervisedClassifier.MODULE_NAME:
-            self.modules.append(WishartSupervisedClassifier(lang=lang))
-        if module == 'all' or module == WishartHAAlphaClassifier.MODULE_NAME:
-            self.modules.append(WishartHAAlphaClassifier(lang=lang))
-        if module == 'all' or module == LeeRefinedFilter.MODULE_NAME:
-            self.modules.append(LeeRefinedFilter(lang=lang))
-        if module == 'all' or module == BoxcarFilter.MODULE_NAME:
-            self.modules.append(BoxcarFilter(lang=lang))
-
-
-    def preaper_modules_name(self):
-        self.modules_name = []
-        self.modules_name.append(AriiAnned3ComponentsDecomposition.MODULE_NAME)
-        self.modules_name.append(AriiNned3ComponentsDecomposition.MODULE_NAME)
-        self.modules_name.append(Freeman2ComponentsDecomposition.MODULE_NAME)
-        self.modules_name.append(IdClassGen.MODULE_NAME)
-        self.modules_name.append(Opce.MODULE_NAME)
-        self.modules_name.append(Vanzyl92_3ComponentsDecomposition.MODULE_NAME)
-        self.modules_name.append(WishartSupervisedClassifier.MODULE_NAME)
-        self.modules_name.append(WishartHAAlphaClassifier.MODULE_NAME)
-        self.modules_name.append(LeeRefinedFilter.MODULE_NAME)
-        self.modules_name.append(BoxcarFilter.MODULE_NAME)
+        self.modules.append(AriiAnned3ComponentsDecomposition)
+        self.modules.append(AriiNned3ComponentsDecomposition)
+        self.modules.append(Freeman2ComponentsDecomposition)
+        self.modules.append(IdClassGen)
+        self.modules.append(Opce)
+        self.modules.append(Vanzyl92_3ComponentsDecomposition)
+        self.modules.append(WishartSupervisedClassifier)
+        self.modules.append(WishartHAAlphaClassifier)
+        self.modules.append(LeeRefinedFilter)
+        self.modules.append(BoxcarFilter)
+        # self.modules.append(CloudexDecomposition)
 
     def print_usage(self):
         print('\nUsage:')
         print(f'\t{sys.argv[0]} [module] [lang] [{ModuleLauncher.ARG_VERBOSE}] [{ModuleLauncher.ARG_ADD_MODULE_TO_DIR_IN}]')
-        for m in self.modules_name:
-            print(f'\t{sys.argv[0]} [{m}] [py|c] [{ModuleLauncher.ARG_VERBOSE}] [{ModuleLauncher.ARG_ADD_MODULE_TO_DIR_IN}]')
+        for m in self.modules:
+            print(f'\t{sys.argv[0]} [{m.MODULE_NAME}] [py|c] [{ModuleLauncher.ARG_VERBOSE}] [{ModuleLauncher.ARG_ADD_MODULE_TO_DIR_IN}]')
         print(f'\t{sys.argv[0]} [all] [py|cpp] [{ModuleLauncher.ARG_VERBOSE}] [{ModuleLauncher.ARG_ADD_MODULE_TO_DIR_IN}]')
         print(f'\tNo arguments means: {sys.argv[0]} all py')
         print('\n')
 
     def run(self):
-        self.preaper_modules_name()
+        self.preaper_modules()
         module = 'all'
         lang = 'py'
         verbose = ''
         Module.ADD_MODULE_TO_DIR_IN = False
         for i in range(1, len(sys.argv)):
             arg = sys.argv[i]
-            if arg in self.modules_name:
+            if arg in [m.MODULE_NAME for m in self.modules]:
                 module = arg
             elif arg in ['py', 'c']:
                 lang = arg
@@ -571,7 +568,6 @@ class ModuleLauncher:
                 Module.ADD_MODULE_TO_DIR_IN = True
         print(f'module: {module} lang: {lang}')
         summary_time = []
-        self.prepare(module, lang)
         summary = [['Np.', 'MODULE', 'RESULT', 'INFO', 'TIME']]
         print('============================================================================================')
         print(("{: >%s}" % 45).format('-== BEGIN ==-'))
@@ -582,15 +578,18 @@ class ModuleLauncher:
             with open(skip_modules_file, 'r') as f:
                 skip_modules = json.load(f)
 
+        self.running_modules = []
         for c, m in enumerate(self.modules):
-            if verbose == 'verbose':
-                m.params['v'] = None
-            if m.name == module or module == 'all':
+            instance = m(lang=lang)
+            self.running_modules.append(instance)
+            if m.MODULE_NAME == module or module == 'all':
+                if verbose == 'verbose':
+                    instance.params['v'] = None
                 if skip_modules is not None:
-                    for t in [v for v in skip_modules if v['name'] == m.name]:
-                        m.skip = t['reason']
-                t, r, i = m.run()
-                summary.append([c + 1, m.name, r, i, str(t).split(".", 2)[0]])
+                    for t in [v for v in skip_modules if v['name'] == instance.name]:
+                        instance.skip = t['reason']
+                t, r, i = instance.run()
+                summary.append([c + 1, instance.name, r, i, str(t).split(".", 2)[0]])
                 summary_time.append(t)
                 print('\n--------------------------------------------------------------------------------------------')
         print(("{: >%s}" % 44).format('-== END ==-'))

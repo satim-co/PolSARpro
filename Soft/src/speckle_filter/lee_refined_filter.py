@@ -16,9 +16,10 @@ See the GNU General Public License (Version 2, 1991) for more details
 File   : lee_refined_filter.c
 Project  : ESA_POLSARPRO-SATIM
 Authors  : Eric POTTIER, Jacek STRZELCZYK
+Translate to python: Ryszard Wozniak
+Update&Fix  : Krzysztof Smaza
 Version  : 2.0
 Creation : 07/2015
-Update  :
 *--------------------------------------------------------------------
 INSTITUT D'ELECTRONIQUE et de TELECOMMUNICATIONS de RENNES (I.E.T.R)
 UMR CNRS 6164
@@ -40,7 +41,6 @@ e-mail: eric.pottier@univ-rennes1.fr
 Description :  J.S. LEE refined fully polarimetric speckle filter
 
 ********************************************************************/
-
 '''
 
 
@@ -76,19 +76,6 @@ else:
         with numba.objmode(ret=numba.int32):
             ret = numba.int32(-1)
             return ret
-
-
-def copy_header(src_dir, dst_dir):
-    src_path = os.path.join(src_dir, 'config.txt')
-    dst_path = os.path.join(dst_dir, 'config.txt')
-
-    if os.path.isfile(src_path):
-        with open(src_path, 'r') as src_file:
-            content = src_file.read()
-        with open(dst_path, 'w') as dst_file:
-            dst_file.write(content)
-    else:
-        print(f"Source file {src_path} does not exist.")
 
 
 @numba.njit(parallel=False, fastmath=True)
@@ -360,7 +347,7 @@ class App(lib.util.Application):
         out_datafile = self.open_output_files(file_name_out, n_polar_out)
 
         # COPY HEADER
-        copy_header(in_dir, out_dir)
+        self.copy_header(in_dir, out_dir)
 
         # MEMORY ALLOCATION
         n_block_a = 0
@@ -478,9 +465,7 @@ def main(*args, **kwargs):
         errf (str): memory error file
         mask (str): mask file (valid pixels)'
     '''
-    POL_TYPE_VALUES = ['S2C3', 'S2C4', 'S2T3', 'S2T4', 'C2', 'C3',
-                       'C4', 'T2', 'T3', 'T4', 'SPP', 'IPP']
-
+    POL_TYPE_VALUES = ['S2C3', 'S2C4', 'S2T3', 'S2T4', 'C2', 'C3', 'C4', 'T2', 'T3', 'T4', 'SPP', 'IPP']
     local_args = lib.util.ParseArgs.get_args(*args, **kwargs)
     parser_args = lib.util.ParseArgs(args=local_args, desc=f'{os.path.basename(sys.argv[0])}', pol_types=POL_TYPE_VALUES)
     parser_args.make_def_args()
@@ -522,7 +507,7 @@ if __name__ == "__main__":
         params['fnr'] = 18432
         params['fnc'] = 1248
         params['errf'] = os.path.join(dir_out, 'MemoryAllocError.txt')
-        # params['mask'] = os.path.join(dir_in, 'mask_valid_pixels.bin')
+        params['mask'] = os.path.join(dir_in, 'mask_valid_pixels.bin')
         main(**params)
 
         # Pass parasm as positional arguments

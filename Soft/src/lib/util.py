@@ -229,7 +229,6 @@ class Application:
         Open output files and return the file objects.
         '''
         out_datafile = []
-        print(f'{file_name_out=}, {n_polar_out=}')
         for n_pol in range(n_polar_out):
             try:
                 out_datafile.append(open(file_name_out[n_pol], mode))
@@ -320,6 +319,17 @@ class Application:
 
     def rewind(self, f):
         f.seek(0)
+
+    def copy_header(self, src_dir, dst_dir):
+        src_path = os.path.join(src_dir, 'config.txt')
+        dst_path = os.path.join(dst_dir, 'config.txt')
+        if os.path.isfile(src_path):
+            with open(src_path, 'r') as src_file:
+                content = src_file.read()
+            with open(dst_path, 'w') as dst_file:
+                dst_file.write(content)
+        else:
+            print(f"Source file {src_path} does not exist.")
 
     def allocate_matrices(self, n_col, n_polar_out, n_win_l, n_win_c, n_lig_block, sub_n_col):
         '''

@@ -408,6 +408,26 @@ class LeeRefinedFilter(Module):
         self.params['mask'] = os.path.join(self.dir_in, 'mask_valid_pixels.bin')
 
 
+class BoxcarFilter(Module):
+    MODULE_NAME = 'boxcar_filter'
+
+    def __init__(self, skip='', lang='py'):
+        super().__init__(BoxcarFilter.MODULE_NAME, lang)
+        self.skip = skip
+        self.skip = skip
+        self.params['id'] = self.dir_in
+        self.params['od'] = self.dir_out
+        self.params['iodf'] = 'T3'
+        self.params['nwr'] = 7
+        self.params['nwc'] = 7
+        self.params['ofr'] = 0
+        self.params['ofc'] = 0
+        self.params['fnr'] = 18432
+        self.params['fnc'] = 1248
+        self.params['errf'] = os.path.join(self.dir_out, 'MemoryAllocError.txt')
+        self.params['mask'] = os.path.join(self.dir_in, 'mask_valid_pixels.bin')
+
+
 class ModuleLauncher:
     ARG_HELP = '-h'
     ARG_VERBOSE = '-v'
@@ -504,6 +524,9 @@ class ModuleLauncher:
             self.modules.append(WishartHAAlphaClassifier(lang=lang))
         if module == 'all' or module == LeeRefinedFilter.MODULE_NAME:
             self.modules.append(LeeRefinedFilter(lang=lang))
+        if module == 'all' or module == BoxcarFilter.MODULE_NAME:
+            self.modules.append(BoxcarFilter(lang=lang))
+
 
     def preaper_modules_name(self):
         self.modules_name = []
@@ -516,6 +539,7 @@ class ModuleLauncher:
         self.modules_name.append(WishartSupervisedClassifier.MODULE_NAME)
         self.modules_name.append(WishartHAAlphaClassifier.MODULE_NAME)
         self.modules_name.append(LeeRefinedFilter.MODULE_NAME)
+        self.modules_name.append(BoxcarFilter.MODULE_NAME)
 
     def print_usage(self):
         print('\nUsage:')

@@ -1,135 +1,102 @@
-"""
-Polsarpro
-===
+#!/usr/bin/env python3
+'''
+********************************************************************
+PolSARpro v5.0 is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License as
+published by the Free Software Foundation; either version 2 (1991) of
+the License, or any later version. This program is distributed in the
+hope that it will be useful, but WITHOUT ANY WARRANTY; without even
+the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+PURPOSE.
+
+See the GNU General Public License (Version 2, 1991) for more details
+
+*********************************************************************
+
+File  : cloude decomposition.c
+Project  : ESA_POLSARPRO-SATIM
+Authors  : Eric POTTIER, Jacek STRZELCZYK
+Translate to python: Ryszard Wozniak
+Update&Fix  : Krzysztof Smaza
+Version  : 2.0
+Creation : 07/2015
+Update  :
+*--------------------------------------------------------------------
+INSTITUT D'ELECTRONIQUE et de TELECOMMUNICATIONS de RENNES (I.E.T.R)
+UMR CNRS 6164
+
+Waves and Signal department
+SHINE Team
+
+
+UNIVERSITY OF RENNES I
+Bât. 11D - Campus de Beaulieu
+263 Avenue Général Leclerc
+35042 RENNES Cedex
+Tel :(+33) 2 23 23 57 63
+Fax :(+33) 2 23 23 69 63
+e-mail: eric.pottier@univ-rennes1.fr
+
+*--------------------------------------------------------------------
+
 Description :  Cloude decomposition
 
-Input parameters:
-id  	input directory
-od  	output directory
-iodf	input-output data format
-nwr 	Nwin Row
-nwc 	Nwin Col
-ofr 	Offset Row
-ofc 	Offset Col
-fnr 	Final Number of Row
-fnc 	Final Number of Col
+********************************************************************
+'''
 
-Optional Parameters:
-mask	mask file (valid pixels)
-errf	memory error file
-help	displays this message
-data	displays the help concerning Data Format parameter
-"""
+
 import os
 import sys
-import argparse
-import numpy as np
-from collections import namedtuple
-import concurrent.futures
-from tqdm import tqdm
-from multiprocessing import Pool
-from numba import jit
-import util
-import util_block
-import processing
+import platform
+import numpy
+import math
+import logging
 import numba
+sys.path.append(r'../')
+import lib.util  # noqa: E402
+import lib.util_block  # noqa: E402
+import lib.matrix  # noqa: E402
+import lib.processing  # noqa: E402
 
-def main(in_dir, out_dir, pol_type, n_win_l, n_win_c, off_lig, off_col, sub_n_lig, sub_n_col, file_memerr, file_valid):
-    """
-    Main Function for the Cloude.
-    Parses the input arguments, reads the input files, and processes the data using Cloude filtering.
-    """
-    print("********************Welcome in Cloude********************")
+numba.config.THREADING_LAYER = 'omp'
+if numba.config.NUMBA_NUM_THREADS > 1:
+    numba.set_num_threads(numba.config.NUMBA_NUM_THREADS - 1)
 
-    pol_type_conf = ["S2C3", "S2T3", "C3", "T3"]
+NUMBA_IS_LINUX = numba.np.ufunc.parallel._IS_LINUX
 
-    # Initialising the arguments for the parser
-    n_lig_block = np.zeros(8192, dtype=int)
-    n_polar_out = 0
-    m_out = 0
-    m_in = []
-    valid = 0
-    in_datafile = []
-    in_valid = 0
+if NUMBA_IS_LINUX is True:
+    get_thread_id_type = numba.typeof(numba.np.ufunc.parallel._get_thread_id())
 
-    m = np.zeros((3, 3, 2))
-
-    #   ********************************************************************
-    #   ********************************************************************/
-    #   /* USAGE */
-    # args = parse_arguments(pol_type_conf)
-    # in_dir = args.id
-    # out_dir = args.od
-    # pol_type = args.iodf
-    # n_win_l = args.nwr
-    # n_win_c = args.nwc
-    # off_lig = args.ofr
-    # off_col = args.ofc
-    # sub_n_lig = args.fnr
-    # sub_n_col = args.fnc
-    # file_memerr = args.errf
-    # file_valid = args.mask
-
-    n_win_lm_1s2 = int((n_win_l - 1) / 2)
-    n_win_cm_1s2 = int((n_win_c - 1) / 2)
-
-    # # /* INPUT/OUPUT CONFIGURATIONS */
-    n_lig, n_col, polar_case, polar_type = read_configuration(in_dir)
-
-    # # /* POLAR TYPE CONFIGURATION */
-    pol_type, n_polar_in, pol_type_in, n_polar_out, pol_type_out = configure_polar_type(pol_type)
-
-    # # /* INPUT/OUTPUT FILE CONFIGURATION */
-    file_name_in, file_name_out = configure_input_output_files(pol_type_in, pol_type_out, in_dir, out_dir)
-
-    # # /* INPUT FILE OPENING*/
-    in_datafile, in_valid, flag_valid = open_input_files(file_name_in, file_valid, in_datafile, n_polar_in, in_valid)
-
-    # /* OUTPUT FILE OPENING*/
-    out_datafile = open_output_files(file_name_out, n_polar_out)
-
-    # /* COPY HEADER*/
-    copy_header(in_dir, out_dir)
-
-    # /* MATRIX ALLOCATION */
-    util.vc_in, util.vf_in, util.mc_in, util.mf_in, valid, m_in, m_out = allocate_matrices(n_col, n_polar_out, n_win_l, n_win_c, sub_n_lig, sub_n_col)
-
-    # /* MASK VALID PIXELS (if there is no MaskFile */
-    valid = set_valid_pixels(valid, flag_valid, n_lig_block, sub_n_col, n_win_c, n_win_l)
-
-    nb_block = 1
-    for block in range(nb_block):
-        ligDone = 0
-        if nb_block > 2:
-            print(f"{100. * block / (nb_block - 1):.2f}", end='\r', flush=True)
-
-        if flag_valid == 1:
-            m_in = util_block.read_block_matrix_float(in_valid, valid, block, nb_block, sub_n_lig, sub_n_col, n_win_l, n_win_c, off_lig, off_col, n_col)
-
-        if pol_type_in == "S2":
-            m_in = util_block.read_block_S2_noavg(in_datafile, m_in, pol_type_out, n_polar_out, block, nb_block, sub_n_lig, sub_n_col, n_win_l, n_win_c, off_lig, off_col, n_col)
-        else:
-            # Case of C,T or I
-            m_in = util_block.read_block_TCI_noavg(in_datafile, m_in, n_polar_out, block, nb_block, sub_n_lig, sub_n_col, n_win_l, n_win_c, off_lig, off_col, n_col)
-
-        m_out = cloude(n_polar_out,sub_n_lig, sub_n_col, n_win_lm_1s2, n_win_cm_1s2, n_win_c, m_in, valid, m_out, m, n_win_l)
-
-        util_block.write_block_matrix3d_float(out_datafile, n_polar_out, m_out, sub_n_lig, sub_n_col, 0, 0, sub_n_col)
+    @numba.njit
+    def numba_get_thread_id():
+        with numba.objmode(ret=get_thread_id_type):
+            ret = numba.np.ufunc.parallel._get_thread_id()
+            return ret
+else:
+    @numba.njit
+    def numba_get_thread_id():
+        with numba.objmode(ret=numba.int32):
+            ret = numba.int32(-1)
+            return ret
 
 
-def cloude(n_polar_out,sub_n_lig, sub_n_col, n_win_lm_1s2, n_win_cm_1s2, n_win_c, m_in, valid, m_out, m, n_win_l):
+@numba.njit(parallel=False, fastmath=True)
+def cloude_decomposition_algorithm(nb, n_lig_block, n_polar_out, sub_n_col, m_in, valid, n_win_l, n_win_c, n_win_lm_1s2, n_win_cm_1s2, eps, m_out):  # , sub_n_lig, sub_n_col, n_win_lm_1s2, n_win_cm_1s2, n_win_c, m_in, valid, m_out, m, n_win_l):
+    # pragma omp parallel for private(col, k, Np, M, V, lambda, M_avg) firstprivate(k1r, k1i, k2r, k2i, k3r, k3i) shared(ligDone)
     ligDone = 0
-    for lig in range(sub_n_lig):
-        if lig % ((sub_n_lig) // 20) == 0:
-            print("{:.2f}%\r".format(100.0 * lig / (sub_n_lig - 1)), end="",)
+    m = lib.matrix.matrix3d_float(3, 3, 2)
+    v = lib.matrix.matrix3d_float(3, 3, 2)
+    lmbda = lib.matrix.vector_float(3)
+    m_avg = lib.matrix.matrix_float(n_polar_out, sub_n_col)
+    for lig in range(n_lig_block[nb]):
         ligDone += 1
-        k1r, k1i, k2r, k2i, k3r, k3i = 0, 0, 0, 0, 0, 0
-        eps = np.float64(1e-30)
-        m = np.zeros((3, 3, 2), dtype=float)
-        v = np.zeros((3, 3, 2), dtype=float)
-        lambda_ = np.zeros(3, dtype=float)
-        m_avg = np.zeros((n_polar_out,sub_n_col))
-        m_avg = util_block.average_tci(m_in, valid, n_polar_out, m_avg, lig, sub_n_col, n_win_l, n_win_c, n_win_lm_1s2, n_win_cm_1s2)
+        if numba_get_thread_id() == 0:
+            lib.util.printf_line(ligDone, n_lig_block[nb])
+        m.fill(0.0)
+        v.fill(0.0)
+        lmbda.fill(0.0)
+        m_avg.fill(0)
+        lib.util_block.average_tci(m_in, valid, n_polar_out, m_avg, lig, sub_n_col, n_win_l, n_win_c, n_win_lm_1s2, n_win_cm_1s2)
         for col in range(sub_n_col):
             if valid[n_win_lm_1s2 + lig][n_win_cm_1s2 + col] == 1.:
                 m[0][0][0] = eps + m_avg[0][col]
@@ -138,33 +105,34 @@ def cloude(n_polar_out,sub_n_lig, sub_n_col, n_win_lm_1s2, n_win_cm_1s2, n_win_c
                 m[0][1][1] = eps + m_avg[2][col]
                 m[0][2][0] = eps + m_avg[3][col]
                 m[0][2][1] = eps + m_avg[4][col]
-                m[1][0][0] =  m[0][1][0]
+                m[1][0][0] = m[0][1][0]
                 m[1][0][1] = -m[0][1][1]
                 m[1][1][0] = eps + m_avg[5][col]
                 m[1][1][1] = 0.
                 m[1][2][0] = eps + m_avg[6][col]
                 m[1][2][1] = eps + m_avg[7][col]
-                m[2][0][0] =  m[0][2][0]
+                m[2][0][0] = m[0][2][0]
                 m[2][0][1] = -m[0][2][1]
-                m[2][1][0] =  m[1][2][0]
+                m[2][1][0] = m[1][2][0]
                 m[2][1][1] = -m[1][2][1]
                 m[2][2][0] = eps + m_avg[8][col]
                 m[2][2][1] = 0.
 
-                #EIGENVECTOR/EIGENVALUE DECOMPOSITION
-                #V complex eigenvecor matrix, lambda real vector
-                v, lambda_ = processing.diagonalisation(3, m, v, lambda_)
-                for k in range(3):
-                    if lambda_[k] < 0.:
-                        lambda_[k] = 0.
+                # EIGENVECTOR/EIGENVALUE DECOMPOSITION
+                # V complex eigenvecor matrix, lambda real vector
+                lib.processing.diagonalisation(3, m, v, lmbda)
 
-                #Cloude algorithm
-                k1r = np.sqrt(lambda_[0]) * v[0][0][0]
-                k1i = np.sqrt(lambda_[0]) * v[0][0][1]
-                k2r = np.sqrt(lambda_[0]) * v[1][0][0]
-                k2i = np.sqrt(lambda_[0]) * v[1][0][1]
-                k3r = np.sqrt(lambda_[0]) * v[2][0][0]
-                k3i = np.sqrt(lambda_[0]) * v[2][0][1]
+                for k in range(3):
+                    if lmbda[k] < 0.:
+                        lmbda[k] = 0.
+
+                # Cloude algorithm
+                k1r = math.sqrt(lmbda[0]) * v[0][0][0]
+                k1i = math.sqrt(lmbda[0]) * v[0][0][1]
+                k2r = math.sqrt(lmbda[0]) * v[1][0][0]
+                k2i = math.sqrt(lmbda[0]) * v[1][0][1]
+                k3r = math.sqrt(lmbda[0]) * v[2][0][0]
+                k3i = math.sqrt(lmbda[0]) * v[2][0][1]
 
                 m_out[0][lig][col] = k1r * k1r + k1i * k1i
                 m_out[1][lig][col] = k1r * k2r + k1i * k2i
@@ -176,116 +144,204 @@ def cloude(n_polar_out,sub_n_lig, sub_n_col, n_win_lm_1s2, n_win_cm_1s2, n_win_c
                 m_out[7][lig][col] = k2i * k3r - k2r * k3i
                 m_out[8][lig][col] = k3r * k3r + k3i * k3i
             else:
-                for Np in range(n_polar_out):
-                    m_out[Np][lig][col] = 0.
-    return m_out
+                for np in range(n_polar_out):
+                    m_out[np][lig][col] = 0.
 
-# %% [codecell] read_configuration
-def read_configuration(in_dir):
-    """
-    Read the configuration from the input directory and return the parameters.
-    """
-    n_lig, n_col, polar_case, polar_type = util.read_config(in_dir)
-    return n_lig, n_col, polar_case, polar_type
 
-# %% [codecell] configure_polar_type
-def configure_polar_type(pol_type):
-    """
-    Configure the polar type based on the provided input-output data format and return the updated parameters.
-    """
-    return util.pol_type_config(pol_type)
+class App(lib.util.Application):
 
-# %% [codecell] configure_input_output_files
-def configure_input_output_files(pol_type_in, pol_type_out, in_dir, out_dir):
-    """
-    Configure the input and output files based on the provided polar types and directories.
-    Return the input and output file names.
-    """
-    file_name_in = util.init_file_name(pol_type_in, in_dir)
-    file_name_out = util.init_file_name(pol_type_out, out_dir)
-    return file_name_in, file_name_out
+    def __init__(self, args):
+        super().__init__(args)
 
-# %% [codecell] open_input_files
-def open_input_files(file_name_in, file_valid, in_datafile, n_polar_in, in_valid):
-    """
-    Open input files and return the file objects and a flag indicating if the 'valid' file is present.
-    """
-    flag_valid = False
-    for n_pol in range(n_polar_in):
-        try:
-            in_datafile.append(open(file_name_in[n_pol], "rb"))
-        except IOError:
-            print("Could not open input file : ", file_name_in[n_pol])
-            raise
+    def allocate_matrices(self, n_col, n_polar_out, n_win_l, n_win_c, n_lig_block, sub_n_col):
+        '''
+        Allocate matrices with given dimensions
+        '''
+        logging.info(f'{n_col=}, {n_polar_out=}, {n_win_l=}, {n_win_c=}, {n_lig_block=}, {sub_n_col=}')
+        self.vc_in = lib.matrix.vector_float(2 * n_col)
+        self.vf_in = lib.matrix.vector_float(n_col)
+        self.mc_in = lib.matrix.matrix_float(4, 2 * n_col)
+        self.mf_in = lib.matrix.matrix3d_float(n_polar_out, n_win_l, n_col + n_win_c)
+        self.valid = lib.matrix.matrix_float(n_lig_block + n_win_l, sub_n_col + n_win_c)
+        self.m_in = lib.matrix.matrix3d_float(n_polar_out, n_lig_block + n_win_l, n_col + n_win_c)
+        self.m_out = lib.matrix.matrix3d_float(n_polar_out, n_lig_block, sub_n_col)
 
-    if file_valid:
-        flag_valid = True
-        try:
-            in_valid = open(file_valid, "rb")
-        except IOError:
-            print("Could not open input file: ", file_valid)
-            raise
-    return in_datafile, in_valid, flag_valid
+    def run(self):
+        logging.info('******************** Welcome in cloude decomposition ********************')
+        logging.info(self.args)
+        in_dir = self.args.id
+        out_dir = self.args.od
+        pol_type = self.args.iodf
+        n_win_l = self.args.nwr
+        n_win_c = self.args.nwc
+        off_lig = self.args.ofr
+        off_col = self.args.ofc
+        sub_n_lig = self.args.fnr
+        sub_n_col = self.args.fnc
+        file_memerr = self.args.errf
 
-# %% [codecell] open_output_files
-def open_output_files(file_name_out, n_polar_out):
-    """
-    Open output files and return the file objects.
-    """
-    out_datafile = []
-    for n_pol in range(n_polar_out):
-        try:
-            out_datafile.append(open(file_name_out[n_pol], "wb"))
-        except IOError:
-            print("Could not open output file : ", file_name_out[n_pol])
-            raise
-    return out_datafile
+        flag_valid = False
+        file_valid = ''
 
-# %% [codecell] set_valid_pixels
-def set_valid_pixels(valid, flag_valid, sub_n_lig, sub_n_col, n_win_c, n_win_l):
-    """
-    Set the valid pixels for the Cloude filter based on the provided parameters.
-    """
-    if not flag_valid:
-        valid[:sub_n_lig + n_win_l, :sub_n_col + n_win_c] = 1.0
-    return valid
+        if self.args.mask is not None and self.args.mask:
+            file_valid = self.args.mask
+            flag_valid = True
+        logging.info(f'{flag_valid=}, {file_valid=}')
 
-# %% [codecell] allocate_matrices
-def allocate_matrices(n_col, n_polar_out, n_win_l, n_win_c, sub_n_lig, sub_n_col):
-    """
-    Allocate matrices with given dimensions
-    """
-    vc_in = np.zeros(2 * n_col, dtype=np.float32)
-    vf_in = np.zeros(n_col, dtype=np.float32)
-    mc_in = np.zeros((4, 2 * n_col), dtype=np.float32)
-    mf_in = np.zeros((n_polar_out, n_win_l, n_col + n_win_c), dtype=np.float32)
+        in_dir = self.check_dir(in_dir)
+        logging.info(f'{in_dir=}')
+        out_dir = self.check_dir(out_dir)
+        logging.info(f'{out_dir=}')
 
-    valid = np.zeros((sub_n_lig + n_win_l, sub_n_col + n_win_c), dtype=np.float32)
-    m_in = np.zeros((n_polar_out, sub_n_lig + n_win_l, n_col + n_win_c), dtype=np.float32)
-    m_out = np.zeros((n_polar_out, sub_n_lig, sub_n_col), dtype=np.float32)
+        if flag_valid is True:
+            self.check_file(file_valid)
 
-    return vc_in, vf_in, mc_in, mf_in, valid, m_in, m_out
+        n_win_l_m1s2 = (n_win_l - 1) // 2
+        n_win_c_m1s2 = (n_win_c - 1) // 2
+        logging.info(f'{n_win_c_m1s2=}; {n_win_l_m1s2=}')
 
-def is_pol_type_valid(pol_type):
-    """
-    Check if the given pol_type is valid for processing.
-    Returns True if the pol_type is valid, False otherwise.
-    """
-    valid_pol_types = ["S2", "SPP", "SPPpp1", "SPPpp2", "SPPpp3"]
-    return pol_type in valid_pol_types
+        # INPUT/OUPUT CONFIGURATIONS
+        n_lig, n_col, polar_case, polar_type = lib.util.read_config(in_dir)
+        logging.info(f'{n_lig=}, {n_col=}, {polar_case=}, {polar_type=}')
 
-def copy_header(src_dir, dst_dir):
-    src_path = os.path.join(src_dir, 'config.txt')
-    dst_path = os.path.join(dst_dir, 'config.txt')
+        # POLAR TYPE CONFIGURATION
+        pol_type, n_polar_in, pol_type_in, n_polar_out, pol_type_out = lib.util.pol_type_config(pol_type)
+        logging.info(f'{pol_type=}, {n_polar_in=}, {pol_type_in=}, {n_polar_out=}, {pol_type_out=}')
 
-    if os.path.isfile(src_path):
-        with open(src_path, 'r') as src_file:
-            content = src_file.read()
-        
-        with open(dst_path, 'w') as dst_file:
-            dst_file.write(content)
-    else:
-        print(f"Source file {src_path} does not exist.")
+        # INPUT/OUTPUT FILE CONFIGURATION
+        file_name_in = lib.util.init_file_name(pol_type_in, in_dir)
+        logging.info(f'{file_name_in=}')
+
+        file_name_out = lib.util.init_file_name(pol_type_out, out_dir)
+        logging.info(f'{file_name_out=}')
+
+        # INPUT FILE OPENING
+        in_datafile = []
+        in_valid = None
+        in_datafile, in_valid, flag_valid = self.open_input_files(file_name_in, file_valid, in_datafile, n_polar_in, in_valid)
+
+        # OUTPUT FILE OPENING
+        out_datafile = self.open_output_files(file_name_out, n_polar_out)
+
+        # COPY HEADER
+        self.copy_header(in_dir, out_dir)
+
+        # MEMORY ALLOCATION
+        n_block_a = 0
+        n_block_b = 0
+        # Mask
+        n_block_a += sub_n_col + n_win_c
+        n_block_b += n_win_l * (sub_n_col + n_win_c)
+        # Mout = NpolarOut*Nlig*Sub_Ncol
+        n_block_a += n_polar_out * sub_n_col
+        n_block_b += 0
+        # Min = NpolarOut*Nlig*Sub_Ncol
+        n_block_a += n_polar_out * (n_col + n_win_c)
+        n_block_b += n_polar_out * n_win_l * (n_col + n_win_c)
+        # Mavg = n_polar_out
+        n_block_a += 0
+        n_block_b += n_polar_out * sub_n_col
+        # Reading Data
+        n_block_b += n_col + 2 * n_col + n_polar_in * 2 * n_col + n_polar_out * n_win_l * (n_col + n_win_c)
+        # logging.info(f'{n_block_a=}')
+        # logging.info(f'{n_block_b=}')
+        memory_alloc = self.check_free_memory()
+        memory_alloc = max(memory_alloc, 1000)
+        logging.info(f'{memory_alloc=}')
+        n_lig_block = numpy.zeros(lib.util.Application.FILE_PATH_LENGTH, dtype=int)
+        nb_block = 0
+        nb_block = self.memory_alloc(file_memerr, sub_n_lig, n_win_l, nb_block, n_lig_block, n_block_a, n_block_b, memory_alloc)
+        logging.info(f'{n_lig_block=}')
+        # MATRIX ALLOCATION
+        self.allocate_matrices(n_col, n_polar_out, n_win_l, n_win_c, n_lig_block[0], sub_n_col)
+
+        # MASK VALID PIXELS (if there is no MaskFile
+        self.set_valid_pixels(flag_valid, n_lig_block, sub_n_col, n_win_c, n_win_l)
+
+        # DATA PROCESSING
+        for nb in range(nb_block):
+            if nb_block > 2:
+                logging.debug("%f\r" % (100 * nb / (nb_block - 1)), end="", flush=True)
+
+            if flag_valid is True:
+                lib.util_block.read_block_matrix_float(in_valid, self.valid, nb, nb_block, n_lig_block[nb], sub_n_col, n_win_l, n_win_c, off_lig, off_col, n_col, self.vf_in)
+
+            if pol_type_in == 'S2':
+                lib.util_block.read_block_s2_noavg(in_datafile, self.m_in, pol_type_out, n_polar_out, nb, nb_block, n_lig_block[nb], sub_n_col, n_win_l, n_win_c, off_lig, off_col, n_col, self.mc_in)
+            else:  # Case of C, T, or I
+                lib.util_block.read_block_tci_noavg(in_datafile, self.m_in, n_polar_out, nb, nb_block, n_lig_block[nb], sub_n_col, n_win_l, n_win_c, off_lig, off_col, n_col, self.vf_in)
+
+            cloude_decomposition_algorithm(nb, n_lig_block, n_polar_out, sub_n_col, self.m_in, self.valid, n_win_l, n_win_c, n_win_l_m1s2, n_win_c_m1s2, lib.util.Application.EPS, self.m_out)
+
+            lib.util_block.write_block_matrix3d_float(out_datafile, n_polar_out, self.m_out, n_lig_block[nb], sub_n_col, 0, 0, sub_n_col)
+
+
+def main(*args, **kwargs):
+    '''Main function
+
+    Args:
+        id (str): input directory
+        od (str): output directory
+        iodf (str): input-output data forma
+        nwr (int): Nwin Row
+        nwc (int): Nwin Col
+        ofr (int): Offset Row
+        ofc (int): Offset Col
+        fnr (int): Final Number of Row
+        fnc (int): Final Number of Col
+        errf (str): memory error file
+        mask (str): mask file (valid pixels)'
+    '''
+    POL_TYPE_VALUES = ['S2C3', 'S2T3', 'C3', 'T3']
+    local_args = lib.util.ParseArgs.get_args(*args, **kwargs)
+    parser_args = lib.util.ParseArgs(args=local_args, desc=f'{os.path.basename(sys.argv[0])}', pol_types=POL_TYPE_VALUES)
+    parser_args.make_def_args()
+    parsed_args = parser_args.parse_args()
+    app = App(parsed_args)
+    app.run()
+
 
 if __name__ == "__main__":
-    main("D:\\Satim\\PolSARPro\\Datasets\\T3\\", "D:\\Satim\\PolSARPro\\Datasets\\output\\", "T3", 7, 7, 0, 0, 18432, 1248, "", "")
+    if len(sys.argv) > 1:
+        main(sys.argv[1:])
+    else:
+        dir_in = None
+        dir_out = None
+        params = {}
+        if platform.system().lower().startswith('win') is True:
+            dir_in = 'c:\\Projekty\\polsarpro.svn\\in\\cloude_decomposition\\'
+            dir_out = 'c:\\Projekty\\polsarpro.svn\\out\\cloude_decomposition\\py\\'
+        elif platform.system().lower().startswith('lin') is True:
+            dir_in = '/home/krzysiek/polsarpro/in/cloude_decomposition/'
+            dir_out = '/home/krzysiek/polsarpro/out/cloude_decomposition/'
+            params['v'] = None
+        else:
+            logging.error(f'unknown platform: {platform.system()}')
+            lib.util.exit_failure()
+
+        # Pass params as expanded dictionary with '**'
+        params['id'] = dir_in
+        params['od'] = dir_out
+        params['iodf'] = 'T3'
+        params['nwr'] = 7
+        params['nwc'] = 7
+        params['ofr'] = 0
+        params['ofc'] = 0
+        params['fnr'] = 18432
+        params['fnc'] = 1248
+        params['errf'] = os.path.join(dir_out, 'MemoryAllocError.txt')
+        params['mask'] = os.path.join(dir_in, 'mask_valid_pixels.bin')
+        main(**params)
+
+        # Pass parasm as positional arguments
+        # main(id=dir_in,
+        #      od=dir_out,
+        #      iodf='T3',
+        #      nwr=7,
+        #      nwc=7,
+        #      ofr=0,
+        #      ofc=0,
+        #      fnr=18432,
+        #      fnc=1248,
+        #      errf=os.path.join(f'{dir_out}', 'MemoryAllocError.txt'),
+        #      mask=os.path.join(f'{dir_in}', 'mask_valid_pixels.bin'))

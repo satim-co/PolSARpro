@@ -52,7 +52,6 @@ import platform
 import numpy
 import math
 import logging
-import datetime
 import numba
 sys.path.append(r'../')
 import lib.util  # noqa: E402
@@ -573,7 +572,6 @@ class App(lib.util.Application):
         # OUTPUT FILE
         with self.open_file(os.path.join(f'{out_dir}', 'dbl_class.bin'), 'wb') as out_file:
             lib.util_block.write_block_matrix_float(out_file, self.class_out, sub_n_lig, sub_n_col, 0, 0, sub_n_col)
-
 
 
 def main(*args, **kwargs):

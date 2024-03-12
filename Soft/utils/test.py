@@ -414,6 +414,24 @@ class BoxcarFilter(Module):
     def __init__(self, skip='', lang='py'):
         super().__init__(BoxcarFilter.MODULE_NAME, lang)
         self.skip = skip
+        self.params['id'] = self.dir_in
+        self.params['od'] = self.dir_out
+        self.params['iodf'] = 'T3'
+        self.params['nwr'] = 7
+        self.params['nwc'] = 7
+        self.params['ofr'] = 0
+        self.params['ofc'] = 0
+        self.params['fnr'] = 18432
+        self.params['fnc'] = 1248
+        self.params['errf'] = os.path.join(self.dir_out, 'MemoryAllocError.txt')
+        self.params['mask'] = os.path.join(self.dir_in, 'mask_valid_pixels.bin')
+
+
+class CloudeDecomposition(Module):
+    MODULE_NAME = 'cloude_decomposition'
+
+    def __init__(self, skip='', lang='py'):
+        super().__init__(CloudeDecomposition.MODULE_NAME, lang)
         self.skip = skip
         self.params['id'] = self.dir_in
         self.params['od'] = self.dir_out
@@ -428,12 +446,11 @@ class BoxcarFilter(Module):
         self.params['mask'] = os.path.join(self.dir_in, 'mask_valid_pixels.bin')
 
 
-class CloudexDecomposition(Module):
-    MODULE_NAME = 'cloude_decomposition'
+class FreemanDecomposition(Module):
+    MODULE_NAME = 'freeman_decomposition'
 
     def __init__(self, skip='', lang='py'):
-        super().__init__(CloudexDecomposition.MODULE_NAME, lang)
-        self.skip = skip
+        super().__init__(FreemanDecomposition.MODULE_NAME, lang)
         self.skip = skip
         self.params['id'] = self.dir_in
         self.params['od'] = self.dir_out
@@ -536,7 +553,8 @@ class ModuleLauncher:
         self.modules.append(WishartHAAlphaClassifier)
         self.modules.append(LeeRefinedFilter)
         self.modules.append(BoxcarFilter)
-        # self.modules.append(CloudexDecomposition)
+        self.modules.append(CloudeDecomposition)
+        self.modules.append(FreemanDecomposition)
 
     def print_usage(self):
         print('\nUsage:')

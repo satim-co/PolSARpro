@@ -465,6 +465,34 @@ class FreemanDecomposition(Module):
         self.params['mask'] = os.path.join(self.dir_in, 'mask_valid_pixels.bin')
 
 
+class HAAlphaDecomposition (Module):
+    MODULE_NAME = 'h_a_alpha_decomposition'
+
+    def __init__(self, skip='', lang='py'):
+        super().__init__(HAAlphaDecomposition.MODULE_NAME, lang)
+        self.skip = skip
+        self.params['id'] = self.dir_in
+        self.params['od'] = self.dir_out
+        self.params['iodf'] = 'T3'
+        self.params['nwr'] = 7
+        self.params['nwc'] = 7
+        self.params['ofr'] = 0
+        self.params['ofc'] = 0
+        self.params['fnr'] = 18432
+        self.params['fnc'] = 1248
+        self.params['fl1'] = 1
+        self.params['fl2'] = 0
+        self.params['fl3'] = 0
+        self.params['fl4'] = 0
+        self.params['fl5'] = 0
+        self.params['fl6'] = 0
+        self.params['fl7'] = 0
+        self.params['fl8'] = 0
+        self.params['fl9'] = 0
+        self.params['errf'] = os.path.join(self.dir_out, 'MemoryAllocError.txt')
+        self.params['mask'] = os.path.join(self.dir_in, 'mask_valid_pixels.bin')
+
+
 class ModuleLauncher:
     ARG_HELP = '-h'
     ARG_VERBOSE = '-v'
@@ -555,6 +583,7 @@ class ModuleLauncher:
         self.modules.append(BoxcarFilter)
         self.modules.append(CloudeDecomposition)
         self.modules.append(FreemanDecomposition)
+        self.modules.append(HAAlphaDecomposition)
 
     def print_usage(self):
         print('\nUsage:')

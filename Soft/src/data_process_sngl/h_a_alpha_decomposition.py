@@ -1,766 +1,935 @@
-"""
-Polsarpro
-===
-Description :  Cloude-Pottier eigenvector/eigenvalue based decomposition
+#!/usr/bin/env python3
 
-Input parameters:
-id  	input directory
-od  	output directory
-iodf	input-output data format
-nwr 	Nwin Row
-nwc 	Nwin Col
-ofr 	Offset Row
-ofc 	Offset Col
-fnr 	Final Number of Row
-fnc 	Final Number of Col
-fl1 	Flag Parameters (0/1)
-fl2 	Flag Lambda (0/1)
-fl3 	Flag Alpha (0/1)
-fl4 	Flag Entropy (0/1)
-fl5 	Flag Anisotropy (0/1)
-fl6 	Flag Comb HA (0/1)
-fl7 	Flag Comb H1mA (0/1)
-fl8 	Flag Comb 1mHA (0/1)
-fl9 	Flag Comb 1mH1mA (0/1)
+'''
+********************************************************************
+PolSARpro v5.0 is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License as
+published by the Free Software Foundation; either version 2 (1991) of
+the License, or any later version. This program is distributed in the
+hope that it will be useful, but WITHOUT ANY WARRANTY; without even
+the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+PURPOSE.
 
-Optional Parameters:
-mask	mask file (valid pixels)
-errf	memory error file
-help	displays this message
-data	displays the help concerning Data Format parameter
-"""
+See the GNU General Public License (Version 2, 1991) for more details
 
-# %% [codecell] import
-import math
+*********************************************************************
+
+File  : h_a_alpha_decomposition.c
+Project  : ESA_POLSARPRO-SATIM
+Authors  : Eric POTTIER, Jacek STRZELCZYK
+Version  : 2.0
+Creation : 07/2015
+Update  :
+*--------------------------------------------------------------------
+INSTITUT D'ELECTRONIQUE et de TELECOMMUNICATIONS de RENNES (I.E.T.R)
+UMR CNRS 6164
+
+Waves and Signal department
+SHINE Team
+
+
+UNIVERSITY OF RENNES I
+Bât. 11D - Campus de Beaulieu
+263 Avenue Général Leclerc
+35042 RENNES Cedex
+Tel :(+33) 2 23 23 57 63
+Fax :(+33) 2 23 23 69 63
+e-mail: eric.pottier@univ-rennes1.fr
+
+*--------------------------------------------------------------------
+
+Description :  Cloude-Pottier eigenvector/eigenvalue based
+               decomposition
+
+********************************************************************
+'''
+
+
 import os
 import sys
-import argparse
-import numpy as np
-from collections import namedtuple
-import concurrent.futures
-from tqdm import tqdm
-from multiprocessing import Pool
-from numba import jit
-from numpy import linalg as LA
-from math import acos, sqrt, atan2, sin, cos, pi, log
+import platform
+import numpy
+import math
+import logging
+import numba
+sys.path.append(r'../')
+import lib.util  # noqa: E402
+import lib.util_block  # noqa: E402
+import lib.util_convert  # noqa: E402
+import lib.matrix  # noqa: E402
+import lib.processing  # noqa: E402
 
-import processing
-import util
-import util_block
 
-# %% [codecell] main
-def main():
-    """
-    Main Function for the BoxCar fully polarimetric speckle filter.
-    Parses the input arguments, reads the input files, and processes the data using boxcar filtering.
-    """
-    print("********************Welcome in boxcar_filter********************")
+numba.config.THREADING_LAYER = 'omp'
+if numba.config.NUMBA_NUM_THREADS > 1:
+    numba.set_num_threads(numba.config.NUMBA_NUM_THREADS - 1)
 
-    Config = 0
-    pol_type_conf = ["S2T3", "S2C3", "S2T4", "S2C4", "SPPC2", "C2", "C3", "C3T3", "C4", "C4T4", "T3", "T4"]
-    file_name = ""
-    eps = 1.E-30
-    n_lig_block = np.zeros(8192, dtype=int)
+NUMBA_IS_LINUX = numba.np.ufunc.parallel._IS_LINUX
 
-    flag = [0]*13
-    n_out = 0
-    n_Para = 0
+if NUMBA_IS_LINUX is True:
+    get_thread_id_type = numba.typeof(numba.np.ufunc.parallel._get_thread_id())
 
-    out_file_2 = [None] * 9
-    out_file_3 = [None] * 11
-    out_file_4 = [None] * 13
+    @numba.njit
+    def numba_get_thread_id():
+        with numba.objmode(ret=get_thread_id_type):
+            ret = numba.np.ufunc.parallel._get_thread_id()
+            return ret
+else:
+    @numba.njit
+    def numba_get_thread_id():
+        with numba.objmode(ret=numba.int32):
+            ret = numba.int32(-1)
+            return ret
 
-    file_out_2 = [
-        "alpha.bin", "delta.bin", "lambda.bin",
-        "entropy.bin", "anisotropy.bin",
-        "combination_HA.bin", "combination_H1mA.bin",
-        "combination_1mHA.bin", "combination_1mH1mA.bin"]
+SpecIndexes = [('alpha', numba.types.int32),
+               ('beta', numba.types.int32),
+               ('gamma', numba.types.int32),
+               ('delta', numba.types.int32),
+               ('lmda', numba.types.int32),
+               ('epsi', numba.types.int32),
+               ('a', numba.types.int32),
+               ('h', numba.types.int32),
+               ('nhu', numba.types.int32),
+               ('combHA', numba.types.int32),
+               ('combH1mA', numba.types.int32),
+               ('comb1mHA', numba.types.int32),
+               ('comb1mH1mA', numba.types.int32)]
 
-    file_out_3 = [
-        "alpha.bin", "beta.bin", "delta.bin",
-        "gamma.bin", "lambda.bin",
-        "entropy.bin", "anisotropy.bin",
-        "combination_HA.bin", "combination_H1mA.bin",
-        "combination_1mHA.bin", "combination_1mH1mA.bin"]
 
-    file_out_4 = [
-        "alpha.bin", "beta.bin", "epsilon.bin", "delta.bin",
-        "gamma.bin", "nhu.bin", "lambda.bin",
-        "entropy.bin", "anisotropy.bin",
-        "combination_HA.bin", "combination_H1mA.bin",
-        "combination_1mHA.bin", "combination_1mH1mA.bin"]
+@numba.experimental.jitclass(SpecIndexes)
+class Indexes:
+    def __init__(self):
+        self.alpha = -1
+        self.beta = -1
+        self.gamma = -1
+        self.delta = -1
+        self.lmda = -1
+        self.epsi = -1
+        self.a = -1
+        self.h = -1
+        self.nhu = -1
+        self.combHA = -1
+        self.combH1mA = -1
+        self.comb1mHA = -1
+        self.comb1mH1mA = -1
 
-    flag_para = flag_lambda = flag_alpha = 0
-    flag_entropy = flag_anisotropy = 0
-    flag_comb_ha = flag_comb_h1ma = flag_comb_1mha = flag_comb_1mh1ma = 0
 
-    Alpha = Beta = Epsi = Delta = Gamma = Nhu = Lambda = 0
-    H = A = comb_ha = comb_h1ma = comb_1mha = comb_1mh1ma = 0
+SpecMatrices = [('alpha', numba.types.float32[:]),
+                ('beta', numba.types.float32[:]),
+                ('epsilon', numba.types.float32[:]),
+                ('delta', numba.types.float32[:]),
+                ('gamma', numba.types.float32[:]),
+                ('nhu', numba.types.float32[:]),
+                ('phase', numba.types.float32[:]),
+                ('p', numba.types.float32[:])]
 
-    # Internal variables
-    ii, lig, col, k = 0, 0, 0, 0
+
+@numba.experimental.jitclass(SpecMatrices)
+class Matrices:
+    def __init__(self):
+        self.alpha = lib.matrix.vector_float(4)
+        self.beta = lib.matrix.vector_float(4)
+        self.epsilon = lib.matrix.vector_float(4)
+        self.delta = lib.matrix.vector_float(4)
+        self.gamma = lib.matrix.vector_float(4)
+        self.nhu = lib.matrix.vector_float(4)
+        self.phase = lib.matrix.vector_float(4)
+        self.p = lib.matrix.vector_float(4)
+
+
+@numba.njit(parallel=False, fastmath=True)
+def process_c2(nb, n_lig_block, n_polar_out, sub_n_col, m_in, valid, n_win_l, n_win_c, n_win_l_m1s2, n_win_c_m1s2, n_out, m_out, eps, flag, matrices, indexes, pi):
+    # pragma omp parallel for private(col, k, M, V, lambda, M_avg) firstprivate(alpha, delta, phase, p) shared(ligDone)
     ligDone = 0
+    m = lib.matrix.matrix3d_float(2, 2, 2)
+    v = lib.matrix.matrix3d_float(2, 2, 2)
+    m_lambda = lib.matrix.vector_float(2)
+    m_avg = lib.matrix.matrix_float(n_polar_out, sub_n_col)
+    for lig in range(n_lig_block[nb]):
+        ligDone += 1
+        if numba_get_thread_id() == 0:
+            lib.util.printf_line(ligDone, n_lig_block[nb])
+        m.fill(0.0)
+        v.fill(0.0)
+        m_lambda.fill(0.0)
+        m_avg.fill(0.0)
+        lib.util_block.average_tci(m_in, valid, n_polar_out, m_avg, lig, sub_n_col, n_win_l, n_win_c, n_win_l_m1s2, n_win_c_m1s2)
+        for col in range(sub_n_col):
+            for k in range(n_out):
+                m_out[k][lig][col] = 0.
+            if valid[n_win_l_m1s2 + lig][n_win_c_m1s2 + col] == 1.:
+
+                m[0][0][0] = eps + m_avg[0][col]
+                m[0][0][1] = 0.
+                m[0][1][0] = eps + m_avg[1][col]
+                m[0][1][1] = eps + m_avg[2][col]
+                m[1][0][0] = m[0][1][0]
+                m[1][0][1] = -m[0][1][1]
+                m[1][1][0] = eps + m_avg[3][col]
+                m[1][1][1] = 0.
+
+                # EIGENVECTOR/EIGENVALUE DECOMPOSITION
+                # V complex eigenvecor matrix, lambda real vector
+                lib.processing.diagonalisation(2, m, v, m_lambda)
+
+                for k in range(2):
+                    if m_lambda[k] < 0.:
+                        m_lambda[k] = 0.
+                for k in range(2):
+                    matrices.alpha[k] = math.acos(math.sqrt(v[0][k][0] * v[0][k][0] + v[0][k][1] * v[0][k][1]))
+                    matrices.phase[k] = math.atan2(v[0][k][1], eps + v[0][k][0])
+                    matrices.delta[k] = math.atan2(v[1][k][1], eps + v[1][k][0]) - matrices.phase[k]
+                    matrices.delta[k] = math.atan2(math.sin(matrices.delta[k]), math.cos(matrices.delta[k]) + eps)
+                    # Scattering mechanism probability of occurence
+                    matrices.p[k] = m_lambda[k] / (eps + m_lambda[0] + m_lambda[1])
+                    if matrices.p[k] < 0.:
+                        matrices.p[k] = 0.
+                    if matrices.p[k] > 1.:
+                        matrices.p[k] = 1.
+
+                # Mean scattering mechanism
+                if flag[indexes.alpha] != -1:
+                    m_out[flag[indexes.alpha]][lig][col] = 0
+                if flag[indexes.delta] != -1:
+                    m_out[flag[indexes.delta]][lig][col] = 0
+                if flag[indexes.lmda] != -1:
+                    m_out[flag[indexes.lmda]][lig][col] = 0
+                if flag[indexes.h] != -1:
+                    m_out[flag[indexes.h]][lig][col] = 0
+
+                for k in range(2):
+                    if flag[indexes.alpha] != -1:
+                        m_out[flag[indexes.alpha]][lig][col] += matrices.alpha[k] * matrices.p[k]
+                    if flag[indexes.delta] != -1:
+                        m_out[flag[indexes.delta]][lig][col] += matrices.delta[k] * matrices.p[k]
+                    if flag[indexes.lmda] != -1:
+                        m_out[flag[indexes.lmda]][lig][col] += m_lambda[k] * matrices.p[k]
+                    if flag[indexes.h] != -1:
+                        m_out[flag[indexes.h]][lig][col] -= matrices.p[k] * math.log(matrices.p[k] + eps)
+
+                # Scaling
+                if flag[indexes.alpha] != -1:
+                    m_out[flag[indexes.alpha]][lig][col] *= 180. / pi
+                if flag[indexes.delta] != -1:
+                    m_out[flag[indexes.delta]][lig][col] *= 180. / pi
+                if flag[indexes.h] != -1:
+                    m_out[flag[indexes.h]][lig][col] /= math.log(2.)
+
+                if flag[indexes.a] != -1:
+                    m_out[flag[indexes.a]][lig][col] = (matrices.p[0] - matrices.p[1]) / (matrices.p[0] + matrices.p[1] + eps)
+
+                if flag[indexes.combHA] != -1:
+                    m_out[flag[indexes.combHA]][lig][col] = m_out[flag[indexes.h]][lig][col] * m_out[flag[indexes.a]][lig][col]
+                if flag[indexes.combH1mA] != -1:
+                    m_out[flag[indexes.combH1mA]][lig][col] = m_out[flag[indexes.h]][lig][col] * (1. - m_out[flag[indexes.a]][lig][col])
+                if flag[indexes.comb1mHA] != -1:
+                    m_out[flag[indexes.comb1mHA]][lig][col] = (1. - m_out[flag[indexes.h]][lig][col]) * m_out[flag[indexes.a]][lig][col]
+                if flag[indexes.comb1mH1mA] != -1:
+                    m_out[flag[indexes.comb1mH1mA]][lig][col] = (1. - m_out[flag[indexes.h]][lig][col]) * (1. - m_out[flag[indexes.a]][lig][col])
 
 
-    # Matrix arrays - we will define these as empty lists for now as we don't know their sizes
-    m_avg = []
-    m_in = []
-    m_out = []
+@numba.njit(parallel=False, fastmath=True)
+def process_t3_c3(nb, n_lig_block, n_polar_out, sub_n_col, m_in, valid, n_win_l, n_win_c, n_win_l_m1s2, n_win_c_m1s2, n_out, m_out, eps, flag, matrices, indexes, pi):
+    # pragma omp parallel for private(col, k, M, V, lambda, M_avg) firstprivate(alpha, beta, delta, gamma, phase, p) shared(ligDone)
+    ligDone = 0
+    m = lib.matrix.matrix3d_float(3, 3, 2)
+    v = lib.matrix.matrix3d_float(3, 3, 2)
+    m_lambda = lib.matrix.vector_float(3)
+    m_avg = lib.matrix.matrix_float(n_polar_out, sub_n_col)
+    for lig in range(n_lig_block[nb]):
+        ligDone += 1
+        if numba_get_thread_id() == 0:
+            lib.util.printf_line(ligDone, n_lig_block[nb])
+        m.fill(0.0)
+        v.fill(0.0)
+        m_lambda.fill(0.0)
+        m_avg.fill(0.0)
+        lib.util_block.average_tci(m_in, valid, n_polar_out, m_avg, lig, sub_n_col, n_win_l, n_win_c, n_win_l_m1s2, n_win_c_m1s2)
+        for col in range(sub_n_col):
+            for k in range(n_out):
+                m_out[k][lig][col] = 0.
+            if valid[n_win_l_m1s2 + lig][n_win_c_m1s2 + col] == 1.:
 
-    lambda_ = []
+                m[0][0][0] = eps + m_avg[0][col]
+                m[0][0][1] = 0.
+                m[0][1][0] = eps + m_avg[1][col]
+                m[0][1][1] = eps + m_avg[2][col]
+                m[0][2][0] = eps + m_avg[3][col]
+                m[0][2][1] = eps + m_avg[4][col]
+                m[1][0][0] = m[0][1][0]
+                m[1][0][1] = -m[0][1][1]
+                m[1][1][0] = eps + m_avg[5][col]
+                m[1][1][1] = 0.
+                m[1][2][0] = eps + m_avg[6][col]
+                m[1][2][1] = eps + m_avg[7][col]
+                m[2][0][0] = m[0][2][0]
+                m[2][0][1] = -m[0][2][1]
+                m[2][1][0] = m[1][2][0]
+                m[2][1][1] = -m[1][2][1]
+                m[2][2][0] = eps + m_avg[8][col]
+                m[2][2][1] = 0.
 
-    #   ********************************************************************
-    #   ********************************************************************/
-    #   /* USAGE */
-    args = parse_arguments(pol_type_conf)
-    in_dir = args.id
-    out_dir = args.od
-    pol_type = args.iodf
-    n_win_l = args.nwr
-    n_win_c = args.nwc
-    off_lig = args.ofr
-    off_col = args.ofc
-    sub_n_lig = args.fnr
-    sub_n_col = args.fnc
+                # EIGENVECTOR/EIGENVALUE DECOMPOSITION
+                # V complex eigenvecor matrix, lambda real vector
+                lib.processing.diagonalisation(3, m, v, m_lambda)
 
-    flag_para = args.fl1
-    flag_lambda = args.fl2
-    flag_alpha = args.fl3
-    flag_entropy = args.fl4
-    flag_anisotropy = args.fl5
-    flag_comb_ha = args.fl6
-    flag_comb_h1ma = args.fl7
-    flag_comb_1mha = args.fl8
-    flag_comb_1mh1ma = args.fl9
+                for k in range(3):
+                    if m_lambda[k] < 0.:
+                        m_lambda[k] = 0.
+                for k in range(3):
+                    matrices.alpha[k] = math.acos(math.sqrt(v[0][k][0] * v[0][k][0] + v[0][k][1] * v[0][k][1]))
+                    matrices.phase[k] = math.atan2(v[0][k][1], eps + v[0][k][0])
+                    matrices.beta[k] = math.atan2(math.sqrt(v[2][k][0] * v[2][k][0] + v[2][k][1] * v[2][k][1]), eps + math.sqrt(v[1][k][0] * v[1][k][0] + v[1][k][1] * v[1][k][1]))
+                    matrices.delta[k] = math.atan2(v[1][k][1], eps + v[1][k][0]) - matrices.phase[k]
+                    matrices.delta[k] = math.atan2(math.sin(matrices.delta[k]), math.cos(matrices.delta[k]) + eps)
+                    matrices.gamma[k] = math.atan2(v[2][k][1], eps + v[2][k][0]) - matrices.phase[k]
+                    matrices.gamma[k] = math.atan2(math.sin(matrices.gamma[k]), math.cos(matrices.gamma[k]) + eps)
+                    # Scattering mechanism probability of occurence
+                    matrices.p[k] = m_lambda[k] / (eps + m_lambda[0] + m_lambda[1] + m_lambda[2])
+                    if matrices.p[k] < 0.:
+                        matrices.p[k] = 0.
+                    if matrices.p[k] > 1.:
+                        matrices.p[k] = 1.
 
-    file_memerr = args.errf
-    file_valid = args.mask
-    data_help = args.data
+                # Mean scattering mechanism
+                if flag[indexes.alpha] != -1:
+                    m_out[flag[indexes.alpha]][lig][col] = 0
+                if flag[indexes.beta] != -1:
+                    m_out[flag[indexes.beta]][lig][col] = 0
+                if flag[indexes.delta] != -1:
+                    m_out[flag[indexes.delta]][lig][col] = 0
+                if flag[indexes.gamma] != -1:
+                    m_out[flag[indexes.gamma]][lig][col] = 0
+                if flag[indexes.lmda] != -1:
+                    m_out[flag[indexes.lmda]][lig][col] = 0
+                if flag[indexes.h] != -1:
+                    m_out[flag[indexes.h]][lig][col] = 0
 
-    n_win_lm1s2 = int((n_win_l - 1) / 2)
-    n_win_cm1s2 = int((n_win_c - 1) / 2)
+                for k in range(3):
+                    if flag[indexes.alpha] != -1:
+                        m_out[flag[indexes.alpha]][lig][col] += matrices.alpha[k] * matrices.p[k]
+                    if flag[indexes.beta] != -1:
+                        m_out[flag[indexes.beta]][lig][col] += matrices.beta[k] * matrices.p[k]
+                    if flag[indexes.delta] != -1:
+                        m_out[flag[indexes.delta]][lig][col] += matrices.delta[k] * matrices.p[k]
+                    if flag[indexes.gamma] != -1:
+                        m_out[flag[indexes.gamma]][lig][col] += matrices.gamma[k] * matrices.p[k]
+                    if flag[indexes.lmda] != -1:
+                        m_out[flag[indexes.lmda]][lig][col] += m_lambda[k] * matrices.p[k]
+                    if flag[indexes.h] != -1:
+                        m_out[flag[indexes.h]][lig][col] -= matrices.p[k] * math.log(matrices.p[k] + eps)
 
-    # # /* INPUT/OUPUT CONFIGURATIONS */
-    n_lig, n_col, polar_case, polar_type = read_configuration(in_dir)
+                # Scaling
+                if flag[indexes.alpha] != -1:
+                    m_out[flag[indexes.alpha]][lig][col] *= 180. / pi
+                if flag[indexes.beta] != -1:
+                    m_out[flag[indexes.beta]][lig][col] *= 180. / pi
+                if flag[indexes.delta] != -1:
+                    m_out[flag[indexes.delta]][lig][col] *= 180. / pi
+                if flag[indexes.gamma] != -1:
+                    m_out[flag[indexes.gamma]][lig][col] *= 180. / pi
+                if flag[indexes.h] != -1:
+                    m_out[flag[indexes.h]][lig][col] /= math.log(3.)
 
-    # # /* POLAR TYPE CONFIGURATION */
-    pol_type, n_polar_in, pol_type_in, n_polar_out, pol_type_out = configure_polar_type(pol_type)
+                if flag[indexes.a] != -1:
+                    m_out[flag[indexes.a]][lig][col] = (matrices.p[1] - matrices.p[2]) / (matrices.p[1] + matrices.p[2] + eps)
 
-    # # /* INPUT/OUTPUT FILE CONFIGURATION */
-    file_name_in, file_name_out = configure_input_output_files(pol_type_in, pol_type_out, in_dir, out_dir)
+                if flag[indexes.combHA] != -1:
+                    m_out[flag[indexes.combHA]][lig][col] = m_out[flag[indexes.h]][lig][col] * m_out[flag[indexes.a]][lig][col]
+                if flag[indexes.combH1mA] != -1:
+                    m_out[flag[indexes.combH1mA]][lig][col] = m_out[flag[indexes.h]][lig][col] * (1. - m_out[flag[indexes.a]][lig][col])
+                if flag[indexes.comb1mHA] != -1:
+                    m_out[flag[indexes.comb1mHA]][lig][col] = (1. - m_out[flag[indexes.h]][lig][col]) * m_out[flag[indexes.a]][lig][col]
+                if flag[indexes.comb1mH1mA] != -1:
+                    m_out[flag[indexes.comb1mH1mA]][lig][col] = (1. - m_out[flag[indexes.h]][lig][col]) * (1. - m_out[flag[indexes.a]][lig][col])
 
-    # # /* INPUT FILE OPENING*/
-    in_datafile, in_valid, flag_valid = open_input_files(file_name_in, file_valid, in_datafile, n_polar_in, in_valid)
 
-    # /* OUTPUT FILE OPENING*/
-    flag, Alpha, Beta, Epsi, Delta, Gamma, Nhu, Lambda, n_out, n_para = open_output_files(pol_type_out, n_out, flag, flag_para, flag_lambda, flag_alpha, flag_entropy, flag_anisotropy, flag_comb_ha, flag_comb_h1ma, flag_comb_1mha, flag_comb_1mh1ma, out_dir, file_out_2, out_file_2, out_file_3, out_file_4)
+@numba.njit(parallel=False, fastmath=True)
+def process_t4_c4(nb, n_lig_block, n_polar_out, sub_n_col, m_in, valid, n_win_l, n_win_c, n_win_l_m1s2, n_win_c_m1s2, n_out, m_out, eps, flag, matrices, indexes, pi):
+    # pragma omp parallel for private(col, k, M, V, lambda, M_avg) firstprivate(alpha, beta, delta, gamma, epsilon, phase,nhu, p) shared(ligDone)
+    ligDone = 0
+    m = lib.matrix.matrix3d_float(4, 4, 2)
+    v = lib.matrix.matrix3d_float(4, 4, 2)
+    m_lambda = lib.matrix.vector_float(4)
+    m_avg = lib.matrix.matrix_float(n_polar_out, sub_n_col)
+    for lig in range(n_lig_block[nb]):
+        ligDone += 1
+        if numba_get_thread_id() == 0:
+            lib.util.printf_line(ligDone, n_lig_block[nb])
+        m.fill(0.0)
+        v.fill(0.0)
+        m_lambda.fill(0.0)
+        m_avg.fill(0.0)
+        lib.util_block.average_tci(m_in, valid, n_polar_out, m_avg, lig, sub_n_col, n_win_l, n_win_c, n_win_l_m1s2, n_win_c_m1s2)
 
-    # /* MATRIX ALLOCATION */
-    util.vc_in, util.vf_in, util.mc_in, util.mf_in, valid, m_in, m_out = allocate_matrices(n_col, n_polar_out, n_win_l, n_win_c, sub_n_lig, sub_n_col, n_out)
+        for col in range(sub_n_col):
+            for k in range(n_out):
+                m_out[k][lig][col] = 0.
+            if valid[n_win_l_m1s2 + lig][n_win_c_m1s2 + col] == 1.:
 
-    # /* MASK VALID PIXELS (if there is no MaskFile */
-    valid = set_valid_pixels(valid, flag_valid, n_lig_block, sub_n_col, n_win_c, n_win_l)
+                m[0][0][0] = eps + m_avg[0][col]
+                m[0][0][1] = 0.
+                m[0][1][0] = eps + m_avg[1][col]
+                m[0][1][1] = eps + m_avg[2][col]
+                m[0][2][0] = eps + m_avg[3][col]
+                m[0][2][1] = eps + m_avg[4][col]
+                m[0][3][0] = eps + m_avg[5][col]
+                m[0][3][1] = eps + m_avg[6][col]
+                m[1][0][0] = m[0][1][0]
+                m[1][0][1] = -m[0][1][1]
+                m[1][1][0] = eps + m_avg[7][col]
+                m[1][1][1] = 0.
+                m[1][2][0] = eps + m_avg[8][col]
+                m[1][2][1] = eps + m_avg[9][col]
+                m[1][3][0] = eps + m_avg[10][col]
+                m[1][3][1] = eps + m_avg[11][col]
+                m[2][0][0] = m[0][2][0]
+                m[2][0][1] = -m[0][2][1]
+                m[2][1][0] = m[1][2][0]
+                m[2][1][1] = -m[1][2][1]
+                m[2][2][0] = eps + m_avg[12][col]
+                m[2][2][1] = 0.
+                m[2][3][0] = eps + m_avg[13][col]
+                m[2][3][1] = eps + m_avg[14][col]
+                m[3][0][0] = m[0][3][0]
+                m[3][0][1] = -m[0][3][1]
+                m[3][1][0] = m[1][3][0]
+                m[3][1][1] = -m[1][3][1]
+                m[3][2][0] = m[2][3][0]
+                m[3][2][1] = -m[2][3][1]
+                m[3][3][0] = eps + m_avg[15][col]
+                m[3][3][1] = 0.
 
-    # /********************************************************************
-    # ********************************************************************/
-    # /* DATA PROCESSING */
-    nb_block = 1
-    for block in range(nb_block):
-        ligDone = 0
+                # EIGENVECTOR/EIGENVALUE DECOMPOSITION
+                # V complex eigenvecor matrix, lambda real vector
+                lib.processing.diagonalisation(4, m, v, m_lambda)
 
-        if flag_valid == 1:
-            util_block.read_block_matrix_float(in_valid, valid, block, nb_block, n_lig_block[block], sub_n_col, n_win_l, n_win_c, off_lig, off_col, n_col)
+                for k in range(4):
+                    if m_lambda[k] < 0.:
+                        m_lambda[k] = 0.
+                for k in range(4):
+                    matrices.alpha[k] = math.acos(math.sqrt(v[0][k][0] * v[0][k][0] + v[0][k][1] * v[0][k][1]))
+                    matrices.phase[k] = math.atan2(v[0][k][1], eps + v[0][k][0])
+                    matrices.beta[k] = math.atan2(math.sqrt(v[2][k][0] * v[2][k][0] + v[2][k][1] * v[2][k][1] + v[3][k][0] * v[3][k][0] + v[3][k][1] * v[3][k][1]), eps + math.sqrt(v[1][k][0] * v[1][k][0] + v[1][k][1] * v[1][k][1]))
+                    matrices.epsilon[k] = math.atan2(math.sqrt(v[3][k][0] * v[3][k][0] + v[3][k][1] * v[3][k][1]), eps + math.sqrt(v[2][k][0] * v[2][k][0] + v[2][k][1] * v[2][k][1]))
+                    matrices.delta[k] = math.atan2(v[1][k][1], eps + v[1][k][0]) - matrices.phase[k]
+                    matrices.delta[k] = math.atan2(math.sin(matrices.delta[k]), math.cos(matrices.delta[k]) + eps)
+                    matrices.gamma[k] = math.atan2(v[2][k][1], eps + v[2][k][0]) - matrices.phase[k]
+                    matrices.gamma[k] = math.atan2(math.sin(matrices.gamma[k]), math.cos(matrices.gamma[k]) + eps)
+                    matrices.nhu[k] = math.atan2(v[3][k][1], eps + v[3][k][0]) - matrices.phase[k]
+                    matrices.nhu[k] = math.atan2(math.sin(matrices.nhu[k]), math.cos(matrices.nhu[k]) + eps)
+                    # Scattering mechanism probability of occurence
+                    matrices.p[k] = m_lambda[k] / (eps + m_lambda[0] + m_lambda[1] + m_lambda[2] + m_lambda[3])
+                    if matrices.p[k] < 0.:
+                        matrices.p[k] = 0.
+                    if matrices.p[k] > 1.:
+                        matrices.p[k] = 1.
 
-        if (pol_type_in in ["S2", "SPP", "SPPpp1", "SPPpp2", "SPPpp3"]):
-            if pol_type_in == "S2":
-                util_block.read_block_S2_noavg(in_datafile, m_in, pol_type_out, n_polar_out, block, nb_block, n_lig_block[block], sub_n_col, n_win_l, n_win_c, off_lig, off_col, n_col)
-            else:
-                util_block.read_block_spp_noavg(in_datafile, m_in, pol_type_out, n_polar_out, block, nb_block, n_lig_block[block], sub_n_col, n_win_l, n_win_c, off_lig, off_col, n_col)
-        else:
-            # Case of C,T or I 
-            util_block.read_block_tci_noavg(in_datafile, m_in, n_polar_out, block, nb_block, n_lig_block[block], sub_n_col, n_win_l, n_win_c, off_lig, off_col, n_col)
+                # Mean scattering mechanism
+                if flag[indexes.alpha] != -1:
+                    m_out[flag[indexes.alpha]][lig][col] = 0
+                if flag[indexes.beta] != -1:
+                    m_out[flag[indexes.beta]][lig][col] = 0
+                if flag[indexes.epsi] != -1:
+                    m_out[flag[indexes.epsi]][lig][col] = 0
+                if flag[indexes.delta] != -1:
+                    m_out[flag[indexes.delta]][lig][col] = 0
+                if flag[indexes.gamma] != -1:
+                    m_out[flag[indexes.gamma]][lig][col] = 0
+                if flag[indexes.nhu] != -1:
+                    m_out[flag[indexes.nhu]][lig][col] = 0
+                if flag[indexes.lmda] != -1:
+                    m_out[flag[indexes.lmda]][lig][col] = 0
+                if flag[indexes.h] != -1:
+                    m_out[flag[indexes.h]][lig][col] = 0
 
-        if (pol_type_in == "C3" and pol_type_out == "T3"):
-            util_block.C3_to_T3(m_in, n_lig_block[block], sub_n_col + n_win_c, 0, 0)
-        if (pol_type_in == "C4" and pol_type_out == "T4"):
-            util_block.C4_to_T4(m_in, n_lig_block[block], sub_n_col + n_win_c, 0, 0)
+                for k in range(4):
+                    if flag[indexes.alpha] != -1:
+                        m_out[flag[indexes.alpha]][lig][col] += matrices.alpha[k] * matrices.p[k]
+                    if flag[indexes.beta] != -1:
+                        m_out[flag[indexes.beta]][lig][col] += matrices.beta[k] * matrices.p[k]
+                    if flag[indexes.epsi] != -1:
+                        m_out[flag[indexes.epsi]][lig][col] += matrices.epsilon[k] * matrices.p[k]
+                    if flag[indexes.delta] != -1:
+                        m_out[flag[indexes.delta]][lig][col] += matrices.delta[k] * matrices.p[k]
+                    if flag[indexes.gamma] != -1:
+                        m_out[flag[indexes.gamma]][lig][col] += matrices.gamma[k] * matrices.p[k]
+                    if flag[indexes.nhu] != -1:
+                        m_out[flag[indexes.nhu]][lig][col] += matrices.nhu[k] * matrices.p[k]
+                    if flag[indexes.lmda] != -1:
+                        m_out[flag[indexes.lmda]][lig][col] += m_lambda[k] * matrices.p[k]
+                    if flag[indexes.h] != -1:
+                        m_out[flag[indexes.h]][lig][col] -= matrices.p[k] * math.log(matrices.p[k] + eps)
 
-        if pol_type_out in ["C2", "C2pp1", "C2pp2", "C2pp3"]:
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                m_out_futures = [executor.submit(process_c2, lig, n_lig_block, block, sub_n_col, n_polar_out, m_out, n_win_lm1s2, n_win_cm1s2, valid, m_in, flag, eps, Alpha, Beta, Delta, Gamma, Lambda, H, A, comb_ha, comb_h1ma, comb_1mha, comb_1mh1ma) for lig in range(sub_n_lig)]
-                for future in tqdm(concurrent.futures.as_completed(m_out_futures), total=len(m_out_futures), desc="Processing"):
-                    pass
-        
-        elif pol_type_out in ["T3", "C3"]:
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                m_out_futures = [executor.submit(process_t3_c3, lig, n_out, n_win_l, n_win_c, sub_n_col, n_polar_out, m_out, phase, n_win_lm1s2, n_win_cm1s2, valid, m_in, flag, eps, Alpha, Beta, Delta, Gamma, Lambda, H, A, comb_ha, comb_h1ma, comb_1mha, comb_1mh1ma) for lig in range(sub_n_lig)]
-                for future in tqdm(concurrent.futures.as_completed(m_out_futures), total=len(m_out_futures), desc="Processing"):
-                    pass
-        
+                # Scaling
+                if flag[indexes.alpha] != -1:
+                    m_out[flag[indexes.alpha]][lig][col] *= 180. / pi
+                if flag[indexes.beta] != -1:
+                    m_out[flag[indexes.beta]][lig][col] *= 180. / pi
+                if flag[indexes.epsi] != -1:
+                    m_out[flag[indexes.epsi]][lig][col] *= 180. / pi
+                if flag[indexes.delta] != -1:
+                    m_out[flag[indexes.delta]][lig][col] *= 180. / pi
+                if flag[indexes.gamma] != -1:
+                    m_out[flag[indexes.gamma]][lig][col] *= 180. / pi
+                if flag[indexes.nhu] != -1:
+                    m_out[flag[indexes.nhu]][lig][col] *= 180. / pi
+                if flag[indexes.h] != -1:
+                    m_out[flag[indexes.h]][lig][col] /= math.log(4.)
 
-        elif pol_type_out in ["T4", "C4"]:
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                            m_out_futures = [executor.submit(process_t4_c4, lig, n_out, n_win_l, n_win_c, sub_n_col, n_polar_out, m_out, phase, n_win_lm1s2, n_win_cm1s2, valid, m_in, flag, eps, Alpha, Beta, Delta, Gamma, Lambda, Epsi, Nhu, H, A, comb_ha, comb_h1ma, comb_1mha, comb_1mh1ma) for lig in range(sub_n_lig)]
-                            for future in tqdm(concurrent.futures.as_completed(m_out_futures), total=len(m_out_futures), desc="Processing"):
-                                pass
+                if flag[indexes.a] != -1:
+                    m_out[flag[indexes.a]][lig][col] = (matrices.p[1] - matrices.p[2]) / (matrices.p[1] + matrices.p[2] + eps)
+
+                if flag[indexes.combHA] != -1:
+                    m_out[flag[indexes.combHA]][lig][col] = m_out[flag[indexes.h]][lig][col] * m_out[flag[indexes.a]][lig][col]
+                if flag[indexes.combH1mA] != -1:
+                    m_out[flag[indexes.combH1mA]][lig][col] = m_out[flag[indexes.h]][lig][col] * (1. - m_out[flag[indexes.a]][lig][col])
+                if flag[indexes.comb1mHA] != -1:
+                    m_out[flag[indexes.comb1mHA]][lig][col] = (1. - m_out[flag[indexes.h]][lig][col]) * m_out[flag[indexes.a]][lig][col]
+                if flag[indexes.comb1mH1mA] != -1:
+                    m_out[flag[indexes.comb1mH1mA]][lig][col] = (1. - m_out[flag[indexes.h]][lig][col]) * (1. - m_out[flag[indexes.a]][lig][col])
+
+
+class App(lib.util.Application):
+
+    def __init__(self, args):
+        super().__init__(args)
+
+    def allocate_matrices(self, n_col, n_polar_out, n_win_l, n_win_c, n_lig_block, sub_n_col, n_out):
+        '''
+        Allocate matrices with given dimensions
+        '''
+        logging.info(f'{n_col=}, {n_polar_out=}, {n_win_l=}, {n_win_c=}, {n_lig_block=}, {sub_n_col=}')
+        self.vc_in = lib.matrix.vector_float(2 * n_col)
+        self.vf_in = lib.matrix.vector_float(n_col)
+        self.mc_in = lib.matrix.matrix_float(4, 2 * n_col)
+        self.mf_in = lib.matrix.matrix3d_float(n_polar_out, n_win_l, n_col + n_win_c)
+        self.valid = lib.matrix.matrix_float(n_lig_block + n_win_l, sub_n_col + n_win_c)
+        self.m_in = lib.matrix.matrix3d_float(n_polar_out, n_lig_block + n_win_l, n_col + n_win_c)
+        self.m_out = lib.matrix.matrix3d_float(n_out, n_lig_block, sub_n_col)
+
+    def decomposition_parameters_c2(self, indexes, flag, flag_para):
+        # Decomposition parameters
+        indexes.alpha = 0
+        indexes.delta = 1
+        indexes.lmda = 2
+        indexes.h = 3
+        indexes.a = 4
+        indexes.combHA = 5
+        indexes.combH1mA = 6
+        indexes.comb1mHA = 7
+        indexes.comb1mH1mA = 8
+        # M = matrix3d_float(2, 2, 2);
+        # V = matrix3d_float(2, 2, 2);
+        # lambda = vector_float(2);
+        n_para = 9
+        flag[:n_para] = -1
+        n_out = 0
+        # Flag Parameters
+        if flag_para == 1:
+            flag[indexes.alpha] = n_out
+            n_out += 1
+            flag[indexes.delta] = n_out
+            n_out += 1
+            flag[indexes.lmda] = n_out
+            n_out += 1
+        return n_out, n_para
+
+    def decomposition_parameters_t3_c3(self, indexes, flag, flag_para):
+        #  Decomposition parameters
+        indexes.alpha = 0
+        indexes.beta = 1
+        indexes.delta = 2
+        indexes.gamma = 3
+        indexes.lmda = 4
+        indexes.h = 5
+        indexes.a = 6
+        indexes.combHA = 7
+        indexes.combH1mA = 8
+        indexes.comb1mHA = 9
+        indexes.comb1mH1mA = 10
+        # M = matrix3d_float(3, 3, 2);
+        # V = matrix3d_float(3, 3, 2);
+        # lambda = vector_float(3);
+        n_para = 11
+        flag[:n_para] = -1
+        n_out = 0
+        # Flag Parameters
+        if flag_para == 1:
+            flag[indexes.alpha] = n_out
+            n_out += 1
+            flag[indexes.beta] = n_out
+            n_out += 1
+            flag[indexes.delta] = n_out
+            n_out += 1
+            flag[indexes.gamma] = n_out
+            n_out += 1
+            flag[indexes.lmda] = n_out
+            n_out += 1
+        return n_out, n_para
+
+    def decomposition_parameters_t4_c4(self, indexes, flag, flag_para):
+        # Decomposition parameters
+        indexes.alpha = 0
+        indexes.beta = 1
+        indexes.epsi = 2
+        indexes.delta = 3
+        indexes.gamma = 4
+        indexes.nhu = 5
+        indexes.lmda = 6
+        indexes.h = 7
+        indexes.a = 8
+        indexes.combHA = 9
+        indexes.combH1mA = 10
+        indexes.comb1mHA = 11
+        indexes.comb1mH1mA = 12
+        # M = matrix3d_float(4, 4, 2);
+        # V = matrix3d_float(4, 4, 2);
+        # lambda = vector_float(4);
+        n_para = 13
+        flag[:n_para] = -1
+        n_out = 0
+        # Flag Parameters
+        if flag_para == 1:
+            flag[indexes.alpha] = n_out
+            n_out += 1
+            flag[indexes.beta] = n_out
+            n_out += 1
+            flag[indexes.epsi] = n_out
+            n_out += 1
+            flag[indexes.delta] = n_out
+            n_out += 1
+            flag[indexes.gamma] = n_out
+            n_out += 1
+            flag[indexes.nhu] = n_out
+            n_out += 1
+            flag[indexes.lmda] = n_out
+            n_out += 1
+        return n_out, n_para
+
+    def run(self):
+        logging.info('******************** Welcome in h a alpha decomposition ********************')
+        logging.info(self.args)
+        in_dir = self.args.id
+        out_dir = self.args.od
+        pol_type = self.args.iodf
+        n_win_l = self.args.nwr
+        n_win_c = self.args.nwc
+        off_lig = self.args.ofr
+        off_col = self.args.ofc
+        sub_n_lig = self.args.fnr
+        sub_n_col = self.args.fnc
+        flag_para = self.args.fl1
+        flag_lambda = self.args.fl2
+        flag_alpha = self.args.fl3
+        flag_entropy = self.args.fl4
+        flag_anisotropy = self.args.fl5
+        flag_combHA = self.args.fl6
+        flag_combH1mA = self.args.fl7
+        flag_comb1mHA = self.args.fl8
+        flag_comb1mH1mA = self.args.fl9
+        file_memerr = self.args.errf
+
+        flag_valid = False
+        file_valid = ''
+
+        if self.args.mask is not None and self.args.mask:
+            file_valid = self.args.mask
+            flag_valid = True
+        logging.info(f'{flag_valid=}, {file_valid=}')
+
+        in_dir = self.check_dir(in_dir)
+        logging.info(f'{in_dir=}')
+        out_dir = self.check_dir(out_dir)
+        logging.info(f'{out_dir=}')
+
+        if flag_valid is True:
+            self.check_file(file_valid)
+
+        n_win_l_m1s2 = (n_win_l - 1) // 2
+        n_win_c_m1s2 = (n_win_c - 1) // 2
+        logging.info(f'{n_win_c_m1s2=}; {n_win_l_m1s2=}')
+
+        # INPUT/OUPUT CONFIGURATIONS
+        n_lig, n_col, polar_case, polar_type = lib.util.read_config(in_dir)
+        logging.info(f'{n_lig=}, {n_col=}, {polar_case=}, {polar_type=}')
+
+        # POLAR TYPE CONFIGURATION
+        pol_type, n_polar_in, pol_type_in, n_polar_out, pol_type_out = lib.util.pol_type_config(pol_type)
+        logging.info(f'{pol_type=}, {n_polar_in=}, {pol_type_in=}, {n_polar_out=}, {pol_type_out=}')
+
+        # INPUT/OUTPUT FILE CONFIGURATION
+        file_name_in = lib.util.init_file_name(pol_type_in, in_dir)
+        logging.info(f'{file_name_in=}')
+
+        # INPUT FILE OPENING
+        in_datafile = []
+        in_valid = None
+        in_datafile, in_valid, flag_valid = self.open_input_files(file_name_in, file_valid, in_datafile, n_polar_in, in_valid)
+
+        # OUTPUT FILE OPENING
+        file_out2 = ['alpha.bin', 'delta.bin', 'lambda.bin',
+                     'entropy.bin', 'anisotropy.bin',
+                     'combination_HA.bin', 'combination_H1mA.bin',
+                     'combination_1mHA.bin', 'combination_1mH1mA.bin']
+
+        file_out3 = ['alpha.bin', 'beta.bin', 'delta.bin',
+                     'gamma.bin', 'lambda.bin',
+                     'entropy.bin', 'anisotropy.bin',
+                     'combination_HA.bin', 'combination_H1mA.bin',
+                     'combination_1mHA.bin', 'combination_1mH1mA.bin']
+
+        file_out4 = ['alpha.bin', 'beta.bin', 'epsilon.bin', 'delta.bin',
+                     'gamma.bin', 'nhu.bin', 'lambda.bin',
+                     'entropy.bin', 'anisotropy.bin',
+                     'combination_HA.bin', 'combination_H1mA.bin',
+                     'combination_1mHA.bin', 'combination_1mH1mA.bin']
+
+        flag = lib.matrix.vector_int(13)
+        n_out = 0
+        indexes = Indexes()
+        if pol_type_out in ['C2', 'C2pp1', 'C2pp2', 'C2pp3']:
+            n_out, n_para = self.decomposition_parameters_c2(indexes, flag, flag_para)
+        elif pol_type_out in ['T3', 'C3']:
+            n_out, n_para = self.decomposition_parameters_t3_c3(indexes, flag, flag_para)
+        elif pol_type_out in ['T4', 'C4']:
+            n_out, n_para = self.decomposition_parameters_t4_c4(indexes, flag, flag_para)
+
+        # Flag Lambda  (must keep the previous selection)
+        if flag_lambda == 1:
+            if flag[indexes.lmda] == -1:
+                flag[indexes.lmda] = n_out
+                n_out += 1
+
+        # Flag Alpha  (must keep the previous selection)
+        if flag_alpha == 1:
+            if flag[indexes.alpha] == -1:
+                flag[indexes.alpha] = n_out
+                n_out += 1
+
+        # Flag Entropy
+        if flag_entropy == 1:
+            flag[indexes.h] = n_out
+            n_out += 1
+
+        # Flag Anisotropy
+        if flag_anisotropy == 1:
+            flag[indexes.a] = n_out
+            n_out += 1
+
+        # Flag Combinations HA
+        if flag_combHA == 1:
+            flag[indexes.combHA] = n_out
+            n_out += 1
+
+        if flag_combH1mA == 1:
+            flag[indexes.combH1mA] = n_out
+            n_out += 1
+
+        if flag_comb1mHA == 1:
+            flag[indexes.comb1mHA] = n_out
+            n_out += 1
+
+        if flag_comb1mH1mA == 1:
+            flag[indexes.comb1mH1mA] = n_out
+            n_out += 1
+
+        out_file_2 = [None] * 9
+        out_file_3 = [None] * 11
+        out_file_4 = [None] * 13
 
         for k in range(n_para):
             if flag[k] != -1:
-                if pol_type_out in ["C2", "C2pp1", "C2pp2", "C2pp3"]:
-                    util_block.write_block_matrix_matrix3d_float(out_file_2[flag[k]], m_out, flag[k], n_lig_block[0], sub_n_col, 0, 0, sub_n_col)
-                if pol_type_out in ["T3", "C3"]:
-                    util_block.write_block_matrix_matrix3d_float(out_file_3[flag[k]], m_out, flag[k], n_lig_block[0], sub_n_col, 0, 0, sub_n_col)
-                if pol_type_out in ["T4", "C4"]:
-                    util_block.write_block_matrix_matrix3d_float(out_file_4[flag[k]], m_out, flag[k], n_lig_block[0], sub_n_col, 0, 0, sub_n_col)
+                if pol_type_out in ['C2', 'C2pp1', 'C2pp2', 'C2pp3']:
+                    out_file_2[k] = self.open_output_file(os.path.join(out_dir, file_out2[k]))
+                if pol_type_out in ['T3', 'C3']:
+                    out_file_3[k] = self.open_output_file(os.path.join(out_dir, file_out3[k]))
+                if pol_type_out in ['T4', 'C4']:
+                    out_file_4[k] = self.open_output_file(os.path.join(out_dir, file_out4[k]))
 
-        
-# %% [codecell] parse_arguments
-def parse_arguments(pol_type_conf):
-    """
-    Parse command line arguments and return them as an 'args' object.
-    """
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-id", type=str, required=True, help="input directory")
-    parser.add_argument("-od", type=str, required=True, help="output directory")
-    parser.add_argument("-iodf", type=str, required=True, choices=pol_type_conf, help="input-output data format")
-    parser.add_argument("-nwr", type=int, required=True, help="Nwin Row")
-    parser.add_argument("-nwc", type=int, required=True, help="Nwin Col")
-    parser.add_argument("-ofr", type=int, required=True, help="Offset Row")
-    parser.add_argument("-ofc", type=int, required=True, help="Offset Col")
-    parser.add_argument("-fnr", type=int, required=True, help="Final Number of Row")
-    parser.add_argument("-fnc", type=int, required=True, help="Final Number of Col")
+        # MEMORY ALLOCATION
+        n_block_a = 0
+        n_block_b = 0
+        # Mask
+        n_block_a += sub_n_col + n_win_c
+        n_block_b += n_win_l * (sub_n_col + n_win_c)
+        # Mout = Nout*Nlig*Sub_Ncol
+        n_block_a += n_out * sub_n_col
+        n_block_b += 0
+        # Min = NpolarOut*Nlig*Sub_Ncol
+        n_block_a += n_polar_out * (n_col + n_win_c)
+        n_block_b += n_polar_out * n_win_l * (n_col + n_win_c)
+        # Mavg = NpolarOut
+        n_block_a += 0
+        n_block_b += n_polar_out * sub_n_col
+        # Reading Data
+        n_block_b += n_col + 2 * n_col + n_polar_in * 2 * n_col + n_polar_out * n_win_l * (n_col + n_win_c)
+        # logging.info(f'{n_block_a=}')
+        # logging.info(f'{n_block_b=}')
 
-    parser.add_argument("-fl1", type=int, required=True, help="Flag Parameters (0/1)")
-    parser.add_argument("-fl2", type=int, required=True, help="Flag Lambda (0/1)")
-    parser.add_argument("-fl3", type=int, required=True, help="Flag Alpha (0/1)")
-    parser.add_argument("-fl4", type=int, required=True, help="Flag Entropy (0/1)")
-    parser.add_argument("-fl5", type=int, required=True, help="Flag Anisotropy (0/1)")
-    parser.add_argument("-fl6", type=int, required=True, help="Flag Comb HA (0/1)")
-    parser.add_argument("-fl7", type=int, required=True, help="Flag Comb H1mA (0/1)")
-    parser.add_argument("-fl8", type=int, required=True, help="Flag Comb 1mHA (0/1)")
-    parser.add_argument("-fl9", type=int, required=True, help="Flag Comb 1mH1mA (0/1)")
+        memory_alloc = self.check_free_memory()
+        memory_alloc = max(memory_alloc, 1000)
+        logging.info(f'{memory_alloc=}')
+        n_lig_block = numpy.zeros(lib.util.Application.FILE_PATH_LENGTH, dtype=int)
+        nb_block = 0
+        nb_block = self.memory_alloc(file_memerr, sub_n_lig, n_win_l, nb_block, n_lig_block, n_block_a, n_block_b, memory_alloc)
+        logging.info(f'{n_lig_block=}')
 
-    parser.add_argument("-mask", type=str, required=False, help="Optional - mask file (valid pixels)")
-    parser.add_argument("-errf", type=str, required=False, help="Optional - memory error file")
-    parser.add_argument("-data", action='store_true', required=False, help="Optional - displays the help concerning Data Format parameter")
-    
-    args = parser.parse_args()
+        # MATRIX ALLOCATION
+        self.allocate_matrices(n_col, n_polar_out, n_win_l, n_win_c, n_lig_block[0], sub_n_col, n_out)
 
-    return args
+        # MASK VALID PIXELS (if there is no MaskFile
+        self.set_valid_pixels(flag_valid, n_lig_block, sub_n_col, n_win_c, n_win_l)
 
-# %% [codecell] read_configuration
-def read_configuration(in_dir):
-    """
-    Read the configuration from the input directory and return the parameters.
-    """
-    n_lig, n_col, polar_case, polar_type = util.read_config(in_dir)
-    return n_lig, n_col, polar_case, polar_type
+        # DATA PROCESSING
+        logging.info('--= Started: data processing =--')
+        for np in range(n_polar_in):
+            self.rewind(in_datafile[np])
+        if flag_valid is True:
+            self.rewind(in_valid)
 
-# %% [codecell] configure_polar_type
-def configure_polar_type(pol_type):
-    """
-    Configure the polar type based on the provided input-output data format and return the updated parameters.
-    """
-    return util.pol_type_config(pol_type)
+        matrices = Matrices()
+        eps = lib.util.Application.EPS
+        pi = lib.util.Application.PI
+        for nb in range(nb_block):
+            if nb_block > 2:
+                logging.debug('%f\r' % (100 * nb / (nb_block - 1)), end='', flush=True)
+            if flag_valid is True:
+                lib.util_block.read_block_matrix_float(in_valid, self.valid, nb, nb_block, n_lig_block[nb], sub_n_col, n_win_l, n_win_c, off_lig, off_col, n_col, self.vf_in)
 
-# %% [codecell] configure_input_output_files
-def configure_input_output_files(pol_type_in, in_dir):
-    """
-    Configure the input and output files based on the provided polar types and directories.
-    Return the input and output file names.
-    """
-    init_file_name = util.init_file_name(pol_type_in, in_dir)
-    return init_file_name
+            if pol_type in ['S2', 'SPP', 'SPPpp1', 'SPPpp2', 'SPPpp3', 'S2']:
+                if pol_type == 'S2':
+                    lib.util_block.read_block_s2_noavg(in_datafile, self.m_in, pol_type_out, n_polar_out, nb, nb_block, n_lig_block[nb], sub_n_col, n_win_l, n_win_c, off_lig, off_col, n_col, self.mc_in)
+                else:
+                    lib.util_block.read_block_spp_noavg(in_datafile, self.m_in, pol_type_out, n_polar_out, nb, nb_block, n_lig_block[nb], sub_n_col, n_win_l, n_win_c, off_lig, off_col, n_col, self.mc_in)
+            else:  # Case of C,T or I
+                lib.util_block.read_block_tci_noavg(in_datafile, self.m_in, n_polar_out, nb, nb_block, n_lig_block[nb], sub_n_col, n_win_l, n_win_c, off_lig, off_col, n_col, self.vf_in)
 
-# %% [codecell] open_input_files
-def open_input_files(file_name_in, file_valid, in_datafile, n_polar_in, in_valid):
-    """
-    Open input files and return the file objects and a flag indicating if the 'valid' file is present.
-    """
-    flag_valid = False
-    for n_pol in range(n_polar_in):
-        try:
-            in_datafile.append(open(file_name_in[n_pol], "rb"))
-        except IOError:
-            print("Could not open input file : ", file_name_in[n_pol])
-            raise
+            if pol_type_in == 'C3' and pol_type_out == 'T3':
+                lib.util_convert.t3_to_c3(self.m_in, n_lig_block[nb], sub_n_col + n_win_c, 0, 0)
+            elif pol_type_in == 'C4' and pol_type_out == 'T4':
+                lib.util_convert.t4_to_c4(self.m_in, n_lig_block[nb], sub_n_col + n_win_c, 0, 0)
 
-    if file_valid:
-        flag_valid = True
-        try:
-            in_valid = open(file_valid, "rb")
-        except IOError:
-            print("Could not open input file: ", file_valid)
-            raise
-    return in_datafile, in_valid, flag_valid
-
-# %% [codecell] open_output_files
-def open_output_files(pol_type_out, n_out, flag, flag_para, flag_lambda, flag_alpha, flag_entropy, flag_anisotropy, flag_comb_ha, flag_comb_h1ma, flag_comb_1mha, flag_comb_1mh1ma, out_dir, file_out_2, out_file_2, out_file_3, out_file_4):
-    """
-    Open output files and return the file objects.
-    """
-    if pol_type_out in ['C2', 'C2pp1', 'C2pp2', 'C2pp3']:
-        # Decomposition parameters
-        Alpha, Delta, Lambda = 0, 1, 2
-        H, A, CombHA, CombH1mA, Comb1mHA, Comb1mH1mA = 3, 4, 5, 6, 7, 8
-
-        # M = matrix3d_float(2, 2, 2)
-        # V = matrix3d_float(2, 2, 2)
-        # lambda = vector_float(2)
-        n_para = 9
-        for k in range(n_para):
-            flag[k] = -1
-        # Flag Parameters
-        if flag_para == 1:
-            flag[Alpha] = n_out; n_out += 1
-            flag[Delta] = n_out; n_out += 1
-            flag[Lambda] = n_out; n_out += 1
-
-    # T3, C3
-    if pol_type_out in ['T3', 'C3']:
-        # Decomposition parameters
-        Alpha, Beta, Delta, Gamma, Lambda = 0, 1, 2, 3, 4
-        H, A, CombHA, CombH1mA, Comb1mHA, Comb1mH1mA = 5, 6, 7, 8, 9, 10
-
-        # M = matrix3d_float(3, 3, 2)
-        # V = matrix3d_float(3, 3, 2)
-        # lambda = vector_float(3)
-
-        n_para = 11
-        for k in range(n_para):
-            flag[k] = -1
-        n_out = 0
-        # Flag Parameters
-        if flag_para == 1:
-            flag[Alpha] = n_out; n_out += 1
-            flag[Beta] = n_out; n_out += 1
-            flag[Delta] = n_out; n_out += 1
-            flag[Gamma] = n_out; n_out += 1
-            flag[Lambda] = n_out; n_out += 1
-
-    # T4, C4
-    if pol_type_out in ['T4', 'C4']:
-        # Decomposition parameters
-        Alpha, Beta, Epsi, Delta, Gamma, Nhu, Lambda = 0, 1, 2, 3, 4, 5, 6
-        H, A, CombHA, CombH1mA, Comb1mHA, Comb1mH1mA = 7, 8, 9, 10, 11, 12
-
-        # M = matrix3d_float(4, 4, 2)
-        # V = matrix3d_float(4, 4, 2)
-        # lambda = vector_float(4)
-
-        n_para = 13
-        for k in range(n_para):
-            flag[k] = -1
-        n_out = 0
-        # Flag Parameters
-        if flag_para == 1:
-            flag[Alpha] = n_out; n_out += 1
-            flag[Beta] = n_out; n_out += 1
-            flag[Epsi] = n_out; n_out += 1
-            flag[Delta] = n_out; n_out += 1
-            flag[Gamma] = n_out; n_out += 1
-            flag[Nhu] = n_out; n_out += 1
-            flag[Lambda] = n_out; n_out += 1
-
-    # Flag Lambda (must keep the previous selection)
-    if flag_lambda == 1:
-        if flag[Lambda] == -1:
-            flag[Lambda] = n_out
-            n_out += 1
-
-    # Flag Alpha (must keep the previous selection)
-    if flag_alpha == 1:
-        if flag[Alpha] == -1:
-            flag[Alpha] = n_out
-            n_out += 1
-
-    # Flag Entropy
-    if flag_entropy == 1:
-        flag[H] = n_out
-        n_out += 1
-
-    # Flag Anisotropy
-    if flag_anisotropy == 1:
-        flag[A] = n_out
-        n_out += 1
-
-    # Flag Combinations HA
-    if flag_comb_ha == 1:
-        flag[CombHA] = n_out
-        n_out += 1
-
-    if flag_comb_h1ma == 1:
-        flag[CombH1mA] = n_out
-        n_out += 1
-
-    if flag_comb_1mha == 1:
-        flag[Comb1mHA] = n_out
-        n_out += 1
-
-    if flag_comb_1mh1ma == 1:
-        flag[Comb1mH1mA] = n_out
-        n_out += 1
-
-    for k in range(n_para):
-        if flag[k] != -1:
-            # C2, C2pp1, C2pp2, C2pp3
             if pol_type_out in ['C2', 'C2pp1', 'C2pp2', 'C2pp3']:
-                file_name = os.path.join(out_dir, file_out_2[k])
-                try:
-                    out_file_2[flag[k]] = open(file_name, "wb")
-                except IOError:
-                    raise Exception("Could not open input file : ", file_name)
-            # T3, C3
+                process_c2(nb, n_lig_block, n_polar_out, sub_n_col, self.m_in, self.valid, n_win_l, n_win_c, n_win_l_m1s2, n_win_c_m1s2, n_out, self.m_out, eps, flag, matrices, indexes, pi)
             elif pol_type_out in ['T3', 'C3']:
-                file_name = os.path.join(out_dir, out_file_3[k])
-                try:
-                    out_file_3[flag[k]] = open(file_name, "wb")
-                except IOError:
-                    raise Exception("Could not open input file : ", file_name)
-            # T4, C4
-            elif pol_type_out in ['T4', 'C4']:
-                file_name = os.path.join(out_dir, out_file_4[k])
-                try:
-                    out_file_4[flag[k]] = open(file_name, "wb")
-                except IOError:
-                    raise Exception("Could not open input file : ", file_name)
-    return flag, Alpha, Beta, Epsi, Delta, Gamma, Nhu, Lambda, H, A, CombHA, CombH1mA, Comb1mHA, Comb1mH1mA, n_out, n_para
+                process_t3_c3(nb, n_lig_block, n_polar_out, sub_n_col, self.m_in, self.valid, n_win_l, n_win_c, n_win_l_m1s2, n_win_c_m1s2, n_out, self.m_out, eps, flag, matrices, indexes, pi)
+            elif pol_type_in == 'T4' and pol_type_out == 'C4':
+                process_t4_c4(nb, n_lig_block, n_polar_out, sub_n_col, self.m_in, self.valid, n_win_l, n_win_c, n_win_l_m1s2, n_win_c_m1s2, n_out, self.m_out, eps, flag, matrices, indexes, pi)
 
-# %% [codecell] set_valid_pixels
-def set_valid_pixels(valid, flag_valid, n_lig_block, sub_n_col, n_win_c, n_win_l):
-    """
-    Set the valid pixels for the h_a_alpha based on the provided parameters.
-    """
-    if not flag_valid:
-        valid[:n_lig_block[0] + n_win_l, :sub_n_col + n_win_c] = 1.0
-    return valid
+            for k in range(n_para):
+                if flag[k] != -1:
+                    if pol_type_out in ['C2', 'C2pp1', 'C2pp2', 'C2pp3']:
+                        lib.util_block.write_block_matrix_matrix3d_float(out_file_2[flag[k]], self.m_out, flag[k], n_lig_block[nb], sub_n_col, 0, 0, sub_n_col)
+                    if pol_type_out in ['T3', 'C3']:
+                        lib.util_block.write_block_matrix_matrix3d_float(out_file_3[flag[k]], self.m_out, flag[k], n_lig_block[nb], sub_n_col, 0, 0, sub_n_col)
+                    if pol_type_in == 'T4' and pol_type_out == 'C4':
+                        lib.util_block.write_block_matrix_matrix3d_float(out_file_4[flag[k]], self.m_out, flag[k], n_lig_block[nb], sub_n_col, 0, 0, sub_n_col)
 
-# %% [codecell] allocate_matrices
-def allocate_matrices(n_col, n_polar_out, n_win_l, n_win_c, sub_n_lig, sub_n_col, n_out):
-    """
-    Allocate matrices with given dimensions
-    """
-    vc_in = np.zeros(2 * n_col, dtype=float)
-    vf_in = np.zeros(n_col, dtype=float)
-    mc_in = np.zeros((4, 2 * n_col), dtype=float)
-    mf_in = np.zeros((n_polar_out, n_win_l, n_col + n_win_c), dtype=float)
 
-    valid = np.zeros((sub_n_lig + n_win_l, sub_n_col + n_win_c), dtype=float)
-    m_in = np.zeros((n_polar_out, sub_n_lig + n_win_l, n_col + n_win_c), dtype=float)
-    m_out = np.zeros((n_polar_out, sub_n_lig, sub_n_col), dtype=float)
+def main(*args, **kwargs):
+    '''Main function
 
-    return vc_in, vf_in, mc_in, mf_in, valid, m_in, m_out
+    Args:
+        id (str): input directory
+        od (str): output directory
+        iodf (str): input-output data forma
+        nwr (int): Nwin Row
+        nwc (int): Nwin Col
+        ofr (int): Offset Row
+        ofc (int): Offset Col
+        fnr (int): Final Number of Row
+        fnc (int): Final Number of Col
+        fl1 Flag Parameters (0/1)
+        fl2 Flag Lambda (0/1)
+        fl3 Flag Alpha (0/1)
+        fl4 Flag Entropy (0/1)
+        fl5 Flag Anisotropy (0/1)
+        fl6 Flag Comb HA (0/1)
+        fl7 Flag Comb H1mA (0/1)
+        fl8 Flag Comb 1mHA (0/1)
+        fl9 Flag Comb 1mH1mA (0/1)
+        errf (str): memory error file
+        mask (str): mask file (valid pixels)'
+    '''
+    POL_TYPE_VALUES = ['S2T3', 'S2C3', 'S2T4', 'S2C4', 'SPPC2', 'C2', 'C3', 'C3T3', 'C4', 'C4T4', 'T3', 'T4']
+    local_args = lib.util.ParseArgs.get_args(*args, **kwargs)
+    parser_args = lib.util.ParseArgs(args=local_args, desc=f'{os.path.basename(sys.argv[0])}', pol_types=POL_TYPE_VALUES)
+    parser_args.make_def_args()
+    parser_args.add_req_arg('-fl1', int, 'Flag Parameters (0/1)', {0, 1})
+    parser_args.add_req_arg('-fl2', int, 'Flag Lambda (0/1)', {0, 1})
+    parser_args.add_req_arg('-fl3', int, 'Flag Alpha (0/1)', {0, 1})
+    parser_args.add_req_arg('-fl4', int, 'Flag Entropy (0/1)', {0, 1})
+    parser_args.add_req_arg('-fl5', int, 'Flag Anisotropy (0/1)', {0, 1})
+    parser_args.add_req_arg('-fl6', int, 'Flag Comb HA (0/1)', {0, 1})
+    parser_args.add_req_arg('-fl7', int, 'Flag Comb H1mA (0/1)', {0, 1})
+    parser_args.add_req_arg('-fl8', int, 'Flag Comb 1mHA (0/1)', {0, 1})
+    parser_args.add_req_arg('-fl9', int, 'Flag Comb 1mH1mA (0/1)', {0, 1})
+    parsed_args = parser_args.parse_args()
+    app = App(parsed_args)
+    app.run()
 
-# %% [codecell] process_C2
-@jit(nopython=True)
-def process_c2(lig, n_out, n_lig_block, block, sub_n_col, n_polar_out, m_out, n_win_lm1s2, n_win_cm1s2, valid, m_in, flag, eps, Alpha, Beta, Delta, Gamma, Lambda, H, A, comb_ha, comb_h1ma, comb_1mha, comb_1mh1ma):
-    alpha = np.zeros(4)
-    beta = np.zeros(4)
-    delta = np.zeros(4)
-    gamma = np.zeros(4)
-    p = np.zeros(4)
-    M = np.zeros((2, 2, 2))
-    V = np.zeros((2, 2, 2))
-    lambda_ = np.zeros(2)
-    m_avg = np.zeros((n_polar_out, sub_n_col))
-    # Assuming average_TCI() is another function to be implemented
-    m_avg = util_block.average_TCI(m_in, valid, n_polar_out, m_avg, lig, sub_n_col, n_win_lm1s2, n_win_cm1s2)
 
-    for col in range(sub_n_col):
-        for k in range(n_out):
-            m_out[k][lig][col] = 0.0
-        if valid[n_win_lm1s2+lig][n_win_cm1s2+col] == 1.0:
-            M[0][0][0] = eps + m_avg[0, col]
-            M[0][0][1] = 0
-            M[0][1][0] = eps + m_avg[1, col]
-            M[0][1][1] = eps + m_avg[2, col]
-            M[1][0][0] = M[0, 1, 0]
-            M[1][0][1] = -M[0, 1, 1]
-            M[1][1][0] = eps + m_avg[3, col]
-            M[1][1][1] = 0
+if __name__ == '__main__':
+    if len(sys.argv) > 1:
+        main(sys.argv[1:])
+    else:
+        dir_in = None
+        dir_out = None
+        params = {}
+        if platform.system().lower().startswith('win') is True:
+            dir_in = 'c:\\Projekty\\polsarpro.svn\\in\\h_a_alpha_decomposition\\'
+            dir_out = 'c:\\Projekty\\polsarpro.svn\\out\\h_a_alpha_decomposition\\py\\'
+        elif platform.system().lower().startswith('lin') is True:
+            dir_in = '/home/krzysiek/polsarpro/in/h_a_alpha_decomposition/'
+            dir_out = '/home/krzysiek/polsarpro/out/h_a_alpha_decomposition/'
+            params['v'] = None
+        else:
+            logging.error(f'unknown platform: {platform.system()}')
+            lib.util.exit_failure()
 
-            # Diagonalisation function call
-            V, lambda_ = processing.diagonalisation(2, M, V, lambda_)
+        # Pass params as expanded dictionary with '**'
+        params['id'] = dir_in
+        params['od'] = dir_out
+        params['iodf'] = 'T3'
+        params['nwr'] = 7
+        params['nwc'] = 7
+        params['ofr'] = 0
+        params['ofc'] = 0
+        params['fnr'] = 18432
+        params['fnc'] = 1248
+        params['fnc'] = 1248
+        params['fl1'] = 1
+        params['fl2'] = 0
+        params['fl3'] = 0
+        params['fl4'] = 0
+        params['fl5'] = 0
+        params['fl6'] = 0
+        params['fl7'] = 0
+        params['fl8'] = 0
+        params['fl9'] = 0
+        params['errf'] = os.path.join(dir_out, 'MemoryAllocError.txt')
+        params['mask'] = os.path.join(dir_in, 'mask_valid_pixels.bin')
+        main(**params)
 
-            # Mean scattering mechanism
-            if flag[Alpha] != -1: 
-                m_out[flag[Alpha]][lig][col] = 0
-            if flag[Beta] != -1: 
-                m_out[flag[Beta]][lig][col] = 0
-            if flag[Delta] != -1: 
-                m_out[flag[Delta]][lig][col] = 0
-            if flag[Gamma] != -1: 
-                m_out[flag[Gamma]][lig][col] = 0
-            if flag[Lambda] != -1: 
-                m_out[flag[Lambda]][lig][col] = 0
-            if flag[H] != -1: 
-                m_out[flag[H]][lig][col] = 0
-
-            for k in range(3):
-                if flag[Alpha] != -1: 
-                    m_out[flag[Alpha]][lig][col] += alpha[k] * p[k]
-                if flag[Beta] != -1: 
-                    m_out[flag[Beta]][lig][col] += beta[k] * p[k]
-                if flag[Delta] != -1: 
-                    m_out[flag[Delta]][lig][col] += delta[k] * p[k]
-                if flag[Gamma] != -1: 
-                    m_out[flag[Gamma]][lig][col] += gamma[k] * p[k]
-                if flag[Lambda] != -1: 
-                    m_out[flag[Lambda]][lig][col] += lambda_[k] * p[k]
-                if flag[H] != -1: 
-                    m_out[flag[H]][lig][col] -= p[k] * math.log(p[k] + eps)
-
-            # Scaling
-            if flag[Alpha] != -1: 
-                m_out[flag[Alpha]][lig][col] *= 180. / math.pi
-            if flag[Beta] != -1: 
-                m_out[flag[Beta]][lig][col] *= 180. / math.pi
-            if flag[Delta] != -1: 
-                m_out[flag[Delta]][lig][col] *= 180. / math.pi
-            if flag[Gamma] != -1: 
-                m_out[flag[Gamma]][lig][col] *= 180. / math.pi
-            if flag[H] != -1: 
-                m_out[flag[H]][lig][col] /= math.log(3)
-            if flag[A] != -1:
-                m_out[flag[A], lig, col] = (p[1] - p[2]) / (p[1] + p[2] + eps)
-
-            if flag[comb_ha] != -1:
-                m_out[flag[comb_ha], lig, col] = m_out[flag[H], lig, col] * m_out[flag[A], lig, col]
-            if flag[comb_h1ma] != -1:
-                m_out[flag[comb_h1ma], lig, col] = m_out[flag[H], lig, col] * (1. - m_out[flag[A], lig, col])
-            if flag[comb_1mha] != -1:
-                m_out[flag[comb_1mha], lig, col] = (1. - m_out[flag[H], lig, col]) * m_out[flag[A], lig, col]
-            if flag[comb_1mh1ma] != -1:
-                m_out[flag[comb_1mh1ma], lig, col] = (1. - m_out[flag[H], lig, col]) * (1. - m_out[flag[A], lig, col])
-    return m_out
-# %% [codecell] process_T3_C3
-@jit(nopython=True)
-def process_t3_c3(lig, n_out, n_win_l, n_win_c, sub_n_col, n_polar_out, m_out, phase, n_win_lm1s2, n_win_cm1s2, valid, m_in, flag, eps, Alpha, Beta, Delta, Gamma, Lambda, H, A, comb_ha, comb_h1ma, comb_1mha, comb_1mh1ma):
-    alpha = np.zeros(4)
-    beta = np.zeros(4)
-    delta = np.zeros(4)
-    gamma = np.zeros(4)
-    p = np.zeros(4)
-    M = np.zeros((3, 3, 2))
-    V = np.zeros((3, 3, 2))
-    lambda_ = np.zeros(3)
-    m_avg = np.zeros((n_polar_out, sub_n_col))
-    # Assuming average_TCI() is another function to be implemented
-    m_avg = util_block.average_TCI(m_in, valid, n_polar_out, m_avg, lig, sub_n_col, n_win_l, n_win_c, n_win_lm1s2, n_win_cm1s2)
-    M = 0
-    for col in range(sub_n_col):
-        for k in range(n_out):
-            m_out[k][lig][col] = 0.
-        if valid[n_win_lm1s2+lig][n_win_cm1s2+col] == 1.:
-            
-            M[0][0][0] = eps + m_avg[0][col]
-            M[0][0][1] = 0.
-            M[0][1][0] = eps + m_avg[1][col]
-            M[0][1][1] = eps + m_avg[2][col]
-            M[0][2][0] = eps + m_avg[3][col]
-            M[0][2][1] = eps + m_avg[4][col]
-            M[1][0][0] = M[0][1][0]
-            M[1][0][1] = -M[0][1][1]
-            M[1][1][0] = eps + m_avg[5][col]
-            M[1][1][1] = 0.
-            M[1][2][0] = eps + m_avg[6][col]
-            M[1][2][1] = eps + m_avg[7][col]
-            M[2][0][0] = M[0][2][0]
-            M[2][0][1] = -M[0][2][1]
-            M[2][1][0] = M[1][2][0]
-            M[2][1][1] = -M[1][2][1]
-            M[2][2][0] = eps + m_avg[8][col]
-            M[2][2][1] = 0.
-
-            V, lambda_ = processing.diagonalisation(3, M, V, lambda_)
-
-            for k in range(3):
-                if lambda_[k] < 0.: 
-                    lambda_[k] = 0.
-            for k in range(3):
-                alpha[k] = math.acos(math.sqrt(V[0][k][0] ** 2 + V[0][k][1] ** 2))
-                phase[k] = math.atan2(V[0][k][1], eps + V[0][k][0])
-                beta[k] = math.atan2(math.sqrt(V[2][k][0] ** 2 + V[2][k][1] ** 2), eps + math.sqrt(V[1][k][0] ** 2 + V[1][k][1] ** 2))
-                delta[k] = math.atan2(V[1][k][1], eps + V[1][k][0]) - phase[k]
-                delta[k] = math.atan2(math.sin(delta[k]), math.cos(delta[k]) + eps)
-                gamma[k] = math.atan2(V[2][k][1], eps + V[2][k][0]) - phase[k]
-                gamma[k] = math.atan2(math.sin(gamma[k]), math.cos(gamma[k]) + eps)
-                
-                # Mean scattering mechanism
-                if flag[Alpha] != -1: m_out[flag[Alpha]][lig][col] = 0
-                if flag[Beta] != -1: m_out[flag[Beta]][lig][col] = 0
-                if flag[Delta] != -1: m_out[flag[Delta]][lig][col] = 0
-                if flag[Gamma] != -1: m_out[flag[Gamma]][lig][col] = 0
-                if flag[Lambda] != -1: m_out[flag[Lambda]][lig][col] = 0
-                if flag[H] != -1: m_out[flag[H]][lig][col] = 0
-
-                # Scaling
-                if flag[Alpha] != -1: m_out[flag[Alpha]][lig][col] *= 180. / math.pi
-                if flag[Beta] != -1: m_out[flag[Beta]][lig][col] *= 180. / math.pi
-                if flag[Delta] != -1: m_out[flag[Delta]][lig][col] *= 180. / math.pi
-                if flag[Gamma] != -1: m_out[flag[Gamma]][lig][col] *= 180. / math.pi
-                if flag[H] != -1: m_out[flag[H]][lig][col] /= math.log(3.)
-
-                if flag[comb_ha] != -1: m_out[flag[comb_ha]][lig][col] = m_out[flag[H]][lig][col] * m_out[flag['A']][lig][col]
-                if flag[comb_h1ma] != -1: m_out[flag[comb_h1ma]][lig][col] = m_out[flag[H]][lig][col] * (1. - m_out[flag['A']][lig][col])
-                if flag[comb_1mha] != -1: m_out[flag[comb_1mha]][lig][col] = (1. - m_out[flag[H]][lig][col]) * m_out[flag['A']][lig][col]
-                if flag[comb_1mh1ma] != -1: m_out[flag[comb_1mh1ma]][lig][col] = (1. - m_out[flag[H]][lig][col]) * (1. - m_out[flag['A']][lig][col])
-    return m_out
-
-# %% [codecell] process_T4_C4
-@jit(nopython=True)
-def process_t4_c4(lig, n_out, n_win_l, n_win_c, sub_n_col, n_polar_out, m_out, phase, n_win_lm1s2, n_win_cm1s2, valid, m_in, flag, eps, Alpha, Beta, Delta, Gamma, Lambda, Epsi, Nhu, H, A, comb_ha, comb_h1ma, comb_1mha, comb_1mh1ma):
-    alpha = np.zeros(4)
-    beta = np.zeros(4)
-    delta = np.zeros(4)
-    gamma = np.zeros(4)
-    epsilon = np.zeros(4)
-    nhu = np.zeros(4    )
-    p = np.zeros(4)
-    M = np.zeros((4, 4, 2))
-    V = np.zeros((4, 4, 2))
-    lambda_ = np.zeros((4,))
-    M_avg = np.zeros((n_polar_out, sub_n_col))
-    # Assuming average_TCI() is another function to be implemented
-    m_avg = util_block.average_TCI(m_in, valid, n_polar_out, M_avg, lig, sub_n_col, n_win_l, n_win_c, n_win_lm1s2, n_win_cm1s2)
-    M = 0
-    for col in range(sub_n_col):
-        for k in range(n_out):
-            m_out[k][lig][col] = 0.
-        if valid[n_win_lm1s2+lig][n_win_cm1s2+col] == 1.:
-            M[0][0][0] = eps + M_avg[0][col]
-            M[0][0][1] = 0.
-            M[0][1][0] = eps + M_avg[1][col]
-            M[0][1][1] = eps + M_avg[2][col]
-            M[0][2][0] = eps + M_avg[3][col]
-            M[0][2][1] = eps + M_avg[4][col]
-            M[0][3][0] = eps + M_avg[5][col]
-            M[0][3][1] = eps + M_avg[6][col]
-            M[1][0][0] =  M[0][1][0]
-            M[1][0][1] = -M[0][1][1]
-            M[1][1][0] = eps + M_avg[7][col]
-            M[1][1][1] = 0.
-            M[1][2][0] = eps + M_avg[8][col]
-            M[1][2][1] = eps + M_avg[9][col]
-            M[1][3][0] = eps + M_avg[10][col]
-            M[1][3][1] = eps + M_avg[11][col]
-            M[2][0][0] =  M[0][2][0]
-            M[2][0][1] = -M[0][2][1]
-            M[2][1][0] =  M[1][2][0]
-            M[2][1][1] = -M[1][2][1]
-            M[2][2][0] = eps + M_avg[12][col]
-            M[2][2][1] = 0.
-            M[2][3][0] = eps + M_avg[13][col]
-            M[2][3][1] = eps + M_avg[14][col]
-            M[3][0][0] =  M[0][3][0]
-            M[3][0][1] = -M[0][3][1]
-            M[3][1][0] =  M[1][3][0]
-            M[3][1][1] = -M[1][3][1]
-            M[3][2][0] =  M[2][3][0]
-            M[3][2][1] = -M[2][3][1]
-            M[3][3][0] = eps + M_avg[15][col]
-            M[3][3][1] = 0.
-
-            V, lambda_ = processing.diagonalisation(4, M, V, lambda_)
-
-            for k in range(4):
-                alpha[k] = acos(sqrt(V[0][k][0]**2 + V[0][k][1]**2))
-                phase[k] = atan2(V[0][k][1], eps + V[0][k][0])
-                beta[k] = atan2(sqrt(V[2][k][0]**2 + V[2][k][1]**2 + V[3][k][0]**2 + V[3][k][1]**2), 
-                                eps + sqrt(V[1][k][0]**2 + V[1][k][1]**2))
-                epsilon[k] = atan2(sqrt(V[3][k][0]**2 + V[3][k][1]**2), 
-                                eps + sqrt(V[2][k][0]**2 + V[2][k][1]**2))
-                delta[k] = atan2(V[1][k][1], eps + V[1][k][0]) - phase[k]
-                delta[k] = atan2(sin(delta[k]), cos(delta[k]) + eps)
-                gamma[k] = atan2(V[2][k][1], eps + V[2][k][0]) - phase[k]
-                gamma[k] = atan2(sin(gamma[k]), cos(gamma[k]) + eps)
-                nhu[k] = atan2(V[3][k][1], eps + V[3][k][0]) - phase[k]
-                nhu[k] = atan2(sin(nhu[k]), cos(nhu[k]) + eps)
-                
-                # Scattering mechanism probability of occurrence
-                p[k] = lambda_[k] / (eps + lambda_[0] + lambda_[1] + lambda_[2] + lambda_[3])
-                if p[k] < 0.: 
-                    p[k] = 0.
-                if p[k] > 1.: 
-                    p[k] = 1.
-                flag = 0
-                m_out = 0
-                # Mean scattering mechanism
-                if flag[Alpha] != -1:
-                    m_out[flag[Alpha]][lig][col] = 0
-                if flag[Beta] != -1:
-                    m_out[flag[Beta]][lig][col] = 0
-                if flag[Epsi] != -1:
-                    m_out[flag[Epsi]][lig][col] = 0
-                if flag[Delta] != -1:
-                    m_out[flag[Delta]][lig][col] = 0
-                if flag[Gamma] != -1:
-                    m_out[flag[Gamma]][lig][col] = 0
-                if flag[Nhu] != -1:
-                    m_out[flag[Nhu]][lig][col] = 0
-                if flag[Lambda] != -1:
-                    m_out[flag[Lambda]][lig][col] = 0
-                if flag[H] != -1:
-                    m_out[flag[H]][lig][col] = 0
-
-                from math import log
-                for k in range(4):
-                    if flag[Alpha] != -1:
-                        m_out[flag[Alpha]][lig][col] += alpha[k] * p[k]
-                    if flag[Beta] != -1:
-                        m_out[flag[Beta]][lig][col] += beta[k] * p[k]
-                    if flag[Epsi] != -1:
-                        m_out[flag[Epsi]][lig][col] += epsilon[k] * p[k]
-                    if flag[Delta] != -1:
-                        m_out[flag[Delta]][lig][col] += delta[k] * p[k]
-                    if flag[Gamma] != -1:
-                        m_out[flag[Gamma]][lig][col] += gamma[k] * p[k]
-                    if flag[Nhu] != -1:
-                        m_out[flag[Nhu]][lig][col] += nhu[k] * p[k]
-                    if flag[Lambda] != -1:
-                        m_out[flag[Lambda]][lig][col] += lambda_[k] * p[k]
-                    if flag[H] != -1:
-                        m_out[flag[H]][lig][col] -= p[k] * log(p[k] + eps)
-
-                # Scaling
-                if flag[Alpha] != -1:
-                    m_out[flag[Alpha]][lig][col] *= 180. / pi
-                if flag[Beta] != -1:
-                    m_out[flag[Beta]][lig][col] *= 180. / pi
-                if flag[Epsi] != -1:
-                    m_out[flag[Epsi]][lig][col] *= 180. / pi
-                if flag[Delta] != -1:
-                    m_out[flag[Delta]][lig][col] *= 180. / pi
-                if flag[Gamma] != -1:
-                    m_out[flag[Gamma]][lig][col] *= 180. / pi
-                if flag[Nhu] != -1:
-                    m_out[flag[Nhu]][lig][col] *= 180. / pi
-                if flag[H] != -1:
-                    m_out[flag[H]][lig][col] /= log(4.)
-
-                if flag[A] != -1:
-                    m_out[flag[A]][lig][col] = (p[1] - p[2]) / (p[1] + p[2] + eps)
-
-                if flag[comb_ha] != -1:
-                    m_out[flag[comb_ha]][lig][col] = m_out[flag[H]][lig][col] * m_out[flag[A]][lig][col]
-                if flag[comb_h1ma] != -1:
-                    m_out[flag[comb_h1ma]][lig][col] = m_out[flag[H]][lig][col] * (1. - m_out[flag[A]][lig][col])
-                if flag[comb_1mha] != -1:
-                    m_out[flag[comb_1mha]][lig][col] = (1. - m_out[flag[H]][lig][col]) * m_out[flag[A]][lig][col]
-                if flag[comb_1mh1ma] != -1:
-                    m_out[flag[comb_1mh1ma]][lig][col] = (1. - m_out[flag[H]][lig][col]) * (1. - m_out[flag[A]][lig][col])
-
-    return m_out
-
-# %% [codecell] is_pol_type_valid
-def is_pol_type_valid(pol_type):
-    """
-    Check if the given pol_type is valid for processing.
-    Returns True if the pol_type is valid, False otherwise.
-    """
-    valid_pol_types = ["S2", "SPP", "SPPpp1", "SPPpp2", "SPPpp3"]
-    return pol_type in valid_pol_types
-
-if __name__ == "__main__":
-    main()
-
+        # Pass parasm as positional arguments
+        # main(id=dir_in,
+        #      od=dir_out,
+        #      iodf='T3',
+        #      nwr=7,
+        #      nwc=7,
+        #      ofr=0,
+        #      ofc=0,
+        #      fnr=18432,
+        #      fnc=1248,
+        #      fl1 = 1,
+        #      fl2 = 0,
+        #      fl3 = 0,
+        #      fl4 = 0,
+        #      fl5 = 0,
+        #      fl6 = 0,
+        #      fl7 = 0,
+        #      fl8 = 0,
+        #      fl9 = 0,
+        #      errf=os.path.join(f'{dir_out}', 'MemoryAllocError.txt'),
+        #      mask=os.path.join(f'{dir_in}', 'mask_valid_pixels.bin'))

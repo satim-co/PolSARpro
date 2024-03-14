@@ -187,17 +187,16 @@ class Module:
                 print(f'{"PARAMS":<10}: {k}: {v}')
             else:
                 print(f'{"":<10}  {k}: {v}')
-        Logger.make_dirs(self.dir_pattern)
-        print(f'{"PATTERN":<10}: {self.dir_pattern}')
-        Logger.make_dirs(self.dir_out)
-        print(f'{"DIR_OUT":<10}: {self.dir_out}')
-        Logger.make_dirs(self.dir_in)
         print(f'{"DIR_IN":<10}: {self.dir_in}')
+        print(f'{"DIR_OUT":<10}: {self.dir_out}')
+        print(f'{"PATTERN":<10}: {self.dir_pattern}')
         if self.skip != '' and self.lang == 'py':
             self.time = datetime.datetime.now() - time_start
             print(f'\n{"RESULT":<10}: {self.result} - reason: {self.skip}')
             Logger.log_test = None
             return self.time, self.result, self.skip
+        Logger.make_dirs(self.dir_in)
+        Logger.make_dirs(self.dir_pattern)
         if self.lang == 'py':
             m = f'../src/data_process_sngl/{self.name}.{self.lang}'
             print(f'\nimport module {m}')

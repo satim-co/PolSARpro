@@ -23,11 +23,12 @@ jobs:
           python-version: '${{env.PYTHON_VERSION}}'
 
       - name: Install dependencies
-        run: pip install -r Soft/requirements.txt
-
-      - name: Install & run lint - flake8
         run: |
+          pip install -r Soft/requirements.txt
           pip install flake8
+
+      - name: Run lint - flake8
+        run: |
           # ignora:e E501 line too long
           flake8 . --ignore E501
 

@@ -17,7 +17,9 @@ See the GNU General Public License (Version 2, 1991) for more details
 File  : freeman_decomposition.c
 Project  : ESA_POLSARPRO-SATIM
 Authors  : Eric POTTIER, Jacek STRZELCZYK
-Version  : 2.0
+Translate to python: Ryszard Wozniak
+Update&Fix  : Krzysztof Smaza
+VVersion  : 2.0
 Creation : 07/2015
 Update  :
 *--------------------------------------------------------------------

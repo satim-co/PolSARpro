@@ -17,6 +17,8 @@ See the GNU General Public License (Version 2, 1991) for more details
 File  : h_a_alpha_decomposition.c
 Project  : ESA_POLSARPRO-SATIM
 Authors  : Eric POTTIER, Jacek STRZELCZYK
+Translate to python: Ryszard Wozniak
+Update&Fix  : Krzysztof Smaza
 Version  : 2.0
 Creation : 07/2015
 Update  :

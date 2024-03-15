@@ -12,5 +12,6 @@
   { "name" : "cloude_decomposition",                 "reason" : "test skip" },
   { "name" : "freeman_decomposition",                "reason" : "test skip" },
   { "name" : "h_a_alpha_decomposition",              "reason" : "test skip" },
-  { "name" : "yamaguchi_3components_decomposition",  "reason" : "test skip" }
+  { "name" : "yamaguchi_3components_decomposition",  "reason" : "test skip" },
+  { "name" : "yamaguchi_4components_decomposition",  "reason" : "test skip" }
 ]

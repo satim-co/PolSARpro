@@ -1,553 +1,599 @@
-"""
-Polsarpro
-===
+#!/usr/bin/env python3
+
+'''
+********************************************************************
+PolSARpro v5.0 is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License as
+published by the Free Software Foundation; either version 2 (1991) of
+the License, or any later version. This program is distributed in the
+hope that it will be useful, but WITHOUT ANY WARRANTY; without even
+the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+PURPOSE.
+
+See the GNU General Public License (Version 2, 1991) for more details
+
+*********************************************************************
+
+File  : yamaguchi_4components_decomposition.c
+Project  : ESA_POLSARPRO-SATIM
+Authors  : Eric POTTIER, Jacek STRZELCZYK
+Translate to python: Ryszard Wozniak
+Update&Fix  : Krzysztof Smaza
+Version  : 2.0
+Creation : 07/2015
+Update  :
+*--------------------------------------------------------------------
+INSTITUT D'ELECTRONIQUE et de TELECOMMUNICATIONS de RENNES (I.E.T.R)
+UMR CNRS 6164
+
+Waves and Signal department
+SHINE Team
+
+
+UNIVERSITY OF RENNES I
+Bât. 11D - Campus de Beaulieu
+263 Avenue Général Leclerc
+35042 RENNES Cedex
+Tel :(+33) 2 23 23 57 63
+Fax :(+33) 2 23 23 69 63
+e-mail: eric.pottier@univ-rennes1.fr
+
+*--------------------------------------------------------------------
+
 Description :  Yamaguchi 4 components Decomposition
 
-Input parameters:
-id  	input directory
-od  	output directory
-iodf	input-output data format
-mod 	decomposition mode (Y4O, Y4R, S4R)
-nwr 	Nwin Row
-nwc 	Nwin Col
-ofr 	Offset Row
-ofc 	Offset Col
-fnr 	Final Number of Row
-fnc 	Final Number of Col
+********************************************************************
+'''
 
-Optional Parameters:
-mask	mask file (valid pixels)
-errf	memory error file
-help	displays this message
-data	displays the help concerning Data Format parameter
-"""
-import math
+
 import os
 import sys
-import argparse
-import numpy as np
-from collections import namedtuple
-import concurrent.futures
-from tqdm import tqdm
-from multiprocessing import Pool
-from numba import jit
-import util
-import util_block
+import platform
+import numpy
+import math
+import logging
+import numba
+sys.path.append(r'../')
+import lib.util  # noqa: E402
+import lib.util_block  # noqa: E402
+import lib.util_convert  # noqa: E402
+import lib.matrix  # noqa: E402
 
-def main(in_dir, out_dir, pol_type, yam_mode, n_win_l, n_win_c, off_lig, off_col, sub_n_lig, sub_n_col, file_memerr, file_valid):
-    
-    """
-    Main Function for the yamaguchi_4_components.
-    Parses the input arguments, reads the input files, and processes the data using yamaguchi_4_components filtering.
-    """
-    print("********************Welcome in yamaguchi_4_components_decomposition********************")
+numba.config.THREADING_LAYER = 'omp'
+if numba.config.NUMBA_NUM_THREADS > 1:
+    numba.set_num_threads(numba.config.NUMBA_NUM_THREADS - 1)
 
-    # Definitions
-    NPolType = ["S2", "C3", "T3"]
-    file_name = ''
+NUMBA_IS_LINUX = numba.np.ufunc.parallel._IS_LINUX
 
-    eps = 1.E-30
+if NUMBA_IS_LINUX is True:
+    get_thread_id_type = numba.typeof(numba.np.ufunc.parallel._get_thread_id())
 
-    n_lig_block = np.zeros(8192, dtype=int)
-    n_polar_out = 0
-    m_in = []
-    valid = 0
-    in_datafile = []
-    in_valid = 0
+    @numba.njit
+    def numba_get_thread_id():
+        with numba.objmode(ret=get_thread_id_type):
+            ret = numba.np.ufunc.parallel._get_thread_id()
+            return ret
+else:
+    @numba.njit
+    def numba_get_thread_id():
+        with numba.objmode(ret=numba.int32):
+            ret = numba.int32(-1)
+            return ret
 
-    # Internal variables
-    ii, lig, col = 0, 0, 0
+
+@numba.njit(parallel=False, fastmath=True)
+def span_determination(s_min, s_max, nb, n_lig_block, n_polar_out, sub_n_col, m_in, valid, n_win_l, n_win_c, n_win_l_m1s2, n_win_c_m1s2):
     ligDone = 0
+    m_avg = lib.matrix.matrix_float(n_polar_out, sub_n_col)
+    for lig in range(n_lig_block[nb]):
+        ligDone += 1
+        if numba_get_thread_id() == 0:
+            lib.util.printf_line(ligDone, n_lig_block[nb])
+        m_avg.fill(0)
+        lib.util_block.average_tci(m_in, valid, n_polar_out, m_avg, lig, sub_n_col, n_win_l, n_win_c, n_win_l_m1s2, n_win_c_m1s2)
+        for col in range(sub_n_col):
+            if valid[n_win_l_m1s2 + lig][n_win_c_m1s2 + col] == 1.:
+                span = m_avg[lib.util.C311][col] + m_avg[lib.util.C322][col] + m_avg[lib.util.C333][col]
+                s_max = max(s_max, span)
+                s_min = min(s_min, span)
+    return s_min, s_max
 
-    span, span_min, span_max = 0.0, 0.0, 0.0
 
-    n_win_lm_1s2 = int((n_win_l - 1) / 2)
-    n_win_cm_1s2 = int((n_win_c - 1) / 2)
+@numba.njit(parallel=False, fastmath=True)
+def unitary_rotation(TT, teta):
+    t11 = TT[lib.util.T311]
+    t12_re, t12_im = TT[lib.util.T312_RE], TT[lib.util.T312_IM]
+    t13_re, t13_im = TT[lib.util.T313_RE], TT[lib.util.T313_IM]
+    t22 = TT[lib.util.T322]
+    t23_re, t23_im = TT[lib.util.T323_RE], TT[lib.util.T323_IM]
+    t33 = TT[lib.util.T333]
 
-    # # /* INPUT/OUPUT CONFIGURATIONS */
-    n_lig, n_col, polar_case, polar_type = read_configuration(in_dir)
+    TT[lib.util.T311] = t11
+    TT[lib.util.T312_RE] = t12_re * math.cos(teta) + t13_re * math.sin(teta)
+    TT[lib.util.T312_IM] = t12_im * math.cos(teta) + t13_im * math.sin(teta)
+    TT[lib.util.T313_RE] = -t12_re * math.sin(teta) + t13_re * math.cos(teta)
+    TT[lib.util.T313_IM] = -t12_im * math.sin(teta) + t13_im * math.cos(teta)
+    TT[lib.util.T322] = t22 * math.cos(teta)**2 + 2. * t23_re * math.cos(teta) * math.sin(teta) + t33 * math.sin(teta) ** 2
+    TT[lib.util.T323_RE] = -t22 * math.cos(teta) * math.sin(teta) + t23_re * math.cos(teta)**2 - t23_re * math.sin(teta) ** 2 + t33 * math.cos(teta) * math.sin(teta)
+    TT[lib.util.T323_IM] = t23_im * math.cos(teta) ** 2 + t23_im * math.sin(teta) ** 2
+    TT[lib.util.T333] = t22 * math.sin(teta)**2 + t33 * math.cos(teta)**2 - 2. * t23_re * math.cos(teta) * math.sin(teta)
 
-    # # /* POLAR TYPE CONFIGURATION */
-    pol_type, n_polar_in, pol_type_in, n_polar_out, pol_type_out = configure_polar_type(pol_type)
 
-    # # /* INPUT/OUTPUT FILE CONFIGURATION */
-    file_name_in = configure_input_output_files(pol_type_in, in_dir, out_dir)
+# @numba.njit(parallel=False, fastmath=True)
+def data_processing(yam_mode, nb, n_lig_block, n_polar_out, m_in, valid, sub_n_col, n_win_l, n_win_c, n_win_l_m1s2, n_win_c_m1s2, m_odd, m_dbl, m_vol, m_hlx, span_min, span_max, eps):
+    HV_type = 0
+    FS = FD = FV = ALPre = ALPim = BETre = BETim = 0.
+    HHHH = HVHV = VVVV = HHVVre = HHVVim = 0.
+    rtemp = ratio = S = D = Cre = Cim = CO = C1 = teta = 0.
+    Ps = Pd = Pv = Pc = TP = 0.
+    # pragma omp parallel for private(col, M_avg) firstprivate(CC11, CC13_re, CC13_im, CC22, CC33, FS, FD, FV, ALPre, ALPim, BETre, BETim, HHHH, HVHV, VVVV, HHVVre, HHVVim, rtemp, ratio) shared(ligDone)
+    ligDone = 0
+    m_avg = lib.matrix.matrix_float(n_polar_out, sub_n_col)
+    TT = lib.matrix.vector_float(n_polar_out)
+    for lig in range(n_lig_block[nb]):
+        ligDone += 1
+        if numba_get_thread_id() == 0:
+            lib.util.printf_line(ligDone, n_lig_block[nb])
+        m_avg.fill(0)
+        lib.util_block.average_tci(m_in, valid, n_polar_out, m_avg, lig, sub_n_col, n_win_l, n_win_c, n_win_l_m1s2, n_win_c_m1s2)
+        for col in numba.prange(sub_n_col):
+            if valid[n_win_l_m1s2 + lig][n_win_c_m1s2 + col] == 1:
 
-    # # /* INPUT FILE OPENING*/
-    in_datafile, in_valid, flag_valid = open_input_files(file_name_in, file_valid, in_datafile, n_polar_in, in_valid)
-
-    # /* OUTPUT FILE OPENING*/
-    out_odd, out_dbl, out_vol, out_hlx = open_output_files(out_dir)
-
-    # /* COPY HEADER*/
-    copy_header(in_dir, out_dir)
-
-    # /* MATRIX ALLOCATION */
-    util.vc_in, util.vf_in, util.mc_in, util.mf_in, valid, m_in, m_odd, m_dbl, m_vol, m_hlx = allocate_matrices(n_col, n_polar_out, n_win_l, n_win_c, sub_n_lig, sub_n_col)
-
-    # /* MASK VALID PIXELS (if there is no MaskFile */
-    valid = set_valid_pixels(valid, flag_valid, sub_n_lig, sub_n_col, n_win_c, n_win_l)
-
-    # SPANMIN / SPANMAX DETERMINATION
-    for Np in range(n_polar_in):
-        in_datafile[Np].seek(0)
-        
-    if flag_valid == 1:
-        in_valid.seek(0)
-
-    span = 0.0
-    span_min = np.inf
-    span_max = -np.inf
-
-    nb_block = 1
-    for Nb in range(nb_block):
-        ligDone = 0
-        if nb_block > 2:
-            print(f"{100. * Nb / (nb_block - 1)}", end='\r', flush=True)
-        if flag_valid == 1:
-            m_in = util_block.read_block_matrix_float(in_valid, valid, Nb, nb_block, n_lig_block[Nb], sub_n_col, n_win_l, n_win_c, off_lig, off_col, n_col)
-
-        if pol_type == "S2":
-            m_in = util_block.read_block_S2_noavg(in_datafile, m_in, pol_type_out, n_polar_out, Nb, nb_block, n_lig_block[Nb], sub_n_col, n_win_l, n_win_c, off_lig, off_col, n_col)
-        else:
-            # Case of C,T or I
-            m_in = util_block.read_block_TCI_noavg(in_datafile, m_in, n_polar_out, Nb, nb_block, n_lig_block[Nb], sub_n_col, n_win_l, n_win_c, off_lig, off_col, n_col)
-            
-        if pol_type_out == "T3":
-            m_in = util_block.T3_to_C3(m_in, n_lig_block[Nb], sub_n_col + n_win_c, 0, 0)
-        
-        
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            future_to_lig = {executor.submit(determination, lig): lig for lig in range(n_lig_block[Nb])}
-            for future in tqdm(concurrent.futures.as_completed(future_to_lig), total=len(future_to_lig), desc="Processing"):
-                try:
-                    span_min, span_max = future.result()
-                    if span_min < SpanMin_global:
-                        SpanMin_global = span_min
-                    if span_max > SpanMax_global:
-                        SpanMax_global = span_max
-                except Exception as exc:
-                    print(f"An exception occurred: {exc}")
-
-    if SpanMin_global < eps:
-        SpanMin_global = eps
-    
-    # DATA PROCESSING
-    for Np in range(n_polar_in):
-        in_datafile[Np].seek(0)
-        if flag_valid == 1:
-            in_valid.seek(0)
-
-    for Nb in range(nb_block):
-        ligDone = 0
-        if nb_block > 2:
-            print(f"{100. * Nb / (nb_block - 1)}", end='\r', flush=True)
-
-        if flag_valid == 1:
-            util_block.read_block_matrix_float(in_valid, valid, Nb, nb_block, n_lig_block[Nb], sub_n_col, n_win_l, n_win_c, off_lig, off_col, Ncol)
-
-        if pol_type == "S2":
-            util_block.read_block_S2_noavg(in_datafile, m_in, pol_type_out, n_polar_out, Nb, nb_block, n_lig_block[Nb], sub_n_col, n_win_l, n_win_c, off_lig, off_col, Ncol)
-        else:
-            # Case of C,T or I
-            util_block.read_block_TCI_noavg(in_datafile, m_in, n_polar_out, Nb, nb_block, n_lig_block[Nb], sub_n_col, n_win_l, n_win_c, off_lig, off_col, Ncol)
-            
-        if pol_type_out == "C3":
-            util_block.c3_to_t3(m_in, n_lig_block[Nb], sub_n_col + n_win_c, 0, 0)
-
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            n_win_lm_1s2, n_win_cm_1s2, M_in, Valid = 0
-            M_out_futures = [executor.submit(yamaguchi_4_components, lig, lig, n_polar_out, sub_n_col, n_win_l, n_win_c, n_win_lm_1s2, n_win_cm_1s2, m_in, valid, span_min, span_max, m_odd, m_dbl, m_vol, m_hlx, yam_mode, eps) for lig in range(n_lig_block[Nb])]
-            for future in tqdm(concurrent.futures.as_completed(M_out_futures), total=len(M_out_futures), desc="Processing"):
-                m_odd, m_dbl, m_vol, m_hlx = future.result()
-
-        util_block.write_block_matrix_float(out_odd, m_odd, n_lig_block[Nb], sub_n_col, 0, 0, sub_n_col)
-        util_block.write_block_matrix_float(out_dbl, m_dbl, n_lig_block[Nb], sub_n_col, 0, 0, sub_n_col)
-        util_block.write_block_matrix_float(out_vol, m_vol, n_lig_block[Nb], sub_n_col, 0, 0, sub_n_col)
-        util_block.write_block_matrix_float(out_hlx, m_hlx, n_lig_block[Nb], sub_n_col, 0, 0, sub_n_col)
-
-# %% [codecell] read_configuration
-def read_configuration(in_dir):
-    """
-    Read the configuration from the input directory and return the parameters.
-    """
-    n_lig, n_col, polar_case, polar_type = util.read_config(in_dir)
-    return n_lig, n_col, polar_case, polar_type
-
-# %% [codecell] configure_polar_type
-def configure_polar_type(pol_type):
-    """
-    Configure the polar type based on the provided input-output data format and return the updated parameters.
-    """
-    polar_type_replacements = {
-        "S2": "S2T3"
-    }
-
-    if pol_type in polar_type_replacements:
-        pol_type = polar_type_replacements[pol_type]
-    return util.pol_type_config(pol_type)
-
-# %% [codecell] configure_input_output_files
-def configure_input_output_files(pol_type_in, in_dir, out_dir):
-    """
-    Configure the input and output files based on the provided polar types and directories.
-    Return the input and output file names.
-    """
-    file_name_in = util.init_file_name(pol_type_in, in_dir)
-    return file_name_in
-
-# %% [codecell] open_input_files
-def open_input_files(file_name_in, file_valid, in_datafile, n_polar_in, in_valid):
-    """
-    Open input files and return the file objects and a flag indicating if the 'valid' file is present.
-    """
-    flag_valid = False
-    for n_pol in range(n_polar_in):
-        try:
-            in_datafile.append(open(file_name_in[n_pol], "rb"))
-        except IOError:
-            print("Could not open input file : ", file_name_in[n_pol])
-            raise
-
-    if file_valid:
-        flag_valid = True
-        try:
-            in_valid = open(file_valid, "rb")
-        except IOError:
-            print("Could not open input file: ", file_valid)
-            raise
-    return in_datafile, in_valid, flag_valid
-
-# %% [codecell] open_output_files
-def open_output_files(out_dir, yam_mode):
-    """
-    Open output files and return the file objects.
-    """
-    try:
-        out_odd = open(os.path.join(out_dir, f"Yamaguchi4_{yam_mode}_Odd.bin"), "wb")
-    except IOError:
-        print(f"Could not open output file : {os.path.join(out_dir, f'Yamaguchi4_{yam_mode}_Odd.bin')}")
-        raise
-
-    try:
-        out_dbl = open(os.path.join(out_dir, f"Yamaguchi4_{yam_mode}_Dbl.bin"), "wb")
-    except IOError:
-        print(f"Could not open output file : {os.path.join(out_dir, f'Yamaguchi4_{yam_mode}_Dbl.bin')}")
-        raise
-
-    try:
-        out_vol = open(os.path.join(out_dir, f"Yamaguchi4_{yam_mode}_Vol.bin"), "wb")
-    except IOError:
-        print(f"Could not open output file : {os.path.join(out_dir, f'Yamaguchi4_{yam_mode}_Vol.bin')}")
-        raise
-
-    try:
-        out_hlx = open(os.path.join(out_dir, f"Yamaguchi4_{yam_mode}_Hlx.bin"), "wb")
-    except IOError:
-        print(f"Could not open output file : {os.path.join(out_dir, f'Yamaguchi4_{yam_mode}_Hlx.bin')}")
-        raise
-
-    return out_odd, out_dbl, out_vol, out_hlx
-
-# %% [codecell] set_valid_pixels
-def set_valid_pixels(valid, flag_valid, sub_n_lig, sub_n_col, n_win_c, n_win_l):
-    """
-    Set the valid pixels for the yamaguchi_4_components filter based on the provided parameters.
-    """
-    if not flag_valid:
-        valid[:sub_n_lig + n_win_l, :sub_n_col + n_win_c] = 1.0
-    return valid
-
-# %% [codecell] allocate_matrices
-def allocate_matrices(n_col, n_polar_out, n_win_l, n_win_c, sub_n_lig, sub_n_col):
-    """
-    Allocate matrices with given dimensions
-    """
-    vc_in = np.zeros(2 * n_col, dtype=np.float32)
-    vf_in = np.zeros(n_col, dtype=np.float32)
-    mc_in = np.zeros((4, 2 * n_col), dtype=np.float32)
-    mf_in = np.zeros((n_polar_out, n_win_l, n_col + n_win_c), dtype=np.float32)
-
-    valid = np.zeros((sub_n_lig + n_win_l, sub_n_col + n_win_c), dtype=np.float32)
-    m_in = np.zeros((n_polar_out, sub_n_lig + n_win_l, n_col + n_win_c), dtype=np.float32)
-
-    m_odd = np.zeros((sub_n_lig, sub_n_col), dtype=float)
-    m_dbl = np.zeros((sub_n_lig, sub_n_col), dtype=float)
-    m_vol = np.zeros((sub_n_lig, sub_n_col), dtype=float)
-    m_hlx = np.zeros((sub_n_lig, sub_n_col), dtype=float)
-
-    return vc_in, vf_in, mc_in, mf_in, valid, m_in, m_odd, m_dbl, m_vol, m_hlx
-
-# %% [codecell] yamaguchi_4_components
-@jit(nopython=True)
-def yamaguchi_4_components(lig, n_polar_out, sub_n_col, n_win_l, n_win_c, n_win_lm_1s2, n_win_cm_1s2, m_in, valid, span_min, span_max, m_odd, m_dbl, m_vol, m_hlx, yam_mode, eps):
-    """
-    Perform yamaguchi_4_components filtering on the input data, updating the output matrix with the filtered values.
-    """
-    n_win_cm_1s2 = 0
-    TT = np.zeros(n_polar_out)
-    M_avg = np.zeros((n_polar_out,sub_n_col))
-    util_block.average_TCI(m_in, valid, n_polar_out, M_avg, lig, sub_n_col, n_win_l, n_win_c, n_win_lm_1s2, n_win_cm_1s2)
-    for col in range(sub_n_col):
-        if valid[n_win_lm_1s2+lig][n_win_cm_1s2+col] == 1.:
-            for Np in range(n_polar_out):
-                TT[Np] = M_avg[Np][col]
-            teta = 0.
-            if yam_mode in ["Y4R", "S4R"]:
-                teta = 0.5 * math.atan(2*TT[util.T323_RE]/(TT[util.T322]-TT[util.T333]))
-                unitary_rotation(TT,teta)
-            Pc = 2. * abs(TT[util.T323_IM])
-            HV_type = 1 # Surface scattering
-            if yam_mode == "S4R":
-                C1 = TT[util.T311] - TT[util.T322] + (7./8.)*TT[util.T333] + (Pc/16.)
-                if C1 > 0:
-                    HV_type = 1 # Surface scattering
-                else:
-                    HV_type = 2 # Double bounce scattering
-            if HV_type == 1:
-                ratio = 10.*math.log10((TT[util.T311] + TT[util.T322]-2.*TT[util.T312_RE])/(TT[util.T311] + TT[util.T322]+2.*TT[util.T312_RE]))
-                if -2. < ratio <= 2.:
-                    Pv = 2.*(2.*TT[util.T333] - Pc)
-                else:
-                    Pv = (15./8.)*(2.*TT[util.T333] - Pc)
-            if HV_type == 2:
-                Pv = (15./16.)*(2.*TT[util.T333] - Pc)
-            TP = TT[util.T311] + TT[util.T322] + TT[util.T333]
-            if Pv < 0.:
-                #Freeman - Yamaguchi 3-components algorithm*#
-                HHHH = (TT[util.T311] + 2 * TT[util.T312_re] + TT[util.T322]) / 2
-                HHVVre = (TT[util.T311] - TT[util.T322]) / 2
-                HHVVim = -TT[util.T312_im]
-                HVHV = TT[util.T333] / 2
-                VVVV = (TT[util.T311] - 2 * TT[util.T312_re] + TT[util.T322]) / 2
-
-                ratio = 10 * np.log10(VVVV/HHHH)
-                if ratio <= -2:
-                    FV = 15 * (HVHV / 4)
-                    HHHH -= 8 * (FV/15)
-                    VVVV -= 3 * (FV/15)
-                    HHVVre -= 2 * (FV/15)
-                elif ratio > 2:
-                    FV = 15 * (HVHV / 4)
-                    HHHH -= 3 * (FV/15)
-                    VVVV -= 8 * (FV/15)
-                    HHVVre -= 2 * (FV/15)
-                elif -2 < ratio <= 2:
-                    FV = 8 * (HVHV / 2)
-                    HHHH -= 3 * (FV/8)
-                    VVVV -= 3 * (FV/8)
-                    HHVVre -= 1 * (FV/8)
-
-                if HHHH <= eps or VVVV <= eps:
-                    FD = 0
-                    FS = 0
-                    if -2 < ratio <= 2:
-                        FV = (HHHH + 3 * (FV/8)) + HVHV + (VVVV + 3 * (FV/8))
-                    elif ratio <= -2:
-                        FV = (HHHH + 8 * (FV/15)) + HVHV + (VVVV + 3 * (FV/15))
-                    elif ratio > 2:
-                        FV = (HHHH + 3 * (FV/15)) + HVHV + (VVVV + 8 * (FV/15))
-
-                else:
-                    if (HHVVre ** 2 + HHVVim ** 2) > HHHH * VVVV:
-                        rtemp = HHVVre ** 2 + HHVVim ** 2
-                        HHVVre *= np.sqrt((HHHH * VVVV) / rtemp)
-                        HHVVim *= np.sqrt((HHHH * VVVV )/ rtemp)
-
-                    if HHVVre >= 0:
-                        ALPre = -1
-                        ALPim = 0
-                        FD = (HHHH * VVVV - HHVVre ** 2 - HHVVim ** 2) / (HHHH + VVVV + 2 * HHVVre)
-                        FS = VVVV - FD
-                        BETre = (FD + HHVVre) / FS
-                        BETim = HHVVim / FS
-                    elif HHVVre < 0:
-                        BETre = 1
-                        BETim = 0
-                        FS = (HHHH * VVVV - HHVVre ** 2 - HHVVim ** 2) / (HHHH + VVVV - 2 * HHVVre)
-                        FD = VVVV - FS
-                        ALPre = (HHVVre - FS) / FD
-                        ALPim = HHVVim / FD
-
-                m_odd[lig][col] = FS * (1 + BETre ** 2 + BETim ** 2)
-                m_dbl[lig][col] = FD * (1 + ALPre ** 2 + ALPim ** 2)
-                m_vol[lig][col] = FV
-                m_hlx[lig][col] = 0
-
-                if m_odd[lig][col] < span_min:
-                    m_odd[lig][col] = span_min
-                if m_dbl[lig][col] < span_min:
-                    m_dbl[lig][col] = span_min
-                if m_vol[lig][col] < span_min:
-                    m_vol[lig][col] = span_min
-
-                if m_odd[lig][col] > span_max:
-                    m_odd[lig][col] = span_max
-                if m_dbl[lig][col] > span_max:
-                    m_dbl[lig][col] = span_max
-                if m_vol[lig][col] > span_max:
-                    m_vol[lig][col] = span_max
-            else:
-                # Yamaguchi 4-Components algorithm
+                for np in range(n_polar_out):
+                    TT[np] = m_avg[np][col]
+                teta = 0.
+                if (yam_mode == "Y4R") or (yam_mode == "S4R"):
+                    teta = 0.5 * math.atan(2 * TT[lib.util.T323_RE] / (TT[lib.util.T322] - TT[lib.util.T333]))
+                    unitary_rotation(TT, teta)
+                Pc = 2. * math.fabs(TT[lib.util.T323_IM])
+                HV_type = 1  # Surface scattering
+                if yam_mode == "S4R":
+                    C1 = TT[lib.util.T311] - TT[lib.util.T322] + (7. / 8.) * TT[lib.util.T333] + (Pc / 16.)
+                    if C1 > 0.:
+                        HV_type = 1  # Surface scattering
+                    else:
+                        HV_type = 2  # Double bounce scattering
                 # Surface scattering
                 if HV_type == 1:
-                    S = TT['T311'] - (Pv / 2.)
-                    D = TP - Pv - Pc - S
-                    Cre = TT['T312_re'] + TT['T313_re']
-                    Cim = TT['T312_im'] + TT['T313_im']
-                    if ratio <= -2.: Cre -= (Pv / 6.)
-                    if ratio > 2.: Cre += (Pv / 6.)
-
-                    if (Pv + Pc) > TP:
-                        Ps, Pd = 0., 0.
-                        Pv = TP - Pc
+                    ratio = 10. * math.log10((TT[lib.util.T311] + TT[lib.util.T322] - 2. * TT[lib.util.T312_RE]) / (TT[lib.util.T311] + TT[lib.util.T322] + 2. * TT[lib.util.T312_RE]))
+                    if (ratio > -2.) and (ratio <= 2.):
+                        Pv = 2. * (2. * TT[lib.util.T333] - Pc)
                     else:
-                        CO = 2.*TT['T311'] + Pc - TP
-                        if CO > 0.:
-                            Ps = S + (Cre*Cre + Cim*Cim)/S
-                            Pd = D - (Cre*Cre + Cim*Cim)/S
-                        else:
-                            Pd = D + (Cre*Cre + Cim*Cim)/D
-                            Ps = S - (Cre*Cre + Cim*Cim)/D
-
-                    if Ps < 0.:
-                        if Pd < 0.:
-                            Ps, Pd = 0., 0.
-                            Pv = TP - Pc
-                        else:
-                            Ps = 0.
-                            Pd = TP - Pv - Pc
-                    elif Pd < 0.:
-                        Pd = 0.
-                        Ps = TP - Pv - Pc
-
+                        Pv = (15. / 8.) * (2. * TT[lib.util.T333] - Pc)
                 # Double bounce scattering
-                elif HV_type == 2:
-                    S = TT['T311']
-                    D = TP - Pv - Pc - S
-                    Cre = TT['T312_re'] + TT['T313_re']
-                    Cim = TT['T312_im'] + TT['T313_im']
+                if HV_type == 2:
+                    Pv = (15. / 16.) * (2. * TT[lib.util.T333] - Pc)
 
-                    Pd = D + (Cre*Cre + Cim*Cim)/D
-                    Ps = S - (Cre*Cre + Cim*Cim)/D
+                TP = TT[lib.util.T311] + TT[lib.util.T322] + TT[lib.util.T333]
 
-                    if Ps < 0.:
-                        if Pd < 0.:
-                            Ps, Pd = 0., 0.
+                if Pv < 0.:  # Freeman - Yamaguchi 3-components algorithm
+                    HHHH = (TT[lib.util.T311] + 2 * TT[lib.util.T312_RE] + TT[lib.util.T322]) / 2.
+                    HHVVre = (TT[lib.util.T311] - TT[lib.util.T322]) / 2.
+                    HHVVim = -TT[lib.util.T312_IM]
+                    HVHV = TT[lib.util.T333] / 2.
+                    VVVV = (TT[lib.util.T311] - 2. * TT[lib.util.T312_RE] + TT[lib.util.T322]) / 2.
+
+                    ratio = 10. * math.log10(VVVV / HHHH)
+                    if ratio <= -2.:
+                        FV = 15. * (HVHV / 4.)
+                        HHHH = HHHH - 8. * (FV / 15.)
+                        VVVV = VVVV - 3. * (FV / 15.)
+                        HHVVre = HHVVre - 2. * (FV / 15.)
+                    if ratio > 2.:
+                        FV = 15. * (HVHV / 4.)
+                        HHHH = HHHH - 3. * (FV / 15.)
+                        VVVV = VVVV - 8. * (FV / 15.)
+                        HHVVre = HHVVre - 2. * (FV / 15.)
+                    if (ratio > -2.) and (ratio <= 2.):
+                        FV = 8. * (HVHV / 2.)
+                        HHHH = HHHH - 3. * (FV / 8.)
+                        VVVV = VVVV - 3. * (FV / 8.)
+                        HHVVre = HHVVre - 1. * (FV / 8.)
+
+                    # Case 1: Volume Scatter > Total
+                    if (HHHH <= eps) and (VVVV <= eps):
+                        FD = 0.
+                        FS = 0.
+                        if (ratio > -2.) and (ratio <= 2.):
+                            FV = (HHHH + 3. * (FV / 8.)) + HVHV + (VVVV + 3. * (FV / 8.))
+                        if ratio <= -2.:
+                            FV = (HHHH + 8. * (FV / 15.)) + HVHV + (VVVV + 3. * (FV / 15.))
+                        if ratio > 2.:
+                            FV = (HHHH + 3. * (FV / 15.)) + HVHV + (VVVV + 8. * (FV / 15.))
+                    else:
+                        # Data conditionning for non realizable ShhSvv* term
+                        if (HHVVre * HHVVre + HHVVim * HHVVim) > HHHH * VVVV:
+                            rtemp = HHVVre * HHVVre + HHVVim * HHVVim
+                            HHVVre = HHVVre * math.sqrt((HHHH * VVVV) / rtemp)
+                            HHVVim = HHVVim * math.sqrt((HHHH * VVVV) / rtemp)
+                        # Odd Bounce
+                        if HHVVre >= 0.:
+                            ALPre = -1.
+                            ALPim = 0.
+                            FD = (HHHH * VVVV - HHVVre * HHVVre - HHVVim * HHVVim) / (HHHH + VVVV + 2 * HHVVre)
+                            FS = VVVV - FD
+                            BETre = (FD + HHVVre) / FS
+                            BETim = HHVVim / FS
+                        # Even Bounce
+                        if HHVVre < 0.:
+                            BETre = 1.
+                            BETim = 0.
+                            FS = (HHHH * VVVV - HHVVre * HHVVre - HHVVim * HHVVim) / (HHHH + VVVV - 2 * HHVVre)
+                            FD = VVVV - FS
+                            ALPre = (HHVVre - FS) / FD
+                            ALPim = HHVVim / FD
+
+                    m_odd[lig][col] = FS * (1. + BETre * BETre + BETim * BETim)
+                    m_dbl[lig][col] = FD * (1. + ALPre * ALPre + ALPim * ALPim)
+                    m_vol[lig][col] = FV
+                    m_hlx[lig][col] = 0.
+
+                    if m_odd[lig][col] < span_min:
+                        m_odd[lig][col] = span_min
+                    if m_dbl[lig][col] < span_min:
+                        m_dbl[lig][col] = span_min
+                    if m_vol[lig][col] < span_min:
+                        m_vol[lig][col] = span_min
+
+                    if m_odd[lig][col] > span_max:
+                        m_odd[lig][col] = span_max
+                    if m_dbl[lig][col] > span_max:
+                        m_dbl[lig][col] = span_max
+                    if m_vol[lig][col] > span_max:
+                        m_vol[lig][col] = span_max
+
+                else:  # Yamaguchi 4-Components algorithm
+                    # Surface scattering
+                    if HV_type == 1:
+                        S = TT[lib.util.T311] - (Pv / 2.)
+                        D = TP - Pv - Pc - S
+                        Cre = TT[lib.util.T312_RE] + TT[lib.util.T313_RE]
+                        Cim = TT[lib.util.T312_IM] + TT[lib.util.T313_IM]
+                        if ratio <= -2.:
+                            Cre = Cre - (Pv / 6.)
+                        if ratio > 2.:
+                            Cre = Cre + (Pv / 6.)
+                        if (Pv + Pc) > TP:
+                            Ps = 0.
+                            Pd = 0.
                             Pv = TP - Pc
                         else:
-                            Ps = 0.
-                            Pd = TP - Pv - Pc
-                    elif Pd < 0.:
-                        Pd = 0.
-                        Ps = TP - Pv - Pc
+                            CO = 2. * TT[lib.util.T311] + Pc - TP
+                            if CO > 0.:
+                                Ps = S + (Cre * Cre + Cim * Cim) / S
+                                Pd = D - (Cre * Cre + Cim * Cim) / S
+                            else:
+                                Pd = D + (Cre * Cre + Cim * Cim) / D
+                                Ps = S - (Cre * Cre + Cim * Cim) / D
+                        if Ps < 0.:
+                            if Pd < 0.:
+                                Ps = 0.
+                                Pd = 0.
+                                Pv = TP - Pc
+                            else:
+                                Ps = 0.
+                                Pd = TP - Pv - Pc
+                        else:
+                            if Pd < 0.:
+                                Pd = 0.
+                                Ps = TP - Pv - Pc
+                    # Double bounce scattering
+                    if HV_type == 2:
+                        S = TT[lib.util.T311]
+                        D = TP - Pv - Pc - S
+                        Cre = TT[lib.util.T312_RE] + TT[lib.util.T313_RE]
+                        Cim = TT[lib.util.T312_IM] + TT[lib.util.T313_IM]
 
-                Ps = max(Ps, span_min)
-                Pd = max(Pd, span_min)
-                Pv = max(Pv, span_min)
-                Pc = max(Pc, span_min)
+                        Pd = D + (Cre * Cre + Cim * Cim) / D
+                        Ps = S - (Cre * Cre + Cim * Cim) / D
+                        if Ps < 0.:
+                            if Pd < 0.:
+                                Ps = 0.
+                                Pd = 0.
+                                Pv = TP - Pc
+                            else:
+                                Ps = 0.
+                                Pd = TP - Pv - Pc
+                        else:
+                            if Pd < 0.:
+                                Pd = 0.
+                                Ps = TP - Pv - Pc
+                    if Ps < span_min:
+                        Ps = span_min
+                    if Pd < span_min:
+                        Pd = span_min
+                    if Pv < span_min:
+                        Pv = span_min
+                    if Pc < span_min:
+                        Pc = span_min
 
-                Ps = min(Ps, span_max)
-                Pd = min(Pd, span_max)
-                Pv = min(Pv, span_max)
-                Pc = min(Pc, span_max)
+                    if Ps > span_max:
+                        Ps = span_max
+                    if Pd > span_max:
+                        Pd = span_max
+                    if Pv > span_max:
+                        Pv = span_max
+                    if Pc > span_max:
+                        Pc = span_max
 
-                m_odd[lig][col] = Ps
-                m_dbl[lig][col] = Pd
-                m_vol[lig][col] = Pv
-                m_hlx[lig][col] = Pc
-        else:
-            m_odd[lig][col] = 0.
-            m_dbl[lig][col] = 0.
-            m_vol[lig][col] = 0.
-            m_hlx[lig][col] = 0.
+                    m_odd[lig][col] = Ps
+                    m_dbl[lig][col] = Pd
+                    m_vol[lig][col] = Pv
+                    m_hlx[lig][col] = Pc
 
-    return m_odd, m_dbl, m_vol, m_hlx
+            else:
+                m_odd[lig][col] = 0.
+                m_dbl[lig][col] = 0.
+                m_vol[lig][col] = 0.
 
-# %% [codecell] is_pol_type_valid
-def is_pol_type_valid(pol_type):
-    """
-    Check if the given pol_type is valid for processing.
-    Returns True if the pol_type is valid, False otherwise.
-    """
-    valid_pol_types = ["S2", "SPP", "SPPpp1", "SPPpp2", "SPPpp3"]
-    return pol_type in valid_pol_types
 
-def copy_header(src_dir, dst_dir):
-    src_path = os.path.join(src_dir, 'config.txt')
-    dst_path = os.path.join(dst_dir, 'config.txt')
+class App(lib.util.Application):
 
-    if os.path.isfile(src_path):
-        with open(src_path, 'r') as src_file:
-            content = src_file.read()
-        
-        with open(dst_path, 'w') as dst_file:
-            dst_file.write(content)
-    else:
-        print(f"Source file {src_path} does not exist.")
+    def __init__(self, args):
+        super().__init__(args)
 
-def determination(lig, n_polar_out, sub_n_col, m_in, valid, n_win_l, n_win_c, n_win_lm_1s2, n_win_cm_1s2):
-    M_avg = np.zeros((n_polar_out,sub_n_col), dtype=float)
+    def allocate_matrices(self, n_col, n_polar_out, n_win_l, n_win_c, n_lig_block, sub_n_col):
+        '''
+        Allocate matrices with given dimensions
+        '''
+        logging.info(f'{n_col=}, {n_polar_out=}, {n_win_l=}, {n_win_c=}, {n_lig_block=}, {sub_n_col=}')
+        self.vc_in = lib.matrix.vector_float(2 * n_col)
+        self.vf_in = lib.matrix.vector_float(n_col)
+        self.mc_in = lib.matrix.matrix_float(4, 2 * n_col)
+        self.mf_in = lib.matrix.matrix3d_float(n_polar_out, n_win_l, n_col + n_win_c)
+        self.valid = lib.matrix.matrix_float(n_lig_block + n_win_l, sub_n_col + n_win_c)
+        self.m_in = lib.matrix.matrix3d_float(n_polar_out, n_lig_block + n_win_l, n_col + n_win_c)
+        self.m_odd = lib.matrix.matrix_float(n_lig_block, sub_n_col)
+        self.m_dbl = lib.matrix.matrix_float(n_lig_block, sub_n_col)
+        self.m_vol = lib.matrix.matrix_float(n_lig_block, sub_n_col)
+        self.m_hlx = lib.matrix.matrix_float(n_lig_block, sub_n_col)
 
-    M_avg = util_block.average_tci(m_in, valid, n_polar_out, M_avg, lig, sub_n_col, n_win_l, n_win_c, n_win_lm_1s2, n_win_cm_1s2)
-    SpanMax = -np.inf
-    SpanMin = np.inf
-    for col in range(sub_n_col):
-        if valid[n_win_lm_1s2+lig][n_win_cm_1s2+col] == 1.:
-            Span = M_avg[util.C311][col]+M_avg[util.C322][col]+M_avg[util.C333][col]
-            if Span >= SpanMax: 
-                SpanMax = Span
-            if Span <= SpanMin: 
-                SpanMin = Span
-    return SpanMin, SpanMax
+    def run(self):
+        logging.info('******************** Welcome in yamaguchi 4components decomposition ********************')
+        logging.info(self.args)
+        in_dir = self.args.id
+        yam_mode = self.args.mod
+        out_dir = self.args.od
+        pol_type = self.args.iodf
+        n_win_l = self.args.nwr
+        n_win_c = self.args.nwc
+        off_lig = self.args.ofr
+        off_col = self.args.ofc
+        sub_n_lig = self.args.fnr
+        sub_n_col = self.args.fnc
+        file_memerr = self.args.errf
 
-def yamaguchi_4_components_algorithm(CC11, CC13_re, CC13_im, CC22, CC33, eps):
-    FV = 3. * CC22 / 2.
-    CC11 = CC11 - FV
-    CC33 = CC33 - FV
-    CC13_re = CC13_re - FV / 3.
+        flag_valid = False
+        file_valid = ''
 
-    if (CC11 <= eps) or (CC33 <= eps):
-        FV = 3. * (CC11 + CC22 + CC33 + 2 * FV) / 8.
-        FD = 0.
-        FS = 0.
-    else:
-        if (CC13_re * CC13_re + CC13_im * CC13_im) > CC11 * CC33:
-            rtemp = CC13_re * CC13_re + CC13_im * CC13_im
-            CC13_re = CC13_re * np.sqrt(CC11 * CC33 / rtemp)
-            CC13_im = CC13_im * np.sqrt(CC11 * CC33 / rtemp)
-        
-        if CC13_re >= 0.:
-            ALP = -1.
-            FD = (CC11 * CC33 - CC13_re * CC13_re - CC13_im * CC13_im) / (CC11 + CC33 + 2 * CC13_re)
-            FS = CC33 - FD
-            BET = np.sqrt((FD + CC13_re) * (FD + CC13_re) + CC13_im * CC13_im) / FS
-        else:
-            BET = 1.
-            FS = (CC11 * CC33 - CC13_re * CC13_re - CC13_im * CC13_im) / (CC11 + CC33 - 2 * CC13_re)
-            FD = CC33 - FS
-            ALP = np.sqrt((FS - CC13_re) * (FS - CC13_re) + CC13_im * CC13_im) / FD
+        if self.args.mask is not None and self.args.mask:
+            file_valid = self.args.mask
+            flag_valid = True
+        logging.info(f'{flag_valid=}, {file_valid=}')
 
-    return FV, FD, FS, ALP, BET
+        if pol_type == 'S2':
+            pol_type = 'S2T3'
+        logging.info(f'{pol_type=}')
 
-def unitary_rotation(TT, teta):
-    T11 = TT[util.T311]
-    T12_re, T12_im = TT[util.T312_RE], TT[util.T312_IM]
-    T13_re, T13_im = TT[util.T313_RE], TT[util.T313_IM]
-    T22 = TT[util.T322]
-    T23_re, T23_im = TT[util.T323_RE], TT[util.T323_IM]
-    T33 = TT[util.T333]
+        in_dir = self.check_dir(in_dir)
+        logging.info(f'{in_dir=}')
+        out_dir = self.check_dir(out_dir)
+        logging.info(f'{out_dir=}')
 
-    TT[util.T311] = T11
-    TT[util.T312_RE] = T12_re*np.cos(teta) + T13_re*np.sin(teta)
-    TT[util.T312_IM] = T12_im*np.cos(teta) + T13_im*np.sin(teta)
-    TT[util.T313_RE] = -T12_re*np.sin(teta) + T13_re*np.cos(teta)
-    TT[util.T313_IM] = -T12_im*np.sin(teta) + T13_im*np.cos(teta)
-    TT[util.T322] = T22*np.cos(teta)**2 + 2.*T23_re*np.cos(teta)*np.sin(teta) + T33*np.sin(teta)**2
-    TT[util.T323_RE] = -T22*np.cos(teta)*np.sin(teta) + T23_re*np.cos(teta)**2 - T23_re*np.sin(teta)**2 + T33*np.cos(teta)*np.sin(teta)
-    TT[util.T323_IM] = T23_im*np.cos(teta)**2 + T23_im*np.sin(teta)**2
-    TT[util.T333] = T22*np.sin(teta)**2 + T33*np.cos(teta)**2 - 2.*T23_re*np.cos(teta)*np.sin(teta)
+        if flag_valid is True:
+            self.check_file(file_valid)
+
+        n_win_l_m1s2 = (n_win_l - 1) // 2
+        logging.info(f'{n_win_l_m1s2=}')
+        n_win_c_m1s2 = (n_win_c - 1) // 2
+        logging.info(f'{n_win_c_m1s2=}')
+
+        # INPUT/OUPUT CONFIGURATIONS
+        n_lig, n_col, polar_case, polar_type = lib.util.read_config(in_dir)
+        logging.info(f'{n_lig=}, {n_col=}, {polar_case=}, {polar_type=}')
+
+        # POLAR TYPE CONFIGURATION
+        pol_type, n_polar_in, pol_type_in, n_polar_out, pol_type_out = lib.util.pol_type_config(pol_type)
+        logging.info(f'{pol_type=}, {n_polar_in=}, {pol_type_in=}, {n_polar_out=}, {pol_type_out=}')
+
+        # INPUT/OUTPUT FILE CONFIGURATION
+        file_name_in = lib.util.init_file_name(pol_type_in, in_dir)
+        logging.info(f'{file_name_in=}')
+
+        file_name_out = [
+            os.path.join(f'{out_dir}', f'Yamaguchi4_{yam_mode}_Odd.bin'),
+            os.path.join(f'{out_dir}', f'Yamaguchi4_{yam_mode}_Dbl.bin'),
+            os.path.join(f'{out_dir}', f'Yamaguchi4_{yam_mode}_Vol.bin'),
+            os.path.join(f'{out_dir}', f'Yamaguchi4_{yam_mode}_Hlx.bin'),
+        ]
+        logging.info(f'{file_name_out=}')
+
+        # INPUT FILE OPENING
+        in_datafile = []
+        in_valid = None
+        in_datafile, in_valid, flag_valid = self.open_input_files(file_name_in, file_valid, in_datafile, n_polar_in, in_valid)
+
+        # OUTPUT FILE OPENING
+        out_odd = self.open_output_file(file_name_out[0])
+        out_dbl = self.open_output_file(file_name_out[1])
+        out_vol = self.open_output_file(file_name_out[2])
+        out_hlx = self.open_output_file(file_name_out[3])
+
+        # MEMORY ALLOCATION
+        n_block_a = 0
+        n_block_b = 0
+        # Mask
+        n_block_a += sub_n_col + n_win_c
+        n_block_b += n_win_l * (sub_n_col + n_win_c)
+        # Modd = Nlig*Sub_Ncol
+        n_block_a += sub_n_col
+        n_block_b += 0
+        # Mdbl = Nlig*Sub_Ncol
+        n_block_a += sub_n_col
+        n_block_b += 0
+        # Mvol = Nlig*Sub_Ncol
+        n_block_a += sub_n_col
+        n_block_b += 0
+        # Mhlx = Nlig*Sub_Ncol
+        n_block_a += sub_n_col
+        n_block_b += 0
+        # Min = NpolarOut*Nlig*Sub_Ncol
+        n_block_a += n_polar_out * (n_col + n_win_c)
+        n_block_b += n_polar_out * n_win_l * (n_col + n_win_c)
+        # Mavg = NpolarOut
+        n_block_a += 0
+        n_block_b += n_polar_out * sub_n_col
+        # Reading Data
+        n_block_b += n_col + 2 * n_col + n_polar_in * 2 * n_col + n_polar_out * n_win_l * (n_col + n_win_c)
+        # logging.info(f'{n_block_a=}')
+        # logging.info(f'{n_block_b=}')
+
+        memory_alloc = self.check_free_memory()
+        memory_alloc = max(memory_alloc, 1000)
+        logging.info(f'{memory_alloc=}')
+        n_lig_block = numpy.zeros(lib.util.Application.FILE_PATH_LENGTH, dtype=int)
+        nb_block = 0
+        nb_block = self.memory_alloc(file_memerr, sub_n_lig, n_win_l, nb_block, n_lig_block, n_block_a, n_block_b, memory_alloc)
+        logging.info(f'{n_lig_block=}')
+
+        # MATRIX ALLOCATION
+        self.allocate_matrices(n_col, n_polar_out, n_win_l, n_win_c, n_lig_block[0], sub_n_col)
+
+        # MASK VALID PIXELS (if there is no MaskFile
+        self.set_valid_pixels(flag_valid, n_lig_block, sub_n_col, n_win_c, n_win_l)
+
+        # SPANMIN / SPANMAX DETERMINATION
+        for np in range(n_polar_in):
+            self.rewind(in_datafile[np])
+        if flag_valid is True:
+            self.rewind(in_valid)
+
+        span_min = lib.util.Application.INIT_MINMAX
+        span_max = -lib.util.Application.INIT_MINMAX
+
+        for nb in range(nb_block):
+            if nb_block > 2:
+                logging.debug("%f\r" % (100 * nb / (nb_block - 1)), end="", flush=True)
+
+            if flag_valid is True:
+                lib.util_block.read_block_matrix_float(in_valid, self.valid, nb, nb_block, n_lig_block[nb], sub_n_col, n_win_l, n_win_c, off_lig, off_col, n_col, self.vf_in)
+
+            if pol_type == 'S2':
+                lib.util_block.ks_read_block_s2_noavg(in_datafile, self.m_in, pol_type_out, n_polar_out, nb, nb_block, n_lig_block[nb], sub_n_col, n_win_l, n_win_c, off_lig, off_col, n_col, self.mc_in)
+            else:    # Case of C,T or I
+                logging.info('--= Started: read_block_tci_noavg  =--')
+                lib.util_block.read_block_tci_noavg(in_datafile, self.m_in, n_polar_out, nb, nb_block, n_lig_block[nb], sub_n_col, n_win_l, n_win_c, off_lig, off_col, n_col, self.vf_in)
+            if pol_type_out == 'T3':
+                logging.info('--= Started: t3_to_c3  =--')
+                lib.util_convert.t3_to_c3(self.m_in, n_lig_block[nb], sub_n_col + n_win_c, 0, 0)
+
+            logging.info('--= Started: average_tci  =--')
+            span_min, span_max = span_determination(span_min, span_max, nb, n_lig_block, n_polar_out, sub_n_col, self.m_in, self.valid, n_win_l, n_win_c, n_win_l_m1s2, n_win_c_m1s2)
+
+        if span_min < lib.util.Application.EPS:
+            span_min = lib.util.Application.EPS
+
+        logging.info(f'{span_min=}')
+        logging.info(f'{span_max=}')
+
+        # DATA PROCESSING
+        logging.info('--= Started: data processing =--')
+        for np in range(n_polar_in):
+            self.rewind(in_datafile[np])
+        if flag_valid is True:
+            self.rewind(in_valid)
+
+        for nb in range(nb_block):
+            # ligDone = 0
+            if nb_block > 2:
+                logging.debug("%f\r" % (100 * nb / (nb_block - 1)), end="", flush=True)
+            if flag_valid is True:
+                lib.util_block.read_block_matrix_float(in_valid, self.valid, nb, nb_block, n_lig_block[nb], sub_n_col, n_win_l, n_win_c, off_lig, off_col, n_col, self.vf_in)
+
+            if pol_type == 'S2':
+                lib.util_block.read_block_s2_noavg(in_datafile, self.m_in, pol_type_out, n_polar_out, nb, nb_block, n_lig_block[nb], sub_n_col, n_win_l, n_win_c, off_lig, off_col, n_col, self.mc_in)
+            else:  # Case of C,T or I
+                lib.util_block.read_block_tci_noavg(in_datafile, self.m_in, n_polar_out, nb, nb_block, n_lig_block[nb], sub_n_col, n_win_l, n_win_c, off_lig, off_col, n_col, self.vf_in)
+            if pol_type_out == 'T3':
+                lib.util_convert.c3_to_t3(self.m_in, n_lig_block[nb], sub_n_col + n_win_c, 0, 0)
+
+            data_processing(yam_mode, nb, n_lig_block, n_polar_out, self.m_in, self.valid, sub_n_col, n_win_l, n_win_c, n_win_l_m1s2, n_win_c_m1s2, self.m_odd, self.m_dbl, self.m_vol, self.m_hlx, span_min, span_max, lib.util.Application.EPS)
+
+            lib.util_block.write_block_matrix_float(out_odd, self.m_odd, n_lig_block[nb], sub_n_col, 0, 0, sub_n_col)
+            lib.util_block.write_block_matrix_float(out_dbl, self.m_dbl, n_lig_block[nb], sub_n_col, 0, 0, sub_n_col)
+            lib.util_block.write_block_matrix_float(out_vol, self.m_vol, n_lig_block[nb], sub_n_col, 0, 0, sub_n_col)
+            lib.util_block.write_block_matrix_float(out_hlx, self.m_hlx, n_lig_block[nb], sub_n_col, 0, 0, sub_n_col)
+
+
+def main(*args, **kwargs):
+    '''Main function
+
+    Args:
+        id (str): input directory
+        od (str): output directory
+        iodf (str): input-output data forma
+        mod (str): decomposition mode (Y4O, Y4R, S4R)
+        nwr (int): Nwin Row
+        nwc (int): Nwin Col
+        ofr (int): Offset Row
+        ofc (int): Offset Col
+        fnr (int): Final Number of Row
+        fnc (int): Final Number of Col
+        errf (str): memory error file
+        mask (str): mask file (valid pixels)'
+    '''
+    POL_TYPE_VALUES = ['S2', 'C3', 'T3']
+    local_args = lib.util.ParseArgs.get_args(*args, **kwargs)
+    parser_args = lib.util.ParseArgs(args=local_args, desc=f'{os.path.basename(sys.argv[0])}', pol_types=POL_TYPE_VALUES)
+    parser_args.make_def_args()
+    parser_args.add_req_arg('-mod', str, 'decomposition mode (Y4O, Y4R, S4R)', {'Y40', 'Y4R', 'S4R'})
+    parsed_args = parser_args.parse_args()
+    app = App(parsed_args)
+    app.run()
+
 
 if __name__ == "__main__":
-    main("D:\\Satim\\PolSARPro\\Datasets\\T3\\", "D:\\Satim\\PolSARPro\\Datasets\\output\\", "T3", 7, 7, 0, 0, 18432, 1248, "", "")
+    if len(sys.argv) > 1:
+        main(sys.argv[1:])
+    else:
+        dir_in = None
+        dir_out = None
+        params = {}
+        if platform.system().lower().startswith('win') is True:
+            dir_in = 'c:\\Projekty\\polsarpro.svn\\in\\yamaguchi_3components_decomposition\\'
+            dir_out = 'c:\\Projekty\\polsarpro.svn\\out\\yamaguchi_3components_decomposition\\py\\'
+        elif platform.system().lower().startswith('lin') is True:
+            dir_in = '/home/krzysiek/polsarpro/in/yamaguchi_3components_decomposition/'
+            dir_out = '/home/krzysiek/polsarpro/out/freeman_2components_decomposition/'
+            params['v'] = None
+        else:
+            logging.error(f'unknown platform: {platform.system()}')
+            lib.util.exit_failure()
 
+        # Pass params as expanded dictionary with '**'
+        params['id'] = dir_in
+        params['od'] = dir_out
+        params['iodf'] = 'T3'
+        params['mod'] = 'YR4'
+        params['nwr'] = 3
+        params['nwc'] = 3
+        params['ofr'] = 0
+        params['ofc'] = 0
+        params['fnr'] = 18432
+        params['fnc'] = 1248
+        params['errf'] = os.path.join(dir_out, 'MemoryAllocError.txt')
+        params['mask'] = os.path.join(dir_in, 'mask_valid_pixels.bin')
+        main(**params)
+
+        # Pass parasm as positional arguments
+        # main(id=dir_in,
+        #      od=dir_out,
+        #      iodf='T3',
+        #      mod='YR4',
+        #      nwr=3,
+        #      nwc=3,
+        #      ofr=0,
+        #      ofc=0,
+        #      fnr=18432,
+        #      fnc=1248,
+        #      errf=os.path.join(f'{dir_out}', 'MemoryAllocError.txt'),

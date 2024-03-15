@@ -511,6 +511,26 @@ class Yamaguchi3ComponentsDecomposition(Module):
         self.params['mask'] = os.path.join(self.dir_in, 'mask_valid_pixels.bin')
 
 
+class Yamaguchi4ComponentsDecomposition(Module):
+    MODULE_NAME = 'yamaguchi_4components_decomposition'
+
+    def __init__(self, skip='', lang='py'):
+        super().__init__(Yamaguchi4ComponentsDecomposition.MODULE_NAME, lang)
+        self.skip = skip
+        self.params['id'] = self.dir_in
+        self.params['od'] = self.dir_out
+        self.params['iodf'] = 'T3'
+        self.params['mod'] = 'Y4R'
+        self.params['nwr'] = 3
+        self.params['nwc'] = 3
+        self.params['ofr'] = 0
+        self.params['ofc'] = 0
+        self.params['fnr'] = 18432
+        self.params['fnc'] = 1248
+        self.params['errf'] = os.path.join(self.dir_out, 'MemoryAllocError.txt')
+        self.params['mask'] = os.path.join(self.dir_in, 'mask_valid_pixels.bin')
+
+
 class ModuleLauncher:
     ARG_HELP = '-h'
     ARG_VERBOSE = '-v'
@@ -603,6 +623,7 @@ class ModuleLauncher:
         self.modules.append(FreemanDecomposition)
         self.modules.append(HAAlphaDecomposition)
         self.modules.append(Yamaguchi3ComponentsDecomposition)
+        self.modules.append(Yamaguchi4ComponentsDecomposition)
 
     def print_usage(self):
         print('\nUsage:')

@@ -360,7 +360,6 @@ class App(lib.util.Application):
 
             # #pragma omp parallel for private(col, M_avg) firstprivate(CC11, CC13_re, CC13_im, CC22, CC33, HHHH,HVHV,VVVV, HHVVre,HHVVim, FV, FG, RHO, x,y,z1,z2r,z2i,z3r,z3i) shared(ligDone)
             freeman_decomposition_algorithm(nb, n_lig_block, self.m_in, self.valid, n_polar_out, sub_n_col, n_win_l, n_win_c, n_win_l_m1s2, n_win_c_m1s2, lib.util.Application.EPS, span_min, span_max, self.m_odd, self.m_dbl, self.m_vol)
-            breakpoint()
             lib.util_block.write_block_matrix_float(out_odd, self.m_odd, n_lig_block[nb], sub_n_col, 0, 0, sub_n_col)
             lib.util_block.write_block_matrix_float(out_dbl, self.m_dbl, n_lig_block[nb], sub_n_col, 0, 0, sub_n_col)
             lib.util_block.write_block_matrix_float(out_vol, self.m_vol, n_lig_block[nb], sub_n_col, 0, 0, sub_n_col)

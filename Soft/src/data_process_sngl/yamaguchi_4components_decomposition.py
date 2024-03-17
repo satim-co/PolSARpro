@@ -119,7 +119,7 @@ def unitary_rotation(TT, teta):
     TT[lib.util.T333] = t22 * math.sin(teta)**2 + t33 * math.cos(teta)**2 - 2. * t23_re * math.cos(teta) * math.sin(teta)
 
 
-# @numba.njit(parallel=False, fastmath=True)
+@numba.njit(parallel=False, fastmath=True)
 def data_processing(yam_mode, nb, n_lig_block, n_polar_out, m_in, valid, sub_n_col, n_win_l, n_win_c, n_win_l_m1s2, n_win_c_m1s2, m_odd, m_dbl, m_vol, m_hlx, span_min, span_max, eps):
     HV_type = 0
     FS = FD = FV = ALPre = ALPim = BETre = BETim = 0.
@@ -135,6 +135,7 @@ def data_processing(yam_mode, nb, n_lig_block, n_polar_out, m_in, valid, sub_n_c
         if numba_get_thread_id() == 0:
             lib.util.printf_line(ligDone, n_lig_block[nb])
         m_avg.fill(0)
+        TT.fill(0)
         lib.util_block.average_tci(m_in, valid, n_polar_out, m_avg, lig, sub_n_col, n_win_l, n_win_c, n_win_l_m1s2, n_win_c_m1s2)
         for col in numba.prange(sub_n_col):
             if valid[n_win_l_m1s2 + lig][n_win_c_m1s2 + col] == 1:
@@ -143,7 +144,11 @@ def data_processing(yam_mode, nb, n_lig_block, n_polar_out, m_in, valid, sub_n_c
                     TT[np] = m_avg[np][col]
                 teta = 0.
                 if (yam_mode == "Y4R") or (yam_mode == "S4R"):
-                    teta = 0.5 * math.atan(2 * TT[lib.util.T323_RE] / (TT[lib.util.T322] - TT[lib.util.T333]))
+                    sub_res = TT[lib.util.T322] - TT[lib.util.T333]
+                    if sub_res != 0:
+                        teta = 0.5 * math.atan(2 * TT[lib.util.T323_RE] / (sub_res))
+                    else:
+                        teta = 0.5 * math.atan(math.inf)
                     unitary_rotation(TT, teta)
                 Pc = 2. * math.fabs(TT[lib.util.T323_IM])
                 HV_type = 1  # Surface scattering
@@ -191,7 +196,7 @@ def data_processing(yam_mode, nb, n_lig_block, n_polar_out, m_in, valid, sub_n_c
                         HHVVre = HHVVre - 1. * (FV / 8.)
 
                     # Case 1: Volume Scatter > Total
-                    if (HHHH <= eps) and (VVVV <= eps):
+                    if (HHHH <= eps) or (VVVV <= eps):
                         FD = 0.
                         FS = 0.
                         if (ratio > -2.) and (ratio <= 2.):
@@ -471,9 +476,18 @@ class App(lib.util.Application):
         span_min = lib.util.Application.INIT_MINMAX
         span_max = -lib.util.Application.INIT_MINMAX
 
+        vf_in_readingLines = [None] * nb_block
+
         for nb in range(nb_block):
             if nb_block > 2:
                 logging.debug("%f\r" % (100 * nb / (nb_block - 1)), end="", flush=True)
+
+            logging.info(f'READING NLIG LINES {nb=} {n_col=} {n_polar_out=} {n_lig_block[nb]=} {n_win_c_m1s2=} from yamaguchi_4components_decomposition')
+            for np in range(n_polar_in):
+                self.rewind(in_datafile[np])
+            if flag_valid is True:
+                self.rewind(in_valid)
+            vf_in_readingLines[nb] = [numba.typed.List([numpy.fromfile(in_datafile[Np], dtype=numpy.float32, count=n_col) for Np in range(n_polar_out)]) for lig in range(n_lig_block[nb] + n_win_c_m1s2)]
 
             if flag_valid is True:
                 lib.util_block.read_block_matrix_float(in_valid, self.valid, nb, nb_block, n_lig_block[nb], sub_n_col, n_win_l, n_win_c, off_lig, off_col, n_col, self.vf_in)
@@ -482,10 +496,10 @@ class App(lib.util.Application):
                 lib.util_block.ks_read_block_s2_noavg(in_datafile, self.m_in, pol_type_out, n_polar_out, nb, nb_block, n_lig_block[nb], sub_n_col, n_win_l, n_win_c, off_lig, off_col, n_col, self.mc_in)
             else:    # Case of C,T or I
                 logging.info('--= Started: read_block_tci_noavg  =--')
-                lib.util_block.read_block_tci_noavg(in_datafile, self.m_in, n_polar_out, nb, nb_block, n_lig_block[nb], sub_n_col, n_win_l, n_win_c, off_lig, off_col, n_col, self.vf_in)
-            if pol_type_out == 'T3':
-                logging.info('--= Started: t3_to_c3  =--')
-                lib.util_convert.t3_to_c3(self.m_in, n_lig_block[nb], sub_n_col + n_win_c, 0, 0)
+                lib.util_block.read_block_tci_noavg(in_datafile, self.m_in, n_polar_out, nb, nb_block, n_lig_block[nb], sub_n_col, n_win_l, n_win_c, off_lig, off_col, n_col, self.vf_in, vf_in_readingLines[nb])
+            if pol_type_out == 'C3':
+                logging.info('--= Started: c3_to_t3  =--')
+                lib.util_convert.c3_to_t3(self.m_in, n_lig_block[nb], sub_n_col + n_win_c, 0, 0)
 
             logging.info('--= Started: average_tci  =--')
             span_min, span_max = span_determination(span_min, span_max, nb, n_lig_block, n_polar_out, sub_n_col, self.m_in, self.valid, n_win_l, n_win_c, n_win_l_m1s2, n_win_c_m1s2)
@@ -513,8 +527,8 @@ class App(lib.util.Application):
             if pol_type == 'S2':
                 lib.util_block.read_block_s2_noavg(in_datafile, self.m_in, pol_type_out, n_polar_out, nb, nb_block, n_lig_block[nb], sub_n_col, n_win_l, n_win_c, off_lig, off_col, n_col, self.mc_in)
             else:  # Case of C,T or I
-                lib.util_block.read_block_tci_noavg(in_datafile, self.m_in, n_polar_out, nb, nb_block, n_lig_block[nb], sub_n_col, n_win_l, n_win_c, off_lig, off_col, n_col, self.vf_in)
-            if pol_type_out == 'T3':
+                lib.util_block.read_block_tci_noavg(in_datafile, self.m_in, n_polar_out, nb, nb_block, n_lig_block[nb], sub_n_col, n_win_l, n_win_c, off_lig, off_col, n_col, self.vf_in, vf_in_readingLines[nb])
+            if pol_type_out == 'C3':
                 lib.util_convert.c3_to_t3(self.m_in, n_lig_block[nb], sub_n_col + n_win_c, 0, 0)
 
             data_processing(yam_mode, nb, n_lig_block, n_polar_out, self.m_in, self.valid, sub_n_col, n_win_l, n_win_c, n_win_l_m1s2, n_win_c_m1s2, self.m_odd, self.m_dbl, self.m_vol, self.m_hlx, span_min, span_max, lib.util.Application.EPS)
@@ -574,7 +588,7 @@ if __name__ == "__main__":
         params['id'] = dir_in
         params['od'] = dir_out
         params['iodf'] = 'T3'
-        params['mod'] = 'YR4'
+        params['mod'] = 'Y4R'
         params['nwr'] = 3
         params['nwc'] = 3
         params['ofr'] = 0
@@ -589,7 +603,7 @@ if __name__ == "__main__":
         # main(id=dir_in,
         #      od=dir_out,
         #      iodf='T3',
-        #      mod='YR4',
+        #      mod='Y4R',
         #      nwr=3,
         #      nwc=3,
         #      ofr=0,

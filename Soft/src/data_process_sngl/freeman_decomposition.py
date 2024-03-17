@@ -304,17 +304,21 @@ class App(lib.util.Application):
         self.set_valid_pixels(flag_valid, n_lig_block, sub_n_col, n_win_c, n_win_l)
 
         # SPANMIN / SPANMAX DETERMINATION
-        for np in range(n_polar_in):
-            self.rewind(in_datafile[np])
-        if flag_valid is True:
-            self.rewind(in_valid)
-
         span_min = lib.util.Application.INIT_MINMAX
         span_max = -lib.util.Application.INIT_MINMAX
+
+        vf_in_readingLines = [None] * nb_block
 
         for nb in range(nb_block):
             if nb_block > 2:
                 logging.debug("%f\r" % (100 * nb / (nb_block - 1)), end="", flush=True)
+
+            logging.info(f'READING NLIG LINES {nb=} {n_col=} {n_polar_out=} {n_lig_block[nb]=} {n_win_c_m1s2=} from freeman_decomposition')
+            for np in range(n_polar_in):
+                self.rewind(in_datafile[np])
+            if flag_valid is True:
+                self.rewind(in_valid)
+            vf_in_readingLines[nb] = [numba.typed.List([numpy.fromfile(in_datafile[Np], dtype=numpy.float32, count=n_col) for Np in range(n_polar_out)]) for lig in range(n_lig_block[nb] + n_win_c_m1s2)]
 
             if flag_valid is True:
                 lib.util_block.read_block_matrix_float(in_valid, self.valid, nb, nb_block, n_lig_block[nb], sub_n_col, n_win_l, n_win_c, off_lig, off_col, n_col, self.vf_in)
@@ -323,7 +327,7 @@ class App(lib.util.Application):
                 lib.util_block.ks_read_block_s2_noavg(in_datafile, self.m_in, pol_type_out, n_polar_out, nb, nb_block, n_lig_block[nb], sub_n_col, n_win_l, n_win_c, off_lig, off_col, n_col, self.mc_in)
             else:    # Case of C,T or I
                 logging.info('--= Started: read_block_tci_noavg  =--')
-                lib.util_block.read_block_tci_noavg(in_datafile, self.m_in, n_polar_out, nb, nb_block, n_lig_block[nb], sub_n_col, n_win_l, n_win_c, off_lig, off_col, n_col, self.vf_in)
+                lib.util_block.read_block_tci_noavg(in_datafile, self.m_in, n_polar_out, nb, nb_block, n_lig_block[nb], sub_n_col, n_win_l, n_win_c, off_lig, off_col, n_col, self.vf_in, vf_in_readingLines[nb])
             if pol_type_out == 'T3':
                 logging.info('--= Started: t3_to_c3  =--')
                 lib.util_convert.t3_to_c3(self.m_in, n_lig_block[nb], sub_n_col + n_win_c, 0, 0)
@@ -348,13 +352,14 @@ class App(lib.util.Application):
             # ligDone = 0
             if nb_block > 2:
                 logging.debug("%f\r" % (100 * nb / (nb_block - 1)), end="", flush=True)
+
             if flag_valid is True:
                 lib.util_block.read_block_matrix_float(in_valid, self.valid, nb, nb_block, n_lig_block[nb], sub_n_col, n_win_l, n_win_c, off_lig, off_col, n_col, self.vf_in)
 
             if pol_type == 'S2':
                 lib.util_block.read_block_s2_noavg(in_datafile, self.m_in, pol_type_out, n_polar_out, nb, nb_block, n_lig_block[nb], sub_n_col, n_win_l, n_win_c, off_lig, off_col, n_col, self.mc_in)
             else:  # Case of C,T or I
-                lib.util_block.read_block_tci_noavg(in_datafile, self.m_in, n_polar_out, nb, nb_block, n_lig_block[nb], sub_n_col, n_win_l, n_win_c, off_lig, off_col, n_col, self.vf_in)
+                lib.util_block.read_block_tci_noavg(in_datafile, self.m_in, n_polar_out, nb, nb_block, n_lig_block[nb], sub_n_col, n_win_l, n_win_c, off_lig, off_col, n_col, self.vf_in, vf_in_readingLines[nb])
             if pol_type_out == 'T3':
                 lib.util_convert.t3_to_c3(self.m_in, n_lig_block[nb], sub_n_col + n_win_c, 0, 0)
 

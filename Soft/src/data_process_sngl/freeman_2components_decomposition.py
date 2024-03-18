@@ -281,13 +281,13 @@ class App(lib.util.Application):
         # SPANMIN / SPANMAX DETERMINATION
         span_min = lib.util.Application.INIT_MINMAX
         span_max = -lib.util.Application.INIT_MINMAX
-
         vf_in_readingLines = [None] * nb_block
 
         for nb in range(nb_block):
             if nb_block > 2:
                 logging.debug("%f\r" % (100 * nb / (nb_block - 1)), end="", flush=True)
             logging.info(f'READING NLIG LINES {nb=} {n_col=} {n_polar_out=} {n_lig_block[nb]=} {n_win_c_m1s2=} from freeman_2components_decomposition')
+
             for np in range(n_polar_in):
                 self.rewind(in_datafile[np])
             if flag_valid is True:

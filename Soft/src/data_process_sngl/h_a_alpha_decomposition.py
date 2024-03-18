@@ -147,6 +147,7 @@ def process_c2(nb, n_lig_block, n_polar_out, sub_n_col, m_in, valid, n_win_l, n_
     v = lib.matrix.matrix3d_float(2, 2, 2)
     m_lambda = lib.matrix.vector_float(2)
     m_avg = lib.matrix.matrix_float(n_polar_out, sub_n_col)
+    log_2 = math.log(2.)
     for lig in range(n_lig_block[nb]):
         ligDone += 1
         if numba_get_thread_id() == 0:
@@ -215,7 +216,7 @@ def process_c2(nb, n_lig_block, n_polar_out, sub_n_col, m_in, valid, n_win_l, n_
                 if flag[indexes.delta] != -1:
                     m_out[flag[indexes.delta]][lig][col] *= 180. / pi
                 if flag[indexes.h] != -1:
-                    m_out[flag[indexes.h]][lig][col] /= math.log(2.)
+                    m_out[flag[indexes.h]][lig][col] /= log_2
 
                 if flag[indexes.a] != -1:
                     m_out[flag[indexes.a]][lig][col] = (matrices.p[0] - matrices.p[1]) / (matrices.p[0] + matrices.p[1] + eps)
@@ -238,6 +239,7 @@ def process_t3_c3(nb, n_lig_block, n_polar_out, sub_n_col, m_in, valid, n_win_l,
     v = lib.matrix.matrix3d_float(3, 3, 2)
     m_lambda = lib.matrix.vector_float(3)
     m_avg = lib.matrix.matrix_float(n_polar_out, sub_n_col)
+    log_3 = math.log(3.)
     for lig in range(n_lig_block[nb]):
         ligDone += 1
         if numba_get_thread_id() == 0:
@@ -331,7 +333,7 @@ def process_t3_c3(nb, n_lig_block, n_polar_out, sub_n_col, m_in, valid, n_win_l,
                 if flag[indexes.gamma] != -1:
                     m_out[flag[indexes.gamma]][lig][col] *= 180. / pi
                 if flag[indexes.h] != -1:
-                    m_out[flag[indexes.h]][lig][col] /= math.log(3.)
+                    m_out[flag[indexes.h]][lig][col] /= log_3
 
                 if flag[indexes.a] != -1:
                     m_out[flag[indexes.a]][lig][col] = (matrices.p[1] - matrices.p[2]) / (matrices.p[1] + matrices.p[2] + eps)
@@ -354,6 +356,7 @@ def process_t4_c4(nb, n_lig_block, n_polar_out, sub_n_col, m_in, valid, n_win_l,
     v = lib.matrix.matrix3d_float(4, 4, 2)
     m_lambda = lib.matrix.vector_float(4)
     m_avg = lib.matrix.matrix_float(n_polar_out, sub_n_col)
+    log_4 = math.log(4.)
     for lig in range(n_lig_block[nb]):
         ligDone += 1
         if numba_get_thread_id() == 0:
@@ -477,7 +480,7 @@ def process_t4_c4(nb, n_lig_block, n_polar_out, sub_n_col, m_in, valid, n_win_l,
                 if flag[indexes.nhu] != -1:
                     m_out[flag[indexes.nhu]][lig][col] *= 180. / pi
                 if flag[indexes.h] != -1:
-                    m_out[flag[indexes.h]][lig][col] /= math.log(4.)
+                    m_out[flag[indexes.h]][lig][col] /= log_4
 
                 if flag[indexes.a] != -1:
                     m_out[flag[indexes.a]][lig][col] = (matrices.p[1] - matrices.p[2]) / (matrices.p[1] + matrices.p[2] + eps)
@@ -808,9 +811,9 @@ class App(lib.util.Application):
                 lib.util_block.read_block_tci_noavg(in_datafile, self.m_in, n_polar_out, nb, nb_block, n_lig_block[nb], sub_n_col, n_win_l, n_win_c, off_lig, off_col, n_col, self.vf_in)
 
             if pol_type_in == 'C3' and pol_type_out == 'T3':
-                lib.util_convert.t3_to_c3(self.m_in, n_lig_block[nb], sub_n_col + n_win_c, 0, 0)
+                lib.util_convert.c3_to_t3(self.m_in, n_lig_block[nb], sub_n_col + n_win_c, 0, 0)
             elif pol_type_in == 'C4' and pol_type_out == 'T4':
-                lib.util_convert.t4_to_c4(self.m_in, n_lig_block[nb], sub_n_col + n_win_c, 0, 0)
+                lib.util_convert.c4_to_t4(self.m_in, n_lig_block[nb], sub_n_col + n_win_c, 0, 0)
 
             if pol_type_out in ['C2', 'C2pp1', 'C2pp2', 'C2pp3']:
                 process_c2(nb, n_lig_block, n_polar_out, sub_n_col, self.m_in, self.valid, n_win_l, n_win_c, n_win_l_m1s2, n_win_c_m1s2, n_out, self.m_out, eps, flag, matrices, indexes, pi)
@@ -818,7 +821,6 @@ class App(lib.util.Application):
                 process_t3_c3(nb, n_lig_block, n_polar_out, sub_n_col, self.m_in, self.valid, n_win_l, n_win_c, n_win_l_m1s2, n_win_c_m1s2, n_out, self.m_out, eps, flag, matrices, indexes, pi)
             elif pol_type_in == 'T4' and pol_type_out == 'C4':
                 process_t4_c4(nb, n_lig_block, n_polar_out, sub_n_col, self.m_in, self.valid, n_win_l, n_win_c, n_win_l_m1s2, n_win_c_m1s2, n_out, self.m_out, eps, flag, matrices, indexes, pi)
-
             for k in range(n_para):
                 if flag[k] != -1:
                     if pol_type_out in ['C2', 'C2pp1', 'C2pp2', 'C2pp3']:

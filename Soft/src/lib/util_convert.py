@@ -115,8 +115,8 @@ def s2_to_t3(S_in, M_in, Nlig, Ncol, NwinLig, NwinCol):
     return 1
 
 
-@numba.njit()
-def c3_to_t3(M_in, Nlig, Ncol, NwinLig, NwinCol):
+@numba.njit(parallel=False, fastmath=True)
+def c3_to_t3(m_in, Nlig, Ncol, NwinLig, NwinCol):
     '''
     Routine  : c3_to_t3
     Authors  : Eric POTTIER
@@ -129,31 +129,32 @@ def c3_to_t3(M_in, Nlig, Ncol, NwinLig, NwinCol):
     C11 = C12_re = C12_im = C13_re = C13_im = 0.
     C22 = C23_re = C23_im = C33 = 0.
     # pragma omp parallel for private(col) firstprivate(C11, C12_re, C12_im, C13_re, C13_im, C22, C23_re, C23_im, C33)
+    sqrt_2 = math.sqrt(2)
     for lig in range(Nlig + NwinLig):
         for col in range(Ncol + NwinCol):
-            C11 = M_in[util.C311][lig][col]
-            C12_re = M_in[util.C312_RE][lig][col]
-            C12_im = M_in[util.C312_IM][lig][col]
-            C13_re = M_in[util.C313_RE][lig][col]
-            C13_im = M_in[util.C313_IM][lig][col]
-            C22 = M_in[util.C322][lig][col]
-            C23_re = M_in[util.C323_RE][lig][col]
-            C23_im = M_in[util.C323_IM][lig][col]
-            C33 = M_in[util.C333][lig][col]
+            C11 = m_in[util.C311][lig][col]
+            C12_re = m_in[util.C312_RE][lig][col]
+            C12_im = m_in[util.C312_IM][lig][col]
+            C13_re = m_in[util.C313_RE][lig][col]
+            C13_im = m_in[util.C313_IM][lig][col]
+            C22 = m_in[util.C322][lig][col]
+            C23_re = m_in[util.C323_RE][lig][col]
+            C23_im = m_in[util.C323_IM][lig][col]
+            C33 = m_in[util.C333][lig][col]
 
-            M_in[util.T311][lig][col] = (C11 + 2 * C13_re + C33) / 2
-            M_in[util.T312_RE][lig][col] = (C11 - C33) / 2
-            M_in[util.T312_IM][lig][col] = -C13_im
-            M_in[util.T313_RE][lig][col] = (C12_re + C23_re) / math.sqrt(2)
-            M_in[util.T313_IM][lig][col] = (C12_im - C23_im) / math.sqrt(2)
-            M_in[util.T322][lig][col] = (C11 - 2 * C13_re + C33) / 2
-            M_in[util.T323_RE][lig][col] = (C12_re - C23_re) / math.sqrt(2)
-            M_in[util.T323_IM][lig][col] = (C12_im + C23_im) / math.sqrt(2)
-            M_in[util.T333][lig][col] = C22
+            m_in[util.T311][lig][col] = (C11 + 2 * C13_re + C33) / 2
+            m_in[util.T312_RE][lig][col] = (C11 - C33) / 2
+            m_in[util.T312_IM][lig][col] = -C13_im
+            m_in[util.T313_RE][lig][col] = (C12_re + C23_re) / sqrt_2
+            m_in[util.T313_IM][lig][col] = (C12_im - C23_im) / sqrt_2
+            m_in[util.T322][lig][col] = (C11 - 2 * C13_re + C33) / 2
+            m_in[util.T323_RE][lig][col] = (C12_re - C23_re) / sqrt_2
+            m_in[util.T323_IM][lig][col] = (C12_im + C23_im) / sqrt_2
+            m_in[util.T333][lig][col] = C22
     return 1
 
 
-@numba.njit()
+@numba.njit(parallel=False, fastmath=True)
 def c4_to_t3(M_in, Nlig, Ncol, NwinLig, NwinCol):
     '''
     Routine  : C4_to_T3
@@ -167,26 +168,27 @@ def c4_to_t3(M_in, Nlig, Ncol, NwinLig, NwinCol):
     C11 = C12_re = C12_im = C13_re = C13_im = 0.
     C22 = C23_re = C23_im = C33 = 0.
     # pragma omp parallel for private(col) firstprivate(C11, C12_re, C12_im, C13_re, C13_im, C22, C23_re, C23_im, C33)
+    sqrt_2 = math.sqrt(2)
     for lig in range(Nlig + NwinLig):
         for col in range(Ncol + NwinCol):
             C11 = M_in[util.C411][lig][col]
-            C12_re = (M_in[util.C412_RE][lig][col] + M_in[util.C413_RE][lig][col]) / math.sqrt(2)
-            C12_im = (M_in[util.C412_IM][lig][col] + M_in[util.C413_IM][lig][col]) / math.sqrt(2)
+            C12_re = (M_in[util.C412_RE][lig][col] + M_in[util.C413_RE][lig][col]) / sqrt_2
+            C12_im = (M_in[util.C412_IM][lig][col] + M_in[util.C413_IM][lig][col]) / sqrt_2
             C13_re = M_in[util.C414_RE][lig][col]
             C13_im = M_in[util.C414_IM][lig][col]
             C22 = (M_in[util.C422][lig][col] + M_in[util.C433][lig][col] + 2 * M_in[util.C423_re][lig][col]) / 2
-            C23_re = (M_in[util.C424_RE][lig][col] + M_in[util.C434_RE][lig][col]) / math.sqrt(2)
-            C23_im = (M_in[util.C424_IM][lig][col] + M_in[util.C434_IM][lig][col]) / math.sqrt(2)
+            C23_re = (M_in[util.C424_RE][lig][col] + M_in[util.C434_RE][lig][col]) / sqrt_2
+            C23_im = (M_in[util.C424_IM][lig][col] + M_in[util.C434_IM][lig][col]) / sqrt_2
             C33 = M_in[util.C444][lig][col]
 
             M_in[util.T311][lig][col] = (C11 + 2 * C13_re + C33) / 2
             M_in[util.T312_RE][lig][col] = (C11 - C33) / 2
             M_in[util.T312_IM][lig][col] = -C13_im
-            M_in[util.T313_RE][lig][col] = (C12_re + C23_re) / math.sqrt(2)
-            M_in[util.T313_IM][lig][col] = (C12_im - C23_im) / math.sqrt(2)
+            M_in[util.T313_RE][lig][col] = (C12_re + C23_re) / sqrt_2
+            M_in[util.T313_IM][lig][col] = (C12_im - C23_im) / sqrt_2
             M_in[util.T322][lig][col] = (C11 - 2 * C13_re + C33) / 2
-            M_in[util.T323_RE][lig][col] = (C12_re - C23_re) / math.sqrt(2)
-            M_in[util.T323_IM][lig][col] = (C12_im + C23_im) / math.sqrt(2)
+            M_in[util.T323_RE][lig][col] = (C12_re - C23_re) / sqrt_2
+            M_in[util.T323_IM][lig][col] = (C12_im + C23_im) / sqrt_2
             M_in[util.T333][lig][col] = C22
     return 1
 

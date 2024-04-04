@@ -26,15 +26,16 @@ if platform.system().lower().startswith('win') is True:
     DIR_BIN = 'c:\\Program Files (x86)\\PolSARpro_v6.0.3_Biomass_Edition\\Soft\\bin\\data_process_sngl\\'
     DIR_ARTIFACTS = os.path.join(DIR_OUT, 'artifacts')
 elif platform.system().lower().startswith('lin') is True:
-    home = os.environ["HOME"]
     if os.environ.get('GITHUB_RUN_NUMBER') is not None:
         # aws_bucket_dir = os.path.join(home, 's3-bucket')
-        aws_bucket_dir = home
-        DIR_PATTERN = os.path.join(home, 'polsarpro/patterns')
-        DIR_IN = os.path.join(home, 'polsarpro/in/')
-        DIR_OUT = os.path.join(home, f"polsarpro/out/{os.environ.get('GITHUB_RUN_NUMBER')}")
+        workspace = os.environ.get('GITHUB_WORKSPACE')
+        path_polsarpro = f"{workspace.split('polsarpro/')[0]}polsarpro/"
+        DIR_PATTERN = os.path.join(path_polsarpro, 'patterns')
+        DIR_IN = os.path.join(path_polsarpro, 'in')
+        DIR_OUT = os.path.join(path_polsarpro, f"out/{os.environ.get('GITHUB_RUN_NUMBER')}")
         DIR_ARTIFACTS = os.path.join(DIR_OUT, 'artifacts')
     else:
+        home = os.environ["HOME"]
         DIR_PATTERN = os.path.join(home, 'polsarpro/pattern/')
         DIR_IN = os.path.join(home, 'polsarpro/in/')
         DIR_OUT = os.path.join(home, 'polsarpro/out/')

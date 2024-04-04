@@ -27,12 +27,12 @@ if platform.system().lower().startswith('win') is True:
     DIR_ARTIFACTS = os.path.join(DIR_OUT, 'artifacts')
 elif platform.system().lower().startswith('lin') is True:
     home = os.environ["HOME"]
-    if os.environ.get('GITHUB_JOB') is not None:
+    if os.environ.get('GITHUB_RUN_NUMBER') is not None:
         # aws_bucket_dir = os.path.join(home, 's3-bucket')
         aws_bucket_dir = home
-        DIR_PATTERN = os.path.join(aws_bucket_dir, 'polsarpro/patterns')
-        DIR_IN = os.path.join(aws_bucket_dir, 'polsarpro/in/')
-        DIR_OUT = os.path.join(home, f"polsarpro/out/{os.environ.get('GITHUB_JOB')}")
+        DIR_PATTERN = os.path.join(home, 'polsarpro/patterns')
+        DIR_IN = os.path.join(home, 'polsarpro/in/')
+        DIR_OUT = os.path.join(home, f"polsarpro/out/{os.environ.get('GITHUB_RUN_NUMBER')}")
         DIR_ARTIFACTS = os.path.join(DIR_OUT, 'artifacts')
     else:
         DIR_PATTERN = os.path.join(home, 'polsarpro/pattern/')

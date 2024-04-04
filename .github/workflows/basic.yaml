@@ -11,7 +11,7 @@ env:
 
 jobs:
   ci-tests:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, ec2, basic]
 
     steps:
       - name: Set up repo
@@ -29,7 +29,7 @@ jobs:
 
       - name: Run lint - flake8
         run: |
-          # ignora:e E501 line too long
+          # ignor:e E501 - line too long
           flake8 . --ignore E501
 
       - name: Configure AWS Credentials
@@ -40,12 +40,12 @@ jobs:
           aws-secret-access-key: ${{secrets.AWS_SECRET_ACCESS_KEY}}
           aws-region: ${{secrets.AWS_REGION}}
       
-      - name: Set up AWS bucket
-        if: always()
-        run: |
-          [ -d ~/s3-bucket ] || mkdir ~/s3-bucket
-          sudo apt-get install -y s3fs
-          s3fs satim-polsarpro ~/s3-bucket
+      # - name: Set up AWS bucket
+      #   if: always()
+      #   run: |
+      #     [ -d ~/s3-bucket ] || mkdir ~/s3-bucket
+      #     sudo apt-get install -y s3fs
+      #     s3fs satim-polsarpro ~/s3-bucket
 
       - name: Run tests
         if: always()

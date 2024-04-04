@@ -8,7 +8,7 @@ on:
 
 env:
   PYTHON_VERSION: 3.10.12
-  PATH_ARTIFACTS: ~/polsarpro/out/${{env.GITHUB_RUN_NUMBER}}/artifacts/
+  PATH_ARTIFACTS: ~/polsarpro/out/${GITHUB_RUN_NUMBER}/artifacts/
 
 jobs:
   ci-tests:
@@ -58,7 +58,7 @@ jobs:
         if: always()
         run: |
           rm -rf test-results
-          cp -Lpr $PATH_ARTIFACTS test-results
+          cp -Lpr ${{env.PATH_ARTIFACTS}} test-results
         shell: bash
 
       - name: Publish test report
@@ -72,10 +72,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: artifact
-          path: $PATH_ARTIFACTS
+          path: ${{env.PATH_ARTIFACTS}}
       
       # - name: Copy artifacts to AWS bucket
       #   if: always()
       #   run: |
-      #     ls -alR $PATH_ARTIFACTS
+      #     ls -alR ${{env.PATH_ARTIFACTS}}
       #    cp ~/polsarpro/out/artifacts/ ~/s3-bucket

@@ -8,7 +8,7 @@ on:
 
 env:
   PYTHON_VERSION: 3.10.12
-  PATH_ARTIFACTS: ~/polsarpro/out/${{GITHUB_RUN_NUMBER}}/artifacts/
+  PATH_ARTIFACTS: ~/polsarpro/out/${{env.GITHUB_RUN_NUMBER}}/artifacts/
 
 jobs:
   ci-tests:

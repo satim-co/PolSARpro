@@ -122,7 +122,7 @@ class Module:
         self.lang = lang
         self.params = {}
         self.dir_pattern = os.path.join(DIR_PATTERN, self.name.lower())
-        if Module.ADD_MODULE_TO_DIR_IN is True:
+        if Module.ADD_MODULE_TO_DIR_IN is True or os.environ.get('GITHUB_RUN_NUMBER') is not None:
             self.dir_in = os.path.join(DIR_IN, self.name.lower())
         else:
             self.dir_in = DIR_IN

@@ -9,6 +9,7 @@ on:
 env:
   PYTHON_VERSION: 3.10.12
   PATH_ARTIFACTS: ~/polsarpro/out/${{github.run_number}}/artifacts/
+  GITHUB_CONTEXT: ${{toJSON(github)}}
 
 jobs:
   ci-tests:

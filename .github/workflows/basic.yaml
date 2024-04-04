@@ -23,6 +23,9 @@ jobs:
         with:
           python-version: '${{env.PYTHON_VERSION}}'
 
+      - name: Echo context
+        run:  echo "$GITHUB_CONTEXT"
+      
       - name: Install dependencies
         run: |
           pip install -r Soft/requirements.txt

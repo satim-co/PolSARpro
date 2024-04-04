@@ -24,8 +24,8 @@ jobs:
         with:
           python-version: '${{env.PYTHON_VERSION}}'
 
-      - name: Echo context
-        run:  echo "$GITHUB_CONTEXT"
+      # - name: Echo context
+      #   run:  echo "$GITHUB_CONTEXT"
       
       - name: Install dependencies
         run: |

@@ -26,7 +26,7 @@ jobs:
 
       # - name: Echo context
       #   run:  echo "$GITHUB_CONTEXT"
-      
+
       - name: Install dependencies
         run: |
           pip install -r Soft/requirements.txt
@@ -44,7 +44,7 @@ jobs:
       #     aws-access-key-id: ${{secrets.AWS_ACCESS_KEY_ID}}
       #     aws-secret-access-key: ${{secrets.AWS_SECRET_ACCESS_KEY}}
       #     aws-region: ${{secrets.AWS_REGION}}
-      
+
       # - name: Set up AWS bucket
       #   if: always()
       #   run: |
@@ -58,26 +58,32 @@ jobs:
         run: |
           python test.py all
 
-      - name: Copy test results
-        if: always()
-        run: |
-          rm -rf test-results
-          cp -Lpr ${{env.PATH_ARTIFACTS}} test-results
-        shell: bash
-
       - name: Publish test report
         uses: mikepenz/action-junit-report@v4
         if: success() || failure() # always run even if the previous step fails
         with:
-          report_paths: 'test-results/**/*.xml'
+          report_paths: '${{env.PATH_ARTIFACTS}}/**/*.xml'
 
-      - name: Archive artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: artifact
-          path: ${{env.PATH_ARTIFACTS}}
-      
+      # - name: Copy test results
+      #   if: always()
+      #   run: |
+      #     rm -rf test-results
+      #     cp -Lpr ${{env.PATH_ARTIFACTS}} test-results
+      #   shell: bash
+
+      # - name: Publish test report
+      #   uses: mikepenz/action-junit-report@v4
+      #   if: success() || failure() # always run even if the previous step fails
+      #   with:
+      #     report_paths: 'test-results/**/*.xml'
+
+      # - name: Archive artifacts
+      #   if: always()
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: artifact
+      #     path: ${{env.PATH_ARTIFACTS}}
+
       # - name: Copy artifacts to AWS bucket
       #   if: always()
       #   run: |

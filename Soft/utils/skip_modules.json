@@ -3,7 +3,7 @@
   { "name" : "_arii_nned_3components_decomposition",  "reason" : "test skip" },
   { "name" : "_freeman_2components_decomposition",    "reason" : "test skip" },
   { "name" : "_id_class_gen",                         "reason" : "test skip" },
-  { "name" : "OPCE",                                 "reason" : "long time processing about 01:20:00" },
+  { "name" : "_OPCE",                                 "reason" : "long time processing about 01:20:00" },
   { "name" : "_vanzyl92_3components_decomposition",   "reason" : "test skip" },
   { "name" : "_wishart_supervised_classifier",        "reason" : "test skip" },
   { "name" : "_wishart_h_a_alpha_classifier",         "reason" : "test skip" },

@@ -8,6 +8,7 @@ import subprocess
 import time
 import math
 import json
+import hashlib
 sys.path.append(r'../src/')
 sys.path.append(r'../src/data_process_sngl/')
 sys.path.append(r'../src/speckle_filter/')
@@ -142,7 +143,8 @@ class Module:
             self.log_file = open(self.log_file_name, 'w')
         return self.log_file
 
-    def check_md5sum(sela, file):
+    def check_md5sum(self, file):
+        print('\n\ncheck_md5sum - depraceted')
         params_md5sum = []
         params_md5sum.append('md5sum')
         params_md5sum.append('-b')
@@ -159,6 +161,10 @@ class Module:
         p2.wait()
         return p2.stdout.read1().decode('utf-8').strip()
 
+    def file_as_bytes(self, file):
+        with file:
+            return file.read()
+
     def compare_result(self):
         files_out = [os.path.join(self.dir_out, f) for f in os.listdir(self.dir_out) if os.path.isfile(os.path.join(self.dir_out, f))]
         print(f'\n\nFILES OUT:      {files_out}')
@@ -170,8 +176,8 @@ class Module:
         if len(files_out) != len(files_pattern):
             test_result = False
         for o, p in merged_files:
-            md5sum_o = self.check_md5sum(o)
-            md5sum_p = self.check_md5sum(p)
+            md5sum_o = hashlib.md5(self.file_as_bytes(open(o, 'rb'))).hexdigest()
+            md5sum_p = hashlib.md5(self.file_as_bytes(open(p, 'rb'))).hexdigest()
             if md5sum_o != md5sum_p:
                 print(f'{o}: {md5sum_o} != {p}: {md5sum_p}')
                 test_result = False

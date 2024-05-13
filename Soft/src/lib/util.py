@@ -7,7 +7,6 @@ util
 import errno
 import os
 import sys
-import resource
 import argparse
 import datetime
 import math
@@ -61,24 +60,6 @@ class Termination:
     @staticmethod
     def failure():
         sys.exit(1)
-
-
-class RecursionAndStackLimit:
-    def __init__(self, recursion_limit, stack_size):
-        self.current_recursion_limit = recursion_limit
-        self.default_recursion_limit = sys.getrecursionlimit()
-        self.current_resource_limit = stack_size
-        self.default_resource_limit = resource.getrlimit(resource.RLIMIT_STACK)
-
-    def __enter__(self):
-        sys.setrecursionlimit(self.current_recursion_limit)
-        resource.setrlimit(resource.RLIMIT_STACK, self.current_resource_limit)
-        logging.info(f'setrecursionlimit: {self.current_recursion_limit}, setrlimit: {self.current_resource_limit}')
-
-    def __exit__(self, type, value, traceback):
-        sys.setrecursionlimit(self.default_recursion_limit)
-        resource.setrlimit(resource.RLIMIT_STACK, self.default_resource_limit)
-        logging.info(f'setrecursionlimit: {self.default_recursion_limit}, setrlimit: {self.default_resource_limit}')
 
 
 class ParseArgs:

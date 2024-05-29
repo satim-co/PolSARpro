@@ -93,8 +93,10 @@ def span_determination(s_min, s_max, nb, n_lig_block, n_polar_out, sub_n_col, m_
         for col in range(sub_n_col):
             if valid[n_win_l_m1s2 + lig][n_win_c_m1s2 + col] == 1.:
                 span = m_avg[lib.util.C311][col] + m_avg[lib.util.C322][col] + m_avg[lib.util.C333][col]
-                s_max = max(s_max, span)
-                s_min = min(s_min, span)
+                if span >= s_max:
+                    s_max = span
+                if span <= s_min:
+                    s_min = span
     return s_min, s_max
 
 
@@ -110,7 +112,7 @@ def freeman2_components_algorithm(_nb, _n_lig_block, _n_polar_out, _m_in, _valid
             lib.util.printf_line(ligDone, _n_lig_block[_nb])
         m_avg.fill(0)
         lib.util_block.average_tci(_m_in, _valid, _n_polar_out, m_avg, lig, _sub_n_col, _n_win_l, _n_win_c, _n_win_l_m1s2, _n_win_c_m1s2)
-        for col in numba.prange(_sub_n_col):
+        for col in range(_sub_n_col):
             if _valid[_n_win_l_m1s2 + lig][_n_win_c_m1s2 + col] == 1:
                 HHHH = m_avg[lib.util.C311][col]
                 HVHV = m_avg[lib.util.C322][col] / 2.

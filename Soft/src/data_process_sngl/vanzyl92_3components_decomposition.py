@@ -95,8 +95,10 @@ def span_determination(s_min, s_max, nb, n_lig_block, n_polar_out, sub_n_col, m_
         for col in range(sub_n_col):
             if valid[n_win_l_m1s2 + lig][n_win_c_m1s2 + col] == 1.:
                 span = m_avg[lib.util.C311][col] + m_avg[lib.util.C322][col] + m_avg[lib.util.C333][col]
-                s_max = max(s_max, span)
-                s_min = min(s_min, span)
+                if span >= s_max:
+                    s_max = span
+                if span <= s_min:
+                    s_min = span
     return s_min, s_max
 
 
@@ -108,7 +110,7 @@ def van_zyl_1992_algorithm(n_lig_block, nb, n_polar_out, sub_n_col, m_in, valid,
     sq_rt = Lambda1 = Lambda2 = OMEGA1 = OMEGA2 = 0.
     m_avg = lib.matrix.matrix_float(n_polar_out, sub_n_col)
     # #pragma omp parallel for private(col, M_avg) firstprivate(ALPre, ALPim, BETre, BETim, A0A0, B0pB, HHHH, HVHV, VVVV, HHVVre, HHVVim, sq_rt, Lambda1, Lambda2, OMEGA1, OMEGA2) shared(ligDone)
-    for lig in numba.prange(n_lig_block[nb]):
+    for lig in range(n_lig_block[nb]):
         ligDone += 1
         # if (omp_get_thread_num() == 0)
         #     PrintfLine(ligDone,NligBlock[Nb]);

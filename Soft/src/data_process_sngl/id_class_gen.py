@@ -168,7 +168,7 @@ def data_processing_routine_id_class(_nb, _n_lig_block, _n_lig_g, _sub_n_col, _c
         if numba_get_thread_id() == 0:
             lib.util.printf_line(lig, _n_lig_block[_nb])
         lig_g = lig + _n_lig_g
-        for col in numba.prange(_sub_n_col):
+        for col in range(_sub_n_col):
             _class_out[lig_g][col] = 0.
             if _valid[lig][col] == 1.:
                 if _class_vec[(int)(_class_in[lig][col])][CL_H_A] == 2:
@@ -187,7 +187,7 @@ def data_processing_routine_vol_class(_nb, _n_lig_block, _n_lig_g, _sub_n_col, _
         if numba_get_thread_id() == 0:
             lib.util.printf_line(lig, _n_lig_block[_nb])
         lig_g = lig + _n_lig_g
-        for col in numba.prange(_sub_n_col):
+        for col in range(_sub_n_col):
             _class_out[lig_g][col] = 0.
             if _valid[lig][col] == 1.:
                 if _class_vec[(int)(_class_in[lig][col])][CL_H_A] == 2:
@@ -206,7 +206,7 @@ def data_processing_routine_sgl_class(_nb, _n_lig_block, _n_lig_g, _sub_n_col, _
         if numba_get_thread_id() == 0:
             lib.util.printf_line(lig, _n_lig_block[_nb])
         lig_g = lig + _n_lig_g
-        for col in numba.prange(_sub_n_col):
+        for col in range(_sub_n_col):
             _class_out[lig_g][col] = 0.
             if _valid[lig][col] == 1.:
                 if _class_vec[(int)(_class_in[lig][col])][CL_H_A] == 2:
@@ -225,7 +225,7 @@ def data_processing_routine_dbl_class(_nb, _n_lig_block, _n_lig_g, _sub_n_col, _
         if numba_get_thread_id() == 0:
             lib.util.printf_line(lig, _n_lig_block[_nb])
         lig_g = lig + _n_lig_g
-        for col in numba.prange(_sub_n_col):
+        for col in range(_sub_n_col):
             _class_out[lig_g][col] = 0.
             if _valid[lig][col] == 1.:
                 if _class_vec[(int)(_class_in[lig][col])][CL_H_A] == 2:

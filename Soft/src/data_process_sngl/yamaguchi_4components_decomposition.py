@@ -94,8 +94,10 @@ def span_determination(s_min, s_max, nb, n_lig_block, n_polar_out, sub_n_col, m_
         for col in range(sub_n_col):
             if valid[n_win_l_m1s2 + lig][n_win_c_m1s2 + col] == 1.:
                 span = m_avg[lib.util.C311][col] + m_avg[lib.util.C322][col] + m_avg[lib.util.C333][col]
-                s_max = max(s_max, span)
-                s_min = min(s_min, span)
+                if span >= s_max:
+                    s_max = span
+                if span <= s_min:
+                    s_min = span
     return s_min, s_max
 
 
@@ -137,7 +139,7 @@ def data_processing(yam_mode, nb, n_lig_block, n_polar_out, m_in, valid, sub_n_c
         m_avg.fill(0)
         TT.fill(0)
         lib.util_block.average_tci(m_in, valid, n_polar_out, m_avg, lig, sub_n_col, n_win_l, n_win_c, n_win_l_m1s2, n_win_c_m1s2)
-        for col in numba.prange(sub_n_col):
+        for col in range(sub_n_col):
             if valid[n_win_l_m1s2 + lig][n_win_c_m1s2 + col] == 1:
 
                 for np in range(n_polar_out):

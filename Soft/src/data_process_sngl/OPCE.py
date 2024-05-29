@@ -394,7 +394,7 @@ def create_areas(border_map, n_lig, n_col, n_class, n_area, n_t_pt, area_coord_c
 def determine_the_opce_puissance(ligDone, nb, n_lig_block, sub_n_col_opce, m_in, valid, n_polar_out, lig, n_win_l, n_win_c, n_win_l_m1s2, n_win_c_m1s2, eps, g0, g1, g2, g3, h0, h1, h2, h3, m_out):
     # pragma omp parallel for private(col, M_avg) firstprivate(KT1, KT2, KT3, KT4, KT5, KT6, KT7, KT8, KT9, KT10, A0, A1, A2, A3) shared(ligDone)
     # m_avg = lib.matrix.matrix_float(n_polar_out, sub_n_col_opce)
-    for lig in numba.prange(n_lig_block[nb]):
+    for lig in range(n_lig_block[nb]):
         ligDone += 1
         # logging.info(f'--= Started: Determine the OPCE Puissance 1 {lig=}=--')
         # print(lig)

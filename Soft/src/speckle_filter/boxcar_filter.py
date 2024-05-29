@@ -78,7 +78,7 @@ else:
             return ret
 
 
-@numba.njit(parallel=True, fastmath=True)
+@numba.njit(parallel=False, fastmath=True)
 def boxcar_filter_algorithm(nb, n_lig_block, n_polar_out, sub_n_col, m_out, n_win_l_m1s2, n_win_c_m1s2, m_in, valid, n_win_c):
     # pragma omp parallel for private(col, Np, k, l, Nvalid, mean, idxY) shared(ligDone) schedule(dynamic)
     ligDone = 0

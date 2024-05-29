@@ -100,7 +100,7 @@ def span_determination(s_min, s_max, nb, n_lig_block, n_polar_out, sub_n_col, m_
     return s_min, s_max
 
 
-@numba.njit(parallel=True)
+@numba.njit(parallel=False, fastmath=True)
 def arii_nned_van_zyl_algorithm(n_lig_block, nb, n_polar_out, sub_n_col, m_in, valid, n_win_l, n_win_c, n_win_l_m1s2, n_win_c_m1s2, m_odd, m_dbl, m_vol, span_min, span_max):
     ALPre = ALPim = BETre = BETim = OMEGA1 = OMEGA2 = OMEGAodd = OMEGAdbl = 0.
     x1 = x2 = xmax = fv = a = b = z = delta = lambda1 = lambda2 = 0.

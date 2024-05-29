@@ -161,7 +161,7 @@ def data_processing_routine(_nb, _n_lig_block, _n_lig_g, _sub_n_col, _class_out,
                 _cpt_al1_al2[(int)(_class_in[lig][col])][(int)(class_al1_al2)] = _cpt_al1_al2[(int)(_class_in[lig][col])][(int)(class_al1_al2)] + 1.
 
 
-@numba.njit(parallel=True, fastmath=True)
+@numba.njit(parallel=False, fastmath=True)
 def data_processing_routine_id_class(_nb, _n_lig_block, _n_lig_g, _sub_n_col, _class_out, _class_in, _valid, _class_vec):
     lig_g = 0
     for lig in range(_n_lig_block[_nb]):
@@ -180,7 +180,7 @@ def data_processing_routine_id_class(_nb, _n_lig_block, _n_lig_g, _sub_n_col, _c
                 _class_out[lig_g][col] = class_type
 
 
-@numba.njit(parallel=True, fastmath=True)
+@numba.njit(parallel=False, fastmath=True)
 def data_processing_routine_vol_class(_nb, _n_lig_block, _n_lig_g, _sub_n_col, _class_out, _class_in, _valid, _class_vec):
     lig_g = 0
     for lig in range(_n_lig_block[_nb]):
@@ -199,7 +199,7 @@ def data_processing_routine_vol_class(_nb, _n_lig_block, _n_lig_g, _sub_n_col, _
                 _class_out[lig_g][col] = (class_type == 1) * 2
 
 
-@numba.njit(parallel=True, fastmath=True)
+@numba.njit(parallel=False, fastmath=True)
 def data_processing_routine_sgl_class(_nb, _n_lig_block, _n_lig_g, _sub_n_col, _class_out, _class_in, _valid, _class_vec):
     lig_g = 0
     for lig in range(_n_lig_block[_nb]):
@@ -218,7 +218,7 @@ def data_processing_routine_sgl_class(_nb, _n_lig_block, _n_lig_g, _sub_n_col, _
                 _class_out[lig_g][col] = (class_type == 12) * 12 + (class_type == 5) * 5
 
 
-@numba.njit(parallel=True, fastmath=True)
+@numba.njit(parallel=False, fastmath=True)
 def data_processing_routine_dbl_class(_nb, _n_lig_block, _n_lig_g, _sub_n_col, _class_out, _class_in, _valid, _class_vec):
     lig_g = 0
     for lig in range(_n_lig_block[_nb]):

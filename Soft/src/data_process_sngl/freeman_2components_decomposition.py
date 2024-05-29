@@ -98,7 +98,7 @@ def span_determination(s_min, s_max, nb, n_lig_block, n_polar_out, sub_n_col, m_
     return s_min, s_max
 
 
-@numba.njit(parallel=True, fastmath=True)
+@numba.njit(parallel=False, fastmath=True)
 def freeman2_components_algorithm(_nb, _n_lig_block, _n_polar_out, _m_in, _valid, _sub_n_col, _n_win_l, _n_win_c, _n_win_l_m1s2, _n_win_c_m1s2, _m_vol, _m_grd, _span_min, _span_max, _eps):
     HHHH = HVHV = VVVV = HHVVre = HHVVim = FV = FG = RHO = 0.
     x = y = z1 = z2r = z2i = z3r = z3i = 0.

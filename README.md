@@ -5,6 +5,13 @@
 ![Issues](https://img.shields.io/github/issues/satim-co/PolSARpro?label=Issues)
 ![Languages](https://img.shields.io/github/languages/top/satim-co/PolSARpro)
 
+<img align="left" src="https://avatars.githubusercontent.com/u/104204037?s=200&v=4">
+
+<br>
+
+[satim-co/PolSARpro](https://github.com/satim-co/PolSARpro)
+
+<br clear="left"/>
 
 ## Table of contents
 * [Introduction](#introduction)

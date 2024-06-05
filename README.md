@@ -1,9 +1,15 @@
-# PolSarPro
+# PolSARpro
 
 ![Stars](https://img.shields.io/github/stars/satim-co/PolSARpro?style=flat-square&label=Stars)
 ![Contributors](https://img.shields.io/github/contributors/satim-co/PolSARpro.svg?label=Contributors)
 ![Issues](https://img.shields.io/github/issues/satim-co/PolSARpro?label=Issues)
 ![Languages](https://img.shields.io/github/languages/top/satim-co/PolSARpro)
+
+
+## Table of contents
+* [Introduction](#introduction)
+* [System Requirements](#system-requirements)
+* [Installation](#installation)
 
 ## Introduction
 PolSarPro Python version is an advanced open-source tool for processing polarimetric SAR (Synthetic Aperture Radar) data. This project is based on the PolSARpro Bio, version 6.0 (currently implemented in C) described on https://step.esa.int/main/toolboxes/polsarpro-v6-0-biomass-edition-toolbox/ and
@@ -24,7 +30,6 @@ Download the PolSARPro Python Library. Obtain the latest version of the PolSARPr
 Obtain the requirements.txt File. This file lists all the necessary Python libraries and their respective versions. Ensure you have this file, which should include the following:
 - numpy==1.25.0
 - numba==0.58.0
-
 
 Follow these steps to install the PolSARPro.py software:
 1. Install Required Libraries: Navigate to the directory containing the requirements.txt file in your terminal or command prompt. Run the following command to install the required Python libraries:

@@ -38,4 +38,4 @@ Follow these steps to install the PolSARPro.py software:
 2. Verify Installation. After installation, you can verify if the libraries are installed correctly by using pip list or trying to import them in a Python interpreter.
 Post-Installation Steps. Follow any additional post-installation instructions specific to PolSARPro.py to complete the setup.
 
-It is strictly recommended to not change, extract, move or modify any component  included in the PolSARpro.pyy Software directory and / or change its structure.
+It is strictly recommended to not change, extract, move or modify any component  included in the PolSARpro.py Software directory and / or change its structure.

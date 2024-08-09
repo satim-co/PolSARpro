@@ -17,6 +17,7 @@ import numba
 import timeit
 from typing import Final
 
+
 class EnterExitLog():
     def __init__(self, funcName):
         self.funcName = funcName

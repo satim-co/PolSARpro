@@ -91,62 +91,36 @@ def make_mask(mask, n_win):
             (0 or 1)
     *--------------------------------------------------------------------
     '''
-    # mask[0, :, (n_win - 1) // 2:] = 1
-    # mask[4, :, :1 + (n_win - 1) // 2] = 1
-
-    # mask[1, numpy.triu_indices(n_win)] = 1
-    # mask[5, numpy.tril_indices(n_win)] = 1
-
-    # mask[2, :1 + (n_win - 1) // 2, :] = 1
-    # mask[6, (n_win - 1) // 2:, :] = 1
-
-    # mask[3, numpy.tril_indices(n_win, k=-1)] = 1
-    # mask[7, numpy.triu_indices(n_win, k=1)] = 1
-
-    for k in range(n_win):
-        for n in range(n_win):
-            for Nmax in range(8):
-                mask[Nmax][k][n] = 0.
+    Nmax = 8
+    mask[:Nmax, :n_win, :n_win] = 0.0
 
     Nmax = 0
-    for k in range(n_win):
-        for n in range(int((n_win - 1) / 2), n_win):
-            mask[Nmax][k][n] = 1.
+    mask[Nmax, :n_win, int((n_win - 1) / 2):n_win] = 1.0
 
     Nmax = 4
-    for k in range(n_win):
-        for n in range(int(1 + (n_win - 1) / 2)):
-            mask[Nmax][k][n] = 1.
+    mask[Nmax, :n_win, :int(1 + (n_win - 1) / 2)] = 1.0
 
     Nmax = 1
     for k in range(n_win):
-        for n in range(k, n_win):
-            mask[Nmax][k][n] = 1.
+        mask[Nmax, k, k:n_win] = 1.0
 
     Nmax = 5
     for k in range(n_win):
-        for n in range(k + 1):
-            mask[Nmax][k][n] = 1.
+        mask[Nmax][k][:k + 1] = [1.] * (k + 1)
 
     Nmax = 2
-    for k in range(int(1 + (n_win - 1) / 2)):
-        for n in range(n_win):
-            mask[Nmax][k][n] = 1.
+    mask[Nmax, :int(1 + (n_win - 1) / 2), :n_win] = 1.
 
     Nmax = 6
-    for k in range(int((n_win - 1) / 2), n_win):
-        for n in range(n_win):
-            mask[Nmax][k][n] = 1.
+    mask[Nmax][int((n_win - 1) / 2): n_win, :n_win] = 1.0
 
     Nmax = 3
     for k in range(n_win):
-        for n in range(n_win - k):
-            mask[Nmax][k][n] = 1.
+        mask[Nmax][k, :n_win - k] = 1.
 
     Nmax = 7
     for k in range(n_win):
-        for n in range(int(n_win - 1 - k), n_win):
-            mask[Nmax][k][n] = 1.
+        mask[Nmax][k, int(n_win - 1 - k): n_win] = 1.
 
 
 @numba.njit(parallel=False, fastmath=True)
@@ -168,15 +142,22 @@ def make_coeff(sigma2, deplct, nnwin, nwin_m1_s2, sub_n_lig, sub_ncol, span, mas
     Npoints = 0.0
 
     # FILTERING
+    divisor = 1.0 / (nnwin * nnwin)
     for lig in range(sub_n_lig):
         for col in range(sub_ncol):
             # 3*3 average SPAN Sub_window calculation for directional gradient determination
             for k in range(3):
+                subwin[k][:3] = 0.0
+                row_start = k * deplct + lig
                 for n in range(3):
-                    subwin[k][n] = 0.0
+                    col_start = n * deplct + col
                     for kk in range(nnwin):
                         for ll in range(nnwin):
-                            subwin[k][n] += span[k * deplct + kk + lig][n * deplct + ll + col] / (nnwin * nnwin)
+                            value = span[row_start + kk, col_start + ll] * divisor
+                            subwin[k][n] += value
+
+                    # subwin[k][n] = numpy.sum(span[k * deplct + lig:k * deplct + lig + nnwin, n * deplct + col: n * deplct + col + nnwin]) * divisor
+
             # Directional gradient computation
             Dist[0] = -subwin[0][0] + subwin[0][2] - subwin[1][0] + subwin[1][2] - subwin[2][0] + subwin[2][2]
             Dist[1] = subwin[0][1] + subwin[0][2] - subwin[1][0] + subwin[1][2] - subwin[2][0] - subwin[2][1]
@@ -225,42 +206,42 @@ def gradient_window_cal_params(n_win, window_parameters):
         raise ValueError('The window width Nwin must be set to 3 to 31')
 
 
-@numba.njit(parallel=False, fastmath=True)
 def span_determination(sub_n_lig, sub_n_col, n_win, pol_type_out, span, m_in):
-    for lig in range(sub_n_lig + n_win):
-        for col in range(sub_n_col + n_win):
-            if pol_type_out in ['C2', 'C2pp1', 'C2pp2', 'C2pp3', 'T2', 'T2pp1', 'T2pp2', 'T2pp3']:
-                span[lig][col] = m_in[0][lig][col] + m_in[3][lig][col]
-            elif pol_type_out in ['C3', 'T3']:
-                span[lig][col] = m_in[0][lig][col] + m_in[5][lig][col] + m_in[8][lig][col]
-            elif pol_type_out in ['C4', 'T4']:
-                span[lig][col] = m_in[0][lig][col] + m_in[7][lig][col] + m_in[12][lig][col] + m_in[15][lig][col]
+    pol_type_indices = {
+        'C2': [0, 3], 'C2pp1': [0, 3], 'C2pp2': [0, 3], 'C2pp3': [0, 3],
+        'T2': [0, 3], 'T2pp1': [0, 3], 'T2pp2': [0, 3], 'T2pp3': [0, 3],
+        'C3': [0, 5, 8], 'T3': [0, 5, 8],
+        'C4': [0, 7, 12, 15], 'T4': [0, 7, 12, 15]
+    }
+    indices = pol_type_indices.get(pol_type_out)
+    if indices is not None:
+        span[:sub_n_lig + n_win, :sub_n_col + n_win] = numpy.sum(m_in[indices, :sub_n_lig + n_win, :sub_n_col + n_win], axis=0)
     return span
 
 
-@numba.njit(parallel=False)
+@numba.njit(parallel=False, fastmath=True)
 def lee_refined(sub_n_lig, sub_n_col, n_polar_out, m_out, n_win_m1s2, valid, n_max, mask, coeff, m_in):
     ligDone = 0
+    m_out.fill(0.0)
     for lig in range(sub_n_lig):
         ligDone += 1
         for col in range(sub_n_col):
+            if valid[n_win_m1s2 + lig][n_win_m1s2 + col] != 1.0:
+                continue
             for Np in range(n_polar_out):
-                m_out[Np][lig][col] = 0.0
-            if valid[n_win_m1s2 + lig][n_win_m1s2 + col] == 1.0:
-                for Np in range(n_polar_out):
-                    mean = 0.0
-                    Npoints = 0.0
-                    for k in range(-n_win_m1s2, 1 + n_win_m1s2):
-                        for n in range(-n_win_m1s2, 1 + n_win_m1s2):
-                            if mask[n_max[lig][col]][n_win_m1s2 + k][n_win_m1s2 + n] == 1:
-                                mean += m_in[Np][n_win_m1s2 + lig + k][n_win_m1s2 + col + n]
-                                Npoints += 1.0
-                    mean /= Npoints
-                    # Filtering f(x)=E(x)+k*(x-E(x))
-                    # a = (m_in[Np][n_win_m1s2 + lig][n_win_m1s2 + col] - mean)
-                    # b = coeff[lig][col]
-                    # c = mean
-                    m_out[Np][lig][col] = mean + coeff[lig][col] * (m_in[Np][n_win_m1s2 + lig][n_win_m1s2 + col] - mean)
+                mean = 0.0
+                Npoints = 0.0
+                for k in range(-n_win_m1s2, 1 + n_win_m1s2):
+                    for n in range(-n_win_m1s2, 1 + n_win_m1s2):
+                        if mask[n_max[lig][col]][n_win_m1s2 + k][n_win_m1s2 + n] == 1:
+                            mean += m_in[Np][n_win_m1s2 + lig + k][n_win_m1s2 + col + n]
+                            Npoints += 1.0
+                mean /= Npoints
+                # Filtering f(x)=E(x)+k*(x-E(x))
+                # a = (m_in[Np][n_win_m1s2 + lig][n_win_m1s2 + col] - mean)
+                # b = coeff[lig][col]
+                # c = mean
+                m_out[Np][lig][col] = mean + coeff[lig][col] * (m_in[Np][n_win_m1s2 + lig][n_win_m1s2 + col] - mean)
 
 
 class App(lib.util.Application):

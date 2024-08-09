@@ -15,7 +15,7 @@ import logging
 from pathlib import Path
 import numba
 import timeit
-
+from typing import Final
 
 class EnterExitLog():
     def __init__(self, funcName):
@@ -331,178 +331,178 @@ def my_isfinite(x):
 
 
 # /* S2 matrix */
-S11 = 0
-S12 = 1
-S21 = 2
-S22 = 3
+S11: Final[int] = 0
+S12: Final[int] = 1
+S21: Final[int] = 2
+S22: Final[int] = 3
 
 # /* IPP Full */
-I411 = 0
-I412 = 1
-I421 = 2
-I422 = 3
+I411: Final[int] = 0
+I412: Final[int] = 1
+I421: Final[int] = 2
+I422: Final[int] = 3
 
 # /* IPP pp4 */
-I311 = 0
-I312 = 1
-I322 = 2
+I311: Final[int] = 0
+I312: Final[int] = 1
+I322: Final[int] = 2
 
 # /* IPP pp5-pp6-pp7 */
-I211 = 0
-I212 = 1
+I211: Final[int] = 0
+I212: Final[int] = 1
 
 # /* C2 matrix */
-C211 = 0
-C212_RE = 1
-C212_IM = 2
-C222 = 3
+C211: Final[int] = 0
+C212_RE: Final[int] = 1
+C212_IM: Final[int] = 2
+C222: Final[int] = 3
 
 # /* C3 matrix */
-C311 = 0
-C312_RE = 1
-C312_IM = 2
-C313_RE = 3
-C313_IM = 4
-C322 = 5
-C323_RE = 6
-C323_IM = 7
-C333 = 8
+C311: Final[int] = 0
+C312_RE: Final[int] = 1
+C312_IM: Final[int] = 2
+C313_RE: Final[int] = 3
+C313_IM: Final[int] = 4
+C322: Final[int] = 5
+C323_RE: Final[int] = 6
+C323_IM: Final[int] = 7
+C333: Final[int] = 8
 
 # /* C4 matrix */
-C411 = 0
-C412_RE = 1
-C412_IM = 2
-C413_RE = 3
-C413_IM = 4
-C414_RE = 5
-C414_IM = 6
-C422 = 7
-C423_RE = 8
-C423_IM = 9
-C424_RE = 10
-C424_IM = 11
-C433 = 12
-C434_RE = 13
-C434_IM = 14
-C444 = 15
+C411: Final[int] = 0
+C412_RE: Final[int] = 1
+C412_IM: Final[int] = 2
+C413_RE: Final[int] = 3
+C413_IM: Final[int] = 4
+C414_RE: Final[int] = 5
+C414_IM: Final[int] = 6
+C422: Final[int] = 7
+C423_RE: Final[int] = 8
+C423_IM: Final[int] = 9
+C424_RE: Final[int] = 10
+C424_IM: Final[int] = 11
+C433: Final[int] = 12
+C434_RE: Final[int] = 13
+C434_IM: Final[int] = 14
+C444: Final[int] = 15
 
 # /* T2 matrix */
-T211 = 0
-T212_RE = 1
-T212_IM = 2
-T222 = 3
+T211: Final[int] = 0
+T212_RE: Final[int] = 1
+T212_IM: Final[int] = 2
+T222: Final[int] = 3
 
 # /* T3 matrix */
-T311 = 0
-T312_RE = 1
-T312_IM = 2
-T313_RE = 3
-T313_IM = 4
-T322 = 5
-T323_RE = 6
-T323_IM = 7
-T333 = 8
+T311: Final[int] = 0
+T312_RE: Final[int] = 1
+T312_IM: Final[int] = 2
+T313_RE: Final[int] = 3
+T313_IM: Final[int] = 4
+T322: Final[int] = 5
+T323_RE: Final[int] = 6
+T323_IM: Final[int] = 7
+T333: Final[int] = 8
 
 # /* T4 matrix */
-T411 = 0
-T412_RE = 1
-T412_IM = 2
-T413_RE = 3
-T413_IM = 4
-T414_RE = 5
-T414_IM = 6
-T422 = 7
-T423_RE = 8
-T423_IM = 9
-T424_RE = 10
-T424_IM = 11
-T433 = 12
-T434_RE = 13
-T434_IM = 14
-T444 = 15
+T411: Final[int] = 0
+T412_RE: Final[int] = 1
+T412_IM: Final[int] = 2
+T413_RE: Final[int] = 3
+T413_IM: Final[int] = 4
+T414_RE: Final[int] = 5
+T414_IM: Final[int] = 6
+T422: Final[int] = 7
+T423_RE: Final[int] = 8
+T423_IM: Final[int] = 9
+T424_RE: Final[int] = 10
+T424_IM: Final[int] = 11
+T433: Final[int] = 12
+T434_RE: Final[int] = 13
+T434_IM: Final[int] = 14
+T444: Final[int] = 15
 
 # /* C2 or T2 matrix */
-X211 = 0
-X212_RE = 1
-X212_IM = 2
-X222 = 3
-X212 = 4
+X211: Final[int] = 0
+X212_RE: Final[int] = 1
+X212_IM: Final[int] = 2
+X222: Final[int] = 3
+X212: Final[int] = 4
 
 # /* C3 or T3 matrix */
-X311 = 0
-X312_RE = 1
-X312_IM = 2
-X313_RE = 3
-X313_IM = 4
-X322 = 5
-X323_RE = 6
-X323_IM = 7
-X333 = 8
-X312 = 9
-X313 = 10
-X323 = 11
+X311: Final[int] = 0
+X312_RE: Final[int] = 1
+X312_IM: Final[int] = 2
+X313_RE: Final[int] = 3
+X313_IM: Final[int] = 4
+X322: Final[int] = 5
+X323_RE: Final[int] = 6
+X323_IM: Final[int] = 7
+X333: Final[int] = 8
+X312: Final[int] = 9
+X313: Final[int] = 10
+X323: Final[int] = 11
 
 # /* C4 or T4 matrix */
-X411 = 0
-X412_RE = 1
-X412_IM = 2
-X413_RE = 3
-X413_IM = 4
-X414_RE = 5
-X414_IM = 6
-X422 = 7
-X423_RE = 8
-X423_IM = 9
-X424_RE = 10
-X424_IM = 11
-X433 = 12
-X434_RE = 13
-X434_IM = 14
-X444 = 15
-X412 = 16
-X413 = 17
-X414 = 18
-X423 = 19
-X424 = 20
-X434 = 21
+X411: Final[int] = 0
+X412_RE: Final[int] = 1
+X412_IM: Final[int] = 2
+X413_RE: Final[int] = 3
+X413_IM: Final[int] = 4
+X414_RE: Final[int] = 5
+X414_IM: Final[int] = 6
+X422: Final[int] = 7
+X423_RE: Final[int] = 8
+X423_IM: Final[int] = 9
+X424_RE: Final[int] = 10
+X424_IM: Final[int] = 11
+X433: Final[int] = 12
+X434_RE: Final[int] = 13
+X434_IM: Final[int] = 14
+X444: Final[int] = 15
+X412: Final[int] = 16
+X413: Final[int] = 17
+X414: Final[int] = 18
+X423: Final[int] = 19
+X424: Final[int] = 20
+X434: Final[int] = 21
 
 # /* T6 matrix */
-T611 = 0
-T612_RE = 1
-T612_IM = 2
-T613_RE = 3
-T613_IM = 4
-T614_RE = 5
-T614_IM = 6
-T615_RE = 7
-T615_IM = 8
-T616_RE = 9
-T616_IM = 10
-T622 = 11
-T623_RE = 12
-T623_IM = 13
-T624_RE = 14
-T624_IM = 15
-T625_RE = 16
-T625_IM = 17
-T626_RE = 18
-T626_IM = 19
-T633 = 20
-T634_RE = 21
-T634_IM = 22
-T635_RE = 23
-T635_IM = 24
-T636_RE = 25
-T636_IM = 26
-T644 = 27
-T645_RE = 28
-T645_IM = 29
-T646_RE = 30
-T646_IM = 31
-T655 = 32
-T656_RE = 33
-T656_IM = 34
-T666 = 35
+T611: Final[int] = 0
+T612_RE: Final[int] = 1
+T612_IM: Final[int] = 2
+T613_RE: Final[int] = 3
+T613_IM: Final[int] = 4
+T614_RE: Final[int] = 5
+T614_IM: Final[int] = 6
+T615_RE: Final[int] = 7
+T615_IM: Final[int] = 8
+T616_RE: Final[int] = 9
+T616_IM: Final[int] = 10
+T622: Final[int] = 11
+T623_RE: Final[int] = 12
+T623_IM: Final[int] = 13
+T624_RE: Final[int] = 14
+T624_IM: Final[int] = 15
+T625_RE: Final[int] = 16
+T625_IM: Final[int] = 17
+T626_RE: Final[int] = 18
+T626_IM: Final[int] = 19
+T633: Final[int] = 20
+T634_RE: Final[int] = 21
+T634_IM: Final[int] = 22
+T635_RE: Final[int] = 23
+T635_IM: Final[int] = 24
+T636_RE: Final[int] = 25
+T636_IM: Final[int] = 26
+T644: Final[int] = 27
+T645_RE: Final[int] = 28
+T645_IM: Final[int] = 29
+T646_RE: Final[int] = 30
+T646_IM: Final[int] = 31
+T655: Final[int] = 32
+T656_RE: Final[int] = 33
+T656_IM: Final[int] = 34
+T666: Final[int] = 35
 
 
 # %% [codecell] pol_type_config

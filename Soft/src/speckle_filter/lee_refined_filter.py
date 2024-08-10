@@ -130,7 +130,7 @@ def make_coeff(sigma2, deplct, nnwin, nwin_m1_s2, sub_n_lig, sub_ncol, span, mas
     Authors  : Eric POTTIER
     Creation : 08/2009
     Translate to python: Ryszard Wozniak
-    Update  :
+    Update  : Krzysztof Smaza
     *--------------------------------------------------------------------
     Description :  Creates the Filtering Coefficient
     *--------------------------------------------------------------------
@@ -223,27 +223,32 @@ def span_determination(sub_n_lig, sub_n_col, n_win, pol_type_out, span, m_in):
 
 @numba.njit(parallel=False, fastmath=True)
 def lee_refined(sub_n_lig, sub_n_col, n_polar_out, m_out, n_win_m1s2, valid, n_max, mask, coeff, m_in):
-    ligDone = 0
     m_out.fill(0.0)
     for lig in range(sub_n_lig):
-        ligDone += 1
+        rr = n_win_m1s2 + lig
         for col in range(sub_n_col):
-            if valid[n_win_m1s2 + lig][n_win_m1s2 + col] != 1.0:
+            cc = n_win_m1s2 + col
+            if valid[rr][cc] != 1.0:
                 continue
-            for Np in range(n_polar_out):
+            nmax_select = n_max[lig][col]
+            for np in range(n_polar_out):
                 mean = 0.0
-                Npoints = 0.0
+                n_points = 0.0
                 for k in range(-n_win_m1s2, 1 + n_win_m1s2):
+                    r = n_win_m1s2 + k
                     for n in range(-n_win_m1s2, 1 + n_win_m1s2):
-                        if mask[n_max[lig][col]][n_win_m1s2 + k][n_win_m1s2 + n] == 1:
-                            mean += m_in[Np][n_win_m1s2 + lig + k][n_win_m1s2 + col + n]
-                            Npoints += 1.0
-                mean /= Npoints
+                        c = n_win_m1s2 + n
+                        if mask[nmax_select][r][c] != 1:
+                            continue
+                        mean += m_in[np][r + lig][c + col]
+                        n_points += 1.0
+                mean /= n_points
+
                 # Filtering f(x)=E(x)+k*(x-E(x))
-                # a = (m_in[Np][n_win_m1s2 + lig][n_win_m1s2 + col] - mean)
+                # a = (m_in[np][n_win_m1s2 + lig][n_win_m1s2 + col] - mean)
                 # b = coeff[lig][col]
                 # c = mean
-                m_out[Np][lig][col] = mean + coeff[lig][col] * (m_in[Np][n_win_m1s2 + lig][n_win_m1s2 + col] - mean)
+                m_out[np][lig][col] = mean + coeff[lig][col] * (m_in[np][rr][cc] - mean)
 
 
 class App(lib.util.Application):
@@ -421,14 +426,18 @@ class App(lib.util.Application):
                 lib.util_block.read_block_matrix_float(in_valid, self.valid, nb, nb_block, n_lig_block[nb], sub_n_col, n_win_l, n_win_c, off_lig, off_col, n_col, self.vf_in)
 
             # Span Determination
+            logging.info('span_determination')
             span = span_determination(sub_n_lig, sub_n_col, n_win, pol_type_out, self.span, self.m_in)
 
             # Filtering Coeff determination
+            logging.info(f'Filtering Coeff determination {nn_win=},{n_win_m1s2=}, {n_lig_block[nb]=}, {sub_n_col=}')
             make_coeff(sigma2, deplct, nn_win, n_win_m1s2, n_lig_block[nb], sub_n_col, span, self.mask, self.n_max, self.coeff, lib.util.Application.EPS, lib.util.Application.INIT_MINMAX)
 
             # Filtering Element per Element
+            logging.info('Filtering Element per Element')
             lee_refined(sub_n_lig, sub_n_col, n_polar_out, self.m_out, n_win_m1s2, self.valid, self.n_max, self.mask, self.coeff, self.m_in)
 
+            logging.info('write_block_matrix3d_float')
             lib.util_block.write_block_matrix3d_float(out_datafile, n_polar_out, self.m_out, sub_n_lig, sub_n_col, 0, 0, sub_n_col)
 
 

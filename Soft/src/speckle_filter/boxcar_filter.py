@@ -102,15 +102,15 @@ def boxcar_filter_algorithm(nb, n_lig_block, n_polar_out, sub_n_col, m_out, n_wi
                     for n in range(-n_win_c_m1s2, 1 + n_win_c_m1s2):
                         cc = c + n
                         for np in range(n_polar_out):
-                            mean[np] = mean[np] + m_in[np][rr][cc] * valid[rr][cc]
+                            mean[np] += m_in[np][rr][cc] * valid[rr][cc]
                         n_valid = n_valid + valid[rr][cc]
             else:
                 for k in range(-n_win_l_m1s2, 1 + n_win_l_m1s2):
                     idxY = r + k
                     for np in range(n_polar_out):
-                        mean[np] = mean[np] - m_in[np][idxY][c1] * valid[idxY][c1]
-                        mean[np] = mean[np] + m_in[np][idxY][nwc] * valid[idxY][nwc]
-                    n_valid = n_valid - valid[idxY][c1] + valid[idxY][nwc]
+                        mean[np] -= m_in[np][idxY][c1] * valid[idxY][c1]
+                        mean[np] += m_in[np][idxY][nwc] * valid[idxY][nwc]
+                    n_valid += valid[idxY][nwc] - valid[idxY][c1]
             if n_valid != 0.:
                 for np in range(n_polar_out):
                     m_out[np][lig][col] = mean[np] / n_valid

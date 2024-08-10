@@ -390,11 +390,10 @@ def create_areas(border_map, n_lig, n_col, n_class, n_area, n_t_pt, area_coord_c
                         border_map[(int)(y)][(int)(x)] = label_area
 
 
-@numba.njit(parallel=False, fastmath=True)
+@numba.njit(parallel=True, fastmath=True)
 def determine_the_opce_puissance(ligDone, nb, n_lig_block, sub_n_col_opce, m_in, valid, n_polar_out, lig, n_win_l, n_win_c, n_win_l_m1s2, n_win_c_m1s2, eps, g0, g1, g2, g3, h0, h1, h2, h3, m_out):
     # pragma omp parallel for private(col, M_avg) firstprivate(KT1, KT2, KT3, KT4, KT5, KT6, KT7, KT8, KT9, KT10, A0, A1, A2, A3) shared(ligDone)
-    # m_avg = lib.matrix.matrix_float(n_polar_out, sub_n_col_opce)
-    for lig in range(n_lig_block[nb]):
+    for lig in numba.prange(n_lig_block[nb]):
         ligDone += 1
         # logging.info(f'--= Started: Determine the OPCE Puissance 1 {lig=}=--')
         # print(lig)
@@ -402,28 +401,32 @@ def determine_the_opce_puissance(ligDone, nb, n_lig_block, sub_n_col_opce, m_in,
             lib.util.printf_line(ligDone, n_lig_block[nb])
         # m_avg.fill(0.0)
         m_avg = lib.matrix.matrix_float(n_polar_out, sub_n_col_opce)
+        # m_avg = lib.matrix.matrix_float(n_polar_out, sub_n_col_opce)
         lib.util_block.average_tci(m_in, valid, n_polar_out, m_avg, lig, sub_n_col_opce, n_win_l, n_win_c, n_win_l_m1s2, n_win_c_m1s2)
+        r = n_win_l_m1s2 + lig
         for col in range(sub_n_col_opce):
-            if valid[n_win_l_m1s2 + lig][n_win_c_m1s2 + col] == 1.:
+            if valid[r][n_win_c_m1s2 + col] == 1.:
                 # Average Kennaugh matrix determination
-                KT1 = eps + 0.5 * (m_avg[lib.util.T311][col] + m_avg[lib.util.T322][col] + m_avg[lib.util.T333][col])
-                KT2 = eps + m_avg[lib.util.T312_RE][col]
-                KT3 = eps + m_avg[lib.util.T313_RE][col]
-                KT4 = eps + m_avg[lib.util.T323_IM][col]
-                KT5 = eps + 0.5 * (m_avg[lib.util.T311][col] + m_avg[lib.util.T322][col] - m_avg[lib.util.T333][col])
-                KT6 = eps + m_avg[lib.util.T323_RE][col]
-                KT7 = eps + m_avg[lib.util.T313_IM][col]
-                KT8 = eps + 0.5 * (m_avg[lib.util.T311][col] - m_avg[lib.util.T322][col] + m_avg[lib.util.T333][col])
-                KT9 = eps - m_avg[lib.util.T312_IM][col]
-                KT10 = eps + 0.5 * (-m_avg[lib.util.T311][col] + m_avg[lib.util.T322][col] + m_avg[lib.util.T333][col])
+                T311, T322, T333 = m_avg[lib.util.T311][col], m_avg[lib.util.T322][col], m_avg[lib.util.T333][col]
+                T312_RE, T313_RE, T323_IM = m_avg[lib.util.T312_RE][col], m_avg[lib.util.T313_RE][col], m_avg[lib.util.T323_IM][col]
+                T323_RE, T312_IM, T313_IM = m_avg[lib.util.T323_RE][col], m_avg[lib.util.T312_IM][col], m_avg[lib.util.T313_IM][col]
+
+                KT1 = eps + 0.5 * (T311 + T322 + T333)
+                KT2 = eps + T312_RE
+                KT3 = eps + T313_RE
+                KT4 = eps + T323_IM
+                KT5 = eps + 0.5 * (T311 + T322 - T333)
+                KT6 = eps + T323_RE
+                KT7 = eps + T313_IM
+                KT8 = eps + 0.5 * (T311 - T322 + T333)
+                KT9 = eps - T312_IM
+                KT10 = eps + 0.5 * (-T311 + T322 + T333)
 
                 A0 = g0 * KT1 + g1 * KT2 + g2 * KT3 + g3 * KT4
                 A1 = g0 * KT2 + g1 * KT5 + g2 * KT6 + g3 * KT7
                 A2 = g0 * KT3 + g1 * KT6 + g2 * KT8 + g3 * KT9
                 A3 = g0 * KT4 + g1 * KT7 + g2 * KT9 + g3 * KT10
                 m_out[lig][col] = h0 * A0 + h1 * A1 + h2 * A2 + h3 * A3
-            else:
-                m_out[lig][col] = 0.
 
 
 class App(lib.util.Application):
@@ -587,6 +590,7 @@ class App(lib.util.Application):
 
         zone = -1
         border_error_flag = 0
+
         logging.info(f'--= Started: Training class matrix memory allocation {n_class}=--')
         for cls in range(n_class):
             logging.info(f'--= Started: Training class matrix memory allocation {cls=}=--')

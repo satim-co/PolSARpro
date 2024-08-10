@@ -177,8 +177,8 @@ def make_coeff(sigma2, deplct, nnwin, nwin_m1_s2, sub_n_lig, sub_ncol, span, mas
 
             nmax_select = nmax[lig][col]
             for k in range(-nwin_m1_s2, 1 + nwin_m1_s2):
+                r = nwin_m1_s2 + k
                 for n in range(-nwin_m1_s2, 1 + nwin_m1_s2):
-                    r = nwin_m1_s2 + k
                     c = nwin_m1_s2 + n
                     if mask[nmax_select][r][c] == 1:
                         rr = r + lig
@@ -221,10 +221,10 @@ def span_determination(sub_n_lig, sub_n_col, n_win, pol_type_out, span, m_in):
     return span
 
 
-@numba.njit(parallel=False, fastmath=True)
+@numba.njit(parallel=True, fastmath=True)
 def lee_refined(sub_n_lig, sub_n_col, n_polar_out, m_out, n_win_m1s2, valid, n_max, mask, coeff, m_in):
     m_out.fill(0.0)
-    for lig in range(sub_n_lig):
+    for lig in numba.prange(sub_n_lig):
         rr = n_win_m1s2 + lig
         for col in range(sub_n_col):
             cc = n_win_m1s2 + col

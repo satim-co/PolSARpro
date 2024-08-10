@@ -78,13 +78,13 @@ else:
             return ret
 
 
-@numba.njit(parallel=False, fastmath=True)
+@numba.njit(parallel=True, fastmath=True)
 def boxcar_filter_algorithm(nb, n_lig_block, n_polar_out, sub_n_col, m_out, n_win_l_m1s2, n_win_c_m1s2, m_in, valid, n_win_c):
     # pragma omp parallel for private(col, Np, k, l, Nvalid, mean, idxY) shared(ligDone) schedule(dynamic)
     ligDone = 0
-    mean = lib.matrix.vector_float(n_polar_out)
     m_out[:n_polar_out][:n_lig_block[nb]][:sub_n_col] = 0.
-    for lig in range(n_lig_block[nb]):
+    for lig in numba.prange(n_lig_block[nb]):
+        mean = lib.matrix.vector_float(n_polar_out)
         ligDone += 1
         r = n_win_l_m1s2 + lig
         if numba_get_thread_id() == 0:

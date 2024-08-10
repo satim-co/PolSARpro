@@ -83,29 +83,34 @@ def boxcar_filter_algorithm(nb, n_lig_block, n_polar_out, sub_n_col, m_out, n_wi
     # pragma omp parallel for private(col, Np, k, l, Nvalid, mean, idxY) shared(ligDone) schedule(dynamic)
     ligDone = 0
     mean = lib.matrix.vector_float(n_polar_out)
+    m_out[:n_polar_out][:n_lig_block[nb]][:sub_n_col] = 0.
     for lig in range(n_lig_block[nb]):
         ligDone += 1
+        r = n_win_l_m1s2 + lig
         if numba_get_thread_id() == 0:
             lib.util.printf_line(ligDone, n_lig_block[nb])
         mean.fill(0)
         n_valid = 0.0
         for col in range(sub_n_col):
-            for np in range(n_polar_out):
-                m_out[np][lig][col] = 0.
+            c = n_win_c_m1s2 + col
+            nwc = n_win_c - 1 + col
+            c1 = col - 1
             if col == 0:
                 n_valid = 0.0
                 for k in range(-n_win_l_m1s2, 1 + n_win_l_m1s2):
+                    rr = r + k
                     for n in range(-n_win_c_m1s2, 1 + n_win_c_m1s2):
+                        cc = c + n
                         for np in range(n_polar_out):
-                            mean[np] = mean[np] + m_in[np][n_win_l_m1s2 + lig + k][n_win_c_m1s2 + col + n] * valid[n_win_l_m1s2 + lig + k][n_win_c_m1s2 + col + n]
-                        n_valid = n_valid + valid[n_win_l_m1s2 + lig + k][n_win_c_m1s2 + col + n]
+                            mean[np] = mean[np] + m_in[np][rr][cc] * valid[rr][cc]
+                        n_valid = n_valid + valid[rr][cc]
             else:
                 for k in range(-n_win_l_m1s2, 1 + n_win_l_m1s2):
-                    idxY = n_win_l_m1s2 + lig + k
+                    idxY = r + k
                     for np in range(n_polar_out):
-                        mean[np] = mean[np] - m_in[np][idxY][col - 1] * valid[idxY][col - 1]
-                        mean[np] = mean[np] + m_in[np][idxY][n_win_c - 1 + col] * valid[idxY][n_win_c - 1 + col]
-                    n_valid = n_valid - valid[idxY][col - 1] + valid[idxY][n_win_c - 1 + col]
+                        mean[np] = mean[np] - m_in[np][idxY][c1] * valid[idxY][c1]
+                        mean[np] = mean[np] + m_in[np][idxY][nwc] * valid[idxY][nwc]
+                    n_valid = n_valid - valid[idxY][c1] + valid[idxY][nwc]
             if n_valid != 0.:
                 for np in range(n_polar_out):
                     m_out[np][lig][col] = mean[np] / n_valid
@@ -239,8 +244,10 @@ class App(lib.util.Application):
             if flag_valid is True:
                 lib.util_block.read_block_matrix_float(in_valid, self.valid, nb, nb_block, n_lig_block[nb], sub_n_col, n_win_l, n_win_c, off_lig, off_col, n_col, self.vf_in)
 
+            logging.info('boxcar_filter_algorithm')
             boxcar_filter_algorithm(nb, n_lig_block, n_polar_out, sub_n_col, self.m_out, n_win_l_m1s2, n_win_c_m1s2, self.m_in, self.valid, n_win_c)
 
+            logging.info('write_block_matrix3d_float')
             lib.util_block.write_block_matrix3d_float(out_datafile, n_polar_out, self.m_out, n_lig_block[nb], sub_n_col, 0, 0, sub_n_col)
 
 

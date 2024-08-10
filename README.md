@@ -35,8 +35,9 @@ To install PolSARpro.py Software, user has to:
 Download the PolSARPro Python Library. Obtain the latest version of the PolSARPro.py software from the official source or repository:
 `https://github.com/satim-co/PolSARpro`
 Obtain the requirements.txt File. This file lists all the necessary Python libraries and their respective versions. Ensure you have this file, which should include the following:
-- numpy==1.25.0
-- numba==0.58.0
+- numba==0.60.0
+- numpy==2.0.1
+- scipy==1.14.0
 
 Follow these steps to install the PolSARPro.py software:
 1. Install Required Libraries: Navigate to the directory containing the requirements.txt file in your terminal or command prompt. Run the following command to install the required Python libraries:

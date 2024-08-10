@@ -146,17 +146,14 @@ def make_coeff(sigma2, deplct, nnwin, nwin_m1_s2, sub_n_lig, sub_ncol, span, mas
     for lig in range(sub_n_lig):
         for col in range(sub_ncol):
             # 3*3 average SPAN Sub_window calculation for directional gradient determination
+            subwin.fill(0.0)
             for k in range(3):
-                subwin[k][:3] = 0.0
                 row_start = k * deplct + lig
                 for n in range(3):
                     col_start = n * deplct + col
                     for kk in range(nnwin):
                         for ll in range(nnwin):
-                            value = span[row_start + kk, col_start + ll] * divisor
-                            subwin[k][n] += value
-
-                    # subwin[k][n] = numpy.sum(span[k * deplct + lig:k * deplct + lig + nnwin, n * deplct + col: n * deplct + col + nnwin]) * divisor
+                            subwin[k][n] += span[row_start + kk, col_start + ll] * divisor
 
             # Directional gradient computation
             Dist[0] = -subwin[0][0] + subwin[0][2] - subwin[1][0] + subwin[1][2] - subwin[2][0] + subwin[2][2]
@@ -178,11 +175,16 @@ def make_coeff(sigma2, deplct, nnwin, nwin_m1_s2, sub_n_lig, sub_ncol, span, mas
             m_span2 = 0.
             Npoints = 0.
 
+            nmax_select = nmax[lig][col]
             for k in range(-nwin_m1_s2, 1 + nwin_m1_s2):
                 for n in range(-nwin_m1_s2, 1 + nwin_m1_s2):
-                    if mask[nmax[lig][col]][nwin_m1_s2 + k][nwin_m1_s2 + n] == 1:
-                        m_span += span[nwin_m1_s2 + k + lig][nwin_m1_s2 + n + col]
-                        m_span2 += span[nwin_m1_s2 + k + lig][nwin_m1_s2 + n + col] * span[nwin_m1_s2 + k + lig][nwin_m1_s2 + n + col]
+                    r = nwin_m1_s2 + k
+                    c = nwin_m1_s2 + n
+                    if mask[nmax_select][r][c] == 1:
+                        rr = r + lig
+                        cc = c + col
+                        m_span += span[rr][cc]
+                        m_span2 += span[rr][cc] ** 2
                         Npoints += 1.
 
             m_span /= Npoints

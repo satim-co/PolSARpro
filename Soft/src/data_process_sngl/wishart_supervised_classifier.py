@@ -468,7 +468,6 @@ class App(lib.util.Application):
         ]
         logging.info(f'{file_name_out=}')
 
-
         # MEMORY ALLOCATION
         n_block_a = 0
         n_block_b = 0

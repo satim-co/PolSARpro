@@ -265,6 +265,7 @@ def wishart_supervised_classifier_alg(sub_n_col, valid, n_win_l_m1s2, lig, n_win
         else:
             class_im[lig_g][col] = 0.
 
+
 class App(lib.util.Application):
 
     def __init__(self, args):
@@ -363,7 +364,6 @@ class App(lib.util.Application):
             os.path.join(f'{out_dir}', 'wishart_training_cluster_centers.txt'),
         ]
         logging.info(f'{file_name_out=}')
-
 
         # MEMORY ALLOCATION
         n_block_a = 0

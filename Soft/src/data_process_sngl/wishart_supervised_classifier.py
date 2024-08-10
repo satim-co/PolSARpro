@@ -96,30 +96,37 @@ else:
 
 
 def create_class_map(file_name, class_map):
-    with open(file_name, 'r') as f:
-        n_class = None
+    f = None
+    try:
+        f = open(file_name, 'r')
+    except IOError:
+        print('Could not open configuration file: ', file_name)
+        raise
+
+    n_class = None
+    f.readline().strip()  # skip line
+    n_class = int(f.readline().strip())
+    nareacoord_l = None  # noqa: F841
+    areacoord_c = None  # noqa: F841
+    zone = 0
+    for classe in range(n_class):
         f.readline().strip()  # skip line
-        n_class = int(f.readline().strip())
-        nareacoord_l = None  # noqa: F841
-        areacoord_c = None  # noqa: F841
-        zone = 0
-        for classe in range(n_class):
+        f.readline().strip()  # skip line
+        f.readline().strip()  # skip line
+        n_area = int(f.readline().strip())
+        for area in range(n_area):
+            zone += 1
+            class_map[zone] = (float)(classe + 1)
             f.readline().strip()  # skip line
             f.readline().strip()  # skip line
-            f.readline().strip()  # skip line
-            n_area = int(f.readline().strip())
-            for area in range(n_area):
-                zone += 1
-                class_map[zone] = (float)(classe + 1)
+            n_tpt = int(f.readline().strip())
+            for t_pt in range(n_tpt):
                 f.readline().strip()  # skip line
                 f.readline().strip()  # skip line
-                n_tpt = int(f.readline().strip())
-                for t_pt in range(n_tpt):
-                    f.readline().strip()  # skip line
-                    f.readline().strip()  # skip line
-                    areacoord_l = float(f.readline().strip())  # noqa: F841
-                    f.readline().strip()  # skip line
-                    areacoord_c = float(f.readline().strip())  # noqa: F841
+                areacoord_l = float(f.readline().strip())  # noqa: F841
+                f.readline().strip()  # skip line
+                areacoord_c = float(f.readline().strip())  # noqa: F841
+    f.close()
 
 
 @numba.njit(parallel=False)
@@ -136,7 +143,10 @@ def inverse_center_coherency_matrices_computation_ipp(n_area, cov_area_m1, cov_a
 @numba.njit(parallel=False)
 def inverse_center_coherency_matrices_computation(n_area, n_pp, eps, det_area, coh, coh_area, pol_type_out, coh_m1, det, coh_area_m1):
     for area in range(1, n_area):
-        coh[:n_pp, :n_pp, :2] = coh_area[:n_pp, :n_pp, :2, area]
+        for k in range(n_pp):
+            for n in range(n_pp):
+                coh[k][n][0] = coh_area[k][n][0][area]
+                coh[k][n][1] = coh_area[k][n][1][area]
 
         if pol_type_out in ['C2', 'C2pp1', 'C2pp2', 'C2pp3']:
             inverse_hermitian_matrix2(coh, coh_m1, eps)
@@ -148,7 +158,10 @@ def inverse_center_coherency_matrices_computation(n_area, n_pp, eps, det_area, c
             inverse_hermitian_matrix4(coh, coh_m1, eps)
             determinant_hermitian_matrix4(coh, det, eps)
 
-        coh_area_m1[:n_pp, :n_pp, :2, area] = coh_m1[:n_pp, :n_pp, :2]
+        for k in range(n_pp):
+            for n in range(n_pp):
+                coh_area_m1[k][n][0][area] = coh_m1[k][n][0]
+                coh_area_m1[k][n][1][area] = coh_m1[k][n][1]
         det_area[0][area] = det[0]
         det_area[1][area] = det[1]
 
@@ -175,7 +188,7 @@ def f_not_ipp(col, n_area, n_pp, coh_area_m1, m_avg, distance, det_area, pol_typ
         m[1][0][1] = -m[0][1][1]
         m[1][1][0] = eps + m_avg[3][col]
         m[1][1][1] = 0.
-    elif pol_type_out in ['C3', 'T3']:
+    if pol_type_out in ['C3', 'T3']:
         # Average complex coherency matrix determination
         m[0][0][0] = eps + m_avg[0][col]
         m[0][0][1] = 0.
@@ -195,7 +208,7 @@ def f_not_ipp(col, n_area, n_pp, coh_area_m1, m_avg, distance, det_area, pol_typ
         m[2][1][1] = -m[1][2][1]
         m[2][2][0] = eps + m_avg[8][col]
         m[2][2][1] = 0.
-    elif pol_type_out in ['C4', 'T4']:
+    if pol_type_out in ['C4', 'T4']:
         # Average complex coherency matrix determination
         m[0][0][0] = eps + m_avg[0][col]
         m[0][0][1] = 0.
@@ -232,17 +245,16 @@ def f_not_ipp(col, n_area, n_pp, coh_area_m1, m_avg, distance, det_area, pol_typ
 
     # Seeking for the closest cluster center
     for area in range(1, n_area):
-        # for k in range(n_pp):
-        #     for n in range(n_pp):
-        #         coh_m1[k][n][0] = coh_area_m1[k][n][0][area]
-        #         coh_m1[k][n][1] = coh_area_m1[k][n][1][area]
-        coh_m1[:n_pp, :n_pp, :2] = coh_area_m1[:n_pp, :n_pp, :2, area]
+        for k in range(n_pp):
+            for n in range(n_pp):
+                coh_m1[k][n][0] = coh_area_m1[k][n][0][area]
+                coh_m1[k][n][1] = coh_area_m1[k][n][1][area]
         distance[area] = math.log(math.sqrt(det_area[0][area] * det_area[0][area] + det_area[1][area] * det_area[1][area]))
         if pol_type_out in ['C2', 'C2pp1', 'C2pp2', 'C2pp3']:
             distance[area] = distance[area] + trace2_hm1xhm2(coh_m1, m)
-        elif pol_type_out in ['C3', 'T3']:
+        if pol_type_out in ['C3', 'T3']:
             distance[area] = distance[area] + trace3_hm1xhm2(coh_m1, m)
-        elif pol_type_out in ['C4', 'T4']:
+        if pol_type_out in ['C4', 'T4']:
             distance[area] = distance[area] + trace4_hm1xhm2(coh_m1, m)
 
 
@@ -354,21 +366,6 @@ def f(sub_n_col, valid, n_win_l_m1s2, lig, n_win_c_m1s2, pol_type, n_area, n_pp,
             class_im[lig_g][col] = 0.
 
 
-@numba.njit(parallel=True, fastmath=True)
-def wishart_supervised_classifieri_alg(n_lig_g, n_win_l, n_win_c, n_lig_blocki_nb, m_in, n_polar_out, sub_n_col, valid, n_win_l_m1s2, n_win_c_m1s2, pol_type, n_area, n_pp, cov_area_m1, distance, det_area, pol_type_out, eps, init_minmax, coh_area_m1, lig_g, tmp_class_im, tmp_dist_im, mean_dist_area, mean_dist_area2, cpt_area, class_im, class_map):
-    ligDone = 0
-    for lig in numba.prange(n_lig_blocki_nb):
-        ligDone += 1
-        if numba_get_thread_id() == 0:
-            lib.util.printf_line(ligDone, n_lig_blocki_nb)
-        m = lib.matrix.matrix3d_float(n_pp, n_pp, 2)
-        coh_m1 = lib.matrix.matrix3d_float(n_pp, n_pp, 2)
-        m_avg = lib.matrix.matrix_float(n_polar_out, sub_n_col)
-        lib.util_block.average_tci(m_in, valid, n_polar_out, m_avg, lig, sub_n_col, n_win_l, n_win_c, n_win_l_m1s2, n_win_c_m1s2)
-        lig_g = lig + n_lig_g
-        f(sub_n_col, valid, n_win_l_m1s2, lig, n_win_c_m1s2, pol_type, n_area, n_pp, cov_area_m1, m_avg, distance, det_area, pol_type_out, eps, m, coh_m1, init_minmax, coh_area_m1, lig_g, tmp_class_im, tmp_dist_im, mean_dist_area, mean_dist_area2, cpt_area, class_im, class_map)
-
-
 class App(lib.util.Application):
 
     def __init__(self, args):
@@ -467,6 +464,9 @@ class App(lib.util.Application):
             os.path.join(f'{out_dir}', 'wishart_training_cluster_centers.txt'),
         ]
         logging.info(f'{file_name_out=}')
+
+        class_file = self.open_output_file(file_name_out[0], mode='wb')
+        fp = self.open_output_file(file_name_out[1], mode='wb')
 
         # MEMORY ALLOCATION
         n_block_a = 0
@@ -596,7 +596,6 @@ class App(lib.util.Application):
         #  TRAINING CLUSTER CENTERS READING
         logging.info('--= Started: TRAINING CLUSTER CENTERS READING =--')
         init_time = datetime.datetime.now()
-
         for area in range(1, n_area):
             if pol_type == 'IPP':
                 self.m_trn = numpy.fromfile(trn_file, dtype=numpy.float32, count=n_pp)
@@ -613,7 +612,8 @@ class App(lib.util.Application):
                     coh_area[1][0][1][area] = eps - self.m_trn[lib.util.C212_IM]
                     coh_area[1][1][0][area] = eps + self.m_trn[lib.util.C222]
                     coh_area[1][1][1][area] = 0.
-                elif pol_type_out in ['C3', 'T3']:
+
+                if pol_type_out in ['C3', 'T3']:
                     coh_area[0][0][0][area] = eps + self.m_trn[lib.util.X311]
                     coh_area[0][0][1][area] = 0.
                     coh_area[0][1][0][area] = eps + self.m_trn[lib.util.X312_RE]
@@ -632,7 +632,8 @@ class App(lib.util.Application):
                     coh_area[2][1][1][area] = eps - self.m_trn[lib.util.X323_IM]
                     coh_area[2][2][0][area] = eps + self.m_trn[lib.util.X333]
                     coh_area[2][2][1][area] = 0.
-                elif pol_type_out in ['C4', 'T4']:
+
+                if pol_type_out in ['C4', 'T4']:
                     coh_area[0][0][0][area] = eps + self.m_trn[lib.util.X411]
                     coh_area[0][0][1][area] = 0.
                     coh_area[0][1][0][area] = eps + self.m_trn[lib.util.X412_RE]
@@ -678,73 +679,82 @@ class App(lib.util.Application):
         # save cluster center in text file
         logging.info('--= Started: save cluster center in text file =--')
         init_time = datetime.datetime.now()
+        for area in range(1, n_area):
+            fp.write(f'cluster centre # {area}\n'.encode('ascii'))
+            if pol_type_out in ['C2', 'C2pp1', 'C2pp2', 'C2pp3']:
+                fp.write(f'C11 = {coh_area[0][0][0][area]:e}\n'.encode('ascii'))
+                fp.write(f'C12 = {coh_area[0][1][0][area]:e} + j {coh_area[0][1][1][area]:e}\n'.encode('ascii'))
+                fp.write(f'C22 = {coh_area[1][1][0][area]:e}\n'.encode('ascii'))
+                fp.write('\n'.encode('ascii'))
 
-        with open(file_name_out[1], mode='wb') as fp:
-            for area in range(1, n_area):
-                fp.write(f'cluster centre # {area}\n'.encode('ascii'))
-                if pol_type_out in ['C2', 'C2pp1', 'C2pp2', 'C2pp3']:
-                    fp.write(f'C11 = {coh_area[0][0][0][area]:e}\n'.encode('ascii'))
-                    fp.write(f'C12 = {coh_area[0][1][0][area]:e} + j {coh_area[0][1][1][area]:e}\n'.encode('ascii'))
-                    fp.write(f'C22 = {coh_area[1][1][0][area]:e}\n'.encode('ascii'))
-                    fp.write('\n'.encode('ascii'))
-                elif pol_type_out == 'C3':
-                    fp.write(f'C11 = {coh_area[0][0][0][area]:e}\n'.encode('ascii'))
-                    fp.write(f'C12 = {coh_area[0][1][0][area]:e} + j {coh_area[0][1][1][area]:e}\n'.encode('ascii'))
-                    fp.write(f'C13 = {coh_area[0][2][0][area]:e} + j {coh_area[0][2][1][area]:e}\n'.encode('ascii'))
-                    fp.write(f'C22 = {coh_area[1][1][0][area]:e}\n'.encode('ascii'))
-                    fp.write(f'C23 = {coh_area[1][2][0][area]:e} + j {coh_area[1][2][1][area]:e}\n'.encode('ascii'))
-                    fp.write(f'C33 = {coh_area[2][2][0][area]:e}\n'.encode('ascii'))
-                    fp.write('\n'.encode('ascii'))
-                elif pol_type_out == 'T3':
-                    fp.write(f'T11 = {coh_area[0][0][0][area]:e}\n'.encode('ascii'))
-                    fp.write(f'T12 = {coh_area[0][1][0][area]:e} + j {coh_area[0][1][1][area]:e}\n'.encode('ascii'))
-                    fp.write(f'T13 = {coh_area[0][2][0][area]:e} + j {coh_area[0][2][1][area]:e}\n'.encode('ascii'))
-                    fp.write(f'T22 = {coh_area[1][1][0][area]:e}\n'.encode('ascii'))
-                    fp.write(f'T23 = {coh_area[1][2][0][area]:e} + j {coh_area[1][2][1][area]:e}\n'.encode('ascii'))
-                    fp.write(f'T33 = {coh_area[2][2][0][area]:e}\n'.encode('ascii'))
-                    fp.write('\n'.encode('ascii'))
-                elif pol_type_out == 'C4':
-                    fp.write(f'C11 = {coh_area[0][0][0][area]:e}\n'.encode('ascii'))
-                    fp.write(f'C12 = {coh_area[0][1][0][area]:e} + j {coh_area[0][1][1][area]:e}\n'.encode('ascii'))
-                    fp.write(f'C13 = {coh_area[0][2][0][area]:e} + j {coh_area[0][2][1][area]:e}\n'.encode('ascii'))
-                    fp.write(f'C14 = {coh_area[0][3][0][area]:e} + j {coh_area[0][3][1][area]:e}\n'.encode('ascii'))
-                    fp.write(f'C22 = {coh_area[1][1][0][area]:e}\n'.encode('ascii'))
-                    fp.write(f'C23 = {coh_area[1][2][0][area]:e} + j {coh_area[1][2][1][area]:e}\n'.encode('ascii'))
-                    fp.write(f'C24 = {coh_area[1][3][0][area]:e} + j {coh_area[1][3][1][area]:e}\n'.encode('ascii'))
-                    fp.write(f'C33 = {coh_area[2][2][0][area]:e}\n'.encode('ascii'))
-                    fp.write(f'C34 = {coh_area[2][3][0][area]:e} + j {coh_area[2][3][1][area]:e}\n'.encode('ascii'))
-                    fp.write(f'C44 = {coh_area[3][3][0][area]:e}\n'.encode('ascii'))
-                    fp.write('\n'.encode('ascii'))
-                elif pol_type_out == 'T4':
-                    fp.write(f'T11 = {coh_area[0][0][0][area]:e}\n'.encode('ascii'))
-                    fp.write(f'T12 = {coh_area[0][1][0][area]:e} + j {coh_area[0][1][1][area]:e}\n'.encode('ascii'))
-                    fp.write(f'T13 = {coh_area[0][2][0][area]:e} + j {coh_area[0][2][1][area]:e}\n'.encode('ascii'))
-                    fp.write(f'T14 = {coh_area[0][3][0][area]:e} + j {coh_area[0][3][1][area]:e}\n'.encode('ascii'))
-                    fp.write(f'T22 = {coh_area[1][1][0][area]:e}\n'.encode('ascii'))
-                    fp.write(f'T23 = {coh_area[1][2][0][area]:e} + j {coh_area[1][2][1][area]:e}\n'.encode('ascii'))
-                    fp.write(f'T24 = {coh_area[1][3][0][area]:e} + j {coh_area[1][3][1][area]:e}\n'.encode('ascii'))
-                    fp.write(f'T33 = {coh_area[2][2][0][area]:e}\n'.encode('ascii'))
-                    fp.write(f'T34 = {coh_area[2][3][0][area]:e} + j {coh_area[2][3][1][area]:e}\n'.encode('ascii'))
-                    fp.write(f'T44 = {coh_area[3][3][0][area]:e}\n'.encode('ascii'))
-                    fp.write('\n'.encode('ascii'))
-                elif pol_type_out == 'IPPpp4':
-                    fp.write(f'I11 = {cov_area[0][area]:e}\n'.encode('ascii'))
-                    fp.write(f'I12 = {cov_area[1][area]:e}\n'.encode('ascii'))
-                    fp.write(f'I22 = {cov_area[2][area]:e}\n'.encode('ascii'))
-                elif pol_type_out == 'IPPpp5':
-                    fp.write(f'I11 = {cov_area[0][area]:e}\n'.encode('ascii'))
-                    fp.write(f'I21 = {cov_area[1][area]:e}\n'.encode('ascii'))
-                elif pol_type_out == 'IPPpp6':
-                    fp.write(f'I12 = {cov_area[0][area]:e}\n'.encode('ascii'))
-                    fp.write(f'I22 = {cov_area[1][area]:e}\n'.encode('ascii'))
-                elif pol_type_out == 'IPPpp7':
-                    fp.write(f'I11 = {cov_area[0][area]:e}\n'.encode('ascii'))
-                    fp.write(f'I22 = {cov_area[1][area]:e}\n'.encode('ascii'))
-                elif pol_type_out == 'IPPfull':
-                    fp.write(f'I11 = {cov_area[0][area]:e}\n'.encode('ascii'))
-                    fp.write(f'I12 = {cov_area[1][area]:e}\n'.encode('ascii'))
-                    fp.write(f'I21 = {cov_area[2][area]:e}\n'.encode('ascii'))
-                    fp.write(f'I22 = {cov_area[3][area]:e}\n'.encode('ascii'))
+            if pol_type_out == 'C3':
+                fp.write(f'C11 = {coh_area[0][0][0][area]:e}\n'.encode('ascii'))
+                fp.write(f'C12 = {coh_area[0][1][0][area]:e} + j {coh_area[0][1][1][area]:e}\n'.encode('ascii'))
+                fp.write(f'C13 = {coh_area[0][2][0][area]:e} + j {coh_area[0][2][1][area]:e}\n'.encode('ascii'))
+                fp.write(f'C22 = {coh_area[1][1][0][area]:e}\n'.encode('ascii'))
+                fp.write(f'C23 = {coh_area[1][2][0][area]:e} + j {coh_area[1][2][1][area]:e}\n'.encode('ascii'))
+                fp.write(f'C33 = {coh_area[2][2][0][area]:e}\n'.encode('ascii'))
+                fp.write('\n'.encode('ascii'))
+
+            if pol_type_out == 'T3':
+                fp.write(f'T11 = {coh_area[0][0][0][area]:e}\n'.encode('ascii'))
+                fp.write(f'T12 = {coh_area[0][1][0][area]:e} + j {coh_area[0][1][1][area]:e}\n'.encode('ascii'))
+                fp.write(f'T13 = {coh_area[0][2][0][area]:e} + j {coh_area[0][2][1][area]:e}\n'.encode('ascii'))
+                fp.write(f'T22 = {coh_area[1][1][0][area]:e}\n'.encode('ascii'))
+                fp.write(f'T23 = {coh_area[1][2][0][area]:e} + j {coh_area[1][2][1][area]:e}\n'.encode('ascii'))
+                fp.write(f'T33 = {coh_area[2][2][0][area]:e}\n'.encode('ascii'))
+                fp.write('\n'.encode('ascii'))
+
+            if pol_type_out == 'C4':
+                fp.write(f'C11 = {coh_area[0][0][0][area]:e}\n'.encode('ascii'))
+                fp.write(f'C12 = {coh_area[0][1][0][area]:e} + j {coh_area[0][1][1][area]:e}\n'.encode('ascii'))
+                fp.write(f'C13 = {coh_area[0][2][0][area]:e} + j {coh_area[0][2][1][area]:e}\n'.encode('ascii'))
+                fp.write(f'C14 = {coh_area[0][3][0][area]:e} + j {coh_area[0][3][1][area]:e}\n'.encode('ascii'))
+                fp.write(f'C22 = {coh_area[1][1][0][area]:e}\n'.encode('ascii'))
+                fp.write(f'C23 = {coh_area[1][2][0][area]:e} + j {coh_area[1][2][1][area]:e}\n'.encode('ascii'))
+                fp.write(f'C24 = {coh_area[1][3][0][area]:e} + j {coh_area[1][3][1][area]:e}\n'.encode('ascii'))
+                fp.write(f'C33 = {coh_area[2][2][0][area]:e}\n'.encode('ascii'))
+                fp.write(f'C34 = {coh_area[2][3][0][area]:e} + j {coh_area[2][3][1][area]:e}\n'.encode('ascii'))
+                fp.write(f'C44 = {coh_area[3][3][0][area]:e}\n'.encode('ascii'))
+                fp.write('\n'.encode('ascii'))
+
+            if pol_type_out == 'T4':
+                fp.write(f'T11 = {coh_area[0][0][0][area]:e}\n'.encode('ascii'))
+                fp.write(f'T12 = {coh_area[0][1][0][area]:e} + j {coh_area[0][1][1][area]:e}\n'.encode('ascii'))
+                fp.write(f'T13 = {coh_area[0][2][0][area]:e} + j {coh_area[0][2][1][area]:e}\n'.encode('ascii'))
+                fp.write(f'T14 = {coh_area[0][3][0][area]:e} + j {coh_area[0][3][1][area]:e}\n'.encode('ascii'))
+                fp.write(f'T22 = {coh_area[1][1][0][area]:e}\n'.encode('ascii'))
+                fp.write(f'T23 = {coh_area[1][2][0][area]:e} + j {coh_area[1][2][1][area]:e}\n'.encode('ascii'))
+                fp.write(f'T24 = {coh_area[1][3][0][area]:e} + j {coh_area[1][3][1][area]:e}\n'.encode('ascii'))
+                fp.write(f'T33 = {coh_area[2][2][0][area]:e}\n'.encode('ascii'))
+                fp.write(f'T34 = {coh_area[2][3][0][area]:e} + j {coh_area[2][3][1][area]:e}\n'.encode('ascii'))
+                fp.write(f'T44 = {coh_area[3][3][0][area]:e}\n'.encode('ascii'))
+                fp.write('\n'.encode('ascii'))
+
+            if pol_type_out == 'IPPpp4':
+                fp.write(f'I11 = {cov_area[0][area]:e}\n'.encode('ascii'))
+                fp.write(f'I12 = {cov_area[1][area]:e}\n'.encode('ascii'))
+                fp.write(f'I22 = {cov_area[2][area]:e}\n'.encode('ascii'))
+
+            if pol_type_out == 'IPPpp5':
+                fp.write(f'I11 = {cov_area[0][area]:e}\n'.encode('ascii'))
+                fp.write(f'I21 = {cov_area[1][area]:e}\n'.encode('ascii'))
+
+            if pol_type_out == 'IPPpp6':
+                fp.write(f'I12 = {cov_area[0][area]:e}\n'.encode('ascii'))
+                fp.write(f'I22 = {cov_area[1][area]:e}\n'.encode('ascii'))
+
+            if pol_type_out == 'IPPpp7':
+                fp.write(f'I11 = {cov_area[0][area]:e}\n'.encode('ascii'))
+                fp.write(f'I22 = {cov_area[1][area]:e}\n'.encode('ascii'))
+
+            if pol_type_out == 'IPPfull':
+                fp.write(f'I11 = {cov_area[0][area]:e}\n'.encode('ascii'))
+                fp.write(f'I12 = {cov_area[1][area]:e}\n'.encode('ascii'))
+                fp.write(f'I21 = {cov_area[2][area]:e}\n'.encode('ascii'))
+                fp.write(f'I22 = {cov_area[3][area]:e}\n'.encode('ascii'))
+
+        fp.close()
 
         logging.info('--= Finished: save cluster center in text file in: %s sec =--' % (datetime.datetime.now() - init_time))
 
@@ -755,8 +765,38 @@ class App(lib.util.Application):
         init_time = datetime.datetime.now()
         if pol_type == 'IPP':
             inverse_center_coherency_matrices_computation_ipp(n_area, cov_area_m1, cov_area, n_pp, eps, det_area)
+        #     for area in range(1, n_area):
+        #         for np in range(n_pp):
+        #             cov_area_m1[np][area] = 1 / (cov_area[np][area] + eps)
+        #         det_area[0][area] = cov_area[0][area]
+        #         for np in range(1, n_pp + 1):
+        #             det_area[0][area] = det_area[0][area] * cov_area[np][area]
+        #         det_area[1][area] = 0.
+
         else:
             inverse_center_coherency_matrices_computation(n_area, n_pp, eps, det_area, coh, coh_area, pol_type_out, coh_m1, det, coh_area_m1)
+        #     for area in range(1, n_area):
+        #         for k in range(n_pp):
+        #             for l in range(n_pp):
+        #                 coh[k][l][0] = coh_area[k][l][0][area]
+        #                 coh[k][l][1] = coh_area[k][l][1][area]
+
+        #         if pol_type_out in ['C2', 'C2pp1', 'C2pp2', 'C2pp3']:
+        #             inverse_hermitian_matrix2(coh, coh_m1)
+        #             determinant_hermitian_matrix2(coh, det)
+        #         if pol_type_out in ['C3', 'T3']:
+        #             inverse_hermitian_matrix3(coh, coh_m1)
+        #             determinant_hermitian_matrix3(coh, det, eps)
+        #         if pol_type_out in ['C4', 'T4']:
+        #             inverse_hermitian_matrix4(coh, coh_m1, eps)
+        #             determinant_hermitian_matrix4(coh, det, eps)
+
+        #         for k in range(n_pp):
+        #             for l in range(n_pp):
+        #                 coh_area_m1[k][l][0][area] = coh_m1[k][l][0]
+        #                 coh_area_m1[k][l][1][area] = coh_m1[k][l][1]
+        #         det_area[0][area] = det[0]
+        #         det_area[1][area] = det[1]
         logging.info('--= Finished: Inverse center coherency matrices computation in: %s sec =--' % (datetime.datetime.now() - init_time))
 
         lig_g = 0
@@ -766,6 +806,7 @@ class App(lib.util.Application):
         init_time = datetime.datetime.now()
 
         for nb in range(nb_block):
+            ligDone = 0
             if nb_block > 2:
                 lib.util.printf_line(nb, nb_block)
 
@@ -780,7 +821,121 @@ class App(lib.util.Application):
             else:  # Case of C,T or I
                 lib.util_block.read_block_tci_noavg(in_datafile, self.m_in, n_polar_out, nb, nb_block, n_lig_block[nb], sub_n_col, n_win_l, n_win_c, off_lig, off_col, n_col, self.vf_in)
 
-            wishart_supervised_classifieri_alg(n_lig_g, n_win_l, n_win_c, n_lig_block[nb], self.m_in, n_polar_out, sub_n_col, self.valid, n_win_l_m1s2, n_win_c_m1s2, pol_type, n_area, n_pp, cov_area_m1, distance, det_area, pol_type_out, eps, init_minmax, coh_area_m1, lig_g, self.tmp_class_im, self.tmp_dist_im, mean_dist_area, mean_dist_area2, cpt_area, self.class_im, class_map)
+            # trace = 0.
+            # dist_min = init_minmax
+            # pragma omp parallel for private(col, k, l, area, M_avg, M, coh_m1) firstprivate(ligg, distance, trace, dist_min) shared(ligDone, mean_dist_area, mean_dist_area2, cpt_area)
+            for lig in range(n_lig_block[nb]):
+                ligDone += 1
+                if numba_get_thread_id() == 0:
+                    lib.util.printf_line(ligDone, n_lig_block[nb])
+                m = lib.matrix.matrix3d_float(n_pp, n_pp, 2)
+                coh_m1 = lib.matrix.matrix3d_float(n_pp, n_pp, 2)
+                m_avg = lib.matrix.matrix_float(n_polar_out, sub_n_col)
+                lib.util_block.average_tci(self.m_in, self.valid, n_polar_out, m_avg, lig, sub_n_col, n_win_l, n_win_c, n_win_l_m1s2, n_win_c_m1s2)
+                lig_g = lig + n_lig_g
+                f(sub_n_col, self.valid, n_win_l_m1s2, lig, n_win_c_m1s2, pol_type, n_area, n_pp, cov_area_m1, m_avg, distance, det_area, pol_type_out, eps, m, coh_m1, init_minmax, coh_area_m1, lig_g, self.tmp_class_im, self.tmp_dist_im, mean_dist_area, mean_dist_area2, cpt_area, self.class_im, class_map)
+                # for col in range(sub_n_col):
+                #     if self.valid[n_win_l_m1s2 + lig][n_win_c_m1s2 + col] == 1.:
+                #         if pol_type == 'IPP':
+                #             for area in range(1, n_area):
+                #                 trace = 0
+                #                 for k in range(n_pp):
+                #                     trace += cov_area_m1[k][area] * m_avg[k][col]
+                #                 distance[area] = math.log(math.sqrt(det_area[0][area] * det_area[0][area] + det_area[1][area] * det_area[1][area]))
+                #                 distance[area] = distance[area] + trace
+                #         else:
+                #             if pol_type_out in ['C2', 'C2pp1', 'C2pp2', 'C2pp3']:
+                #                 # Average complex coherency matrix determination
+                #                 m[0][0][0] = eps + m_avg[0][col]
+                #                 m[0][0][1] = 0.
+                #                 m[0][1][0] = eps + m_avg[1][col]
+                #                 m[0][1][1] = eps + m_avg[2][col]
+                #                 m[1][0][0] = m[0][1][0]
+                #                 m[1][0][1] = -m[0][1][1]
+                #                 m[1][1][0] = eps + m_avg[3][col]
+                #                 m[1][1][1] = 0.
+                #             if pol_type_out in ['C3', 'T3']:
+                #                 # Average complex coherency matrix determination
+                #                 m[0][0][0] = eps + m_avg[0][col]
+                #                 m[0][0][1] = 0.
+                #                 m[0][1][0] = eps + m_avg[1][col]
+                #                 m[0][1][1] = eps + m_avg[2][col]
+                #                 m[0][2][0] = eps + m_avg[3][col]
+                #                 m[0][2][1] = eps + m_avg[4][col]
+                #                 m[1][0][0] = m[0][1][0]
+                #                 m[1][0][1] = -m[0][1][1]
+                #                 m[1][1][0] = eps + m_avg[5][col]
+                #                 m[1][1][1] = 0.
+                #                 m[1][2][0] = eps + m_avg[6][col]
+                #                 m[1][2][1] = eps + m_avg[7][col]
+                #                 m[2][0][0] = m[0][2][0]
+                #                 m[2][0][1] = -m[0][2][1]
+                #                 m[2][1][0] = m[1][2][0]
+                #                 m[2][1][1] = -m[1][2][1]
+                #                 m[2][2][0] = eps + m_avg[8][col]
+                #                 m[2][2][1] = 0.
+                #             if pol_type_out in ['C4', 'T4']:
+                #                 # Average complex coherency matrix determination
+                #                 m[0][0][0] = eps + m_avg[0][col]
+                #                 m[0][0][1] = 0.
+                #                 m[0][1][0] = eps + m_avg[1][col]
+                #                 m[0][1][1] = eps + m_avg[2][col]
+                #                 m[0][2][0] = eps + m_avg[3][col]
+                #                 m[0][2][1] = eps + m_avg[4][col]
+                #                 m[0][3][0] = eps + m_avg[5][col]
+                #                 m[0][3][1] = eps + m_avg[6][col]
+                #                 m[1][0][0] = m[0][1][0]
+                #                 m[1][0][1] = -m[0][1][1]
+                #                 m[1][1][0] = eps + m_avg[7][col]
+                #                 m[1][1][1] = 0.
+                #                 m[1][2][0] = eps + m_avg[8][col]
+                #                 m[1][2][1] = eps + m_avg[9][col]
+                #                 m[1][3][0] = eps + m_avg[10][col]
+                #                 m[1][3][1] = eps + m_avg[11][col]
+                #                 m[2][0][0] = m[0][2][0]
+                #                 m[2][0][1] = -m[0][2][1]
+                #                 m[2][1][0] = m[1][2][0]
+                #                 m[2][1][1] = -m[1][2][1]
+                #                 m[2][2][0] = eps + m_avg[12][col]
+                #                 m[2][2][1] = 0.
+                #                 m[2][3][0] = eps + m_avg[13][col]
+                #                 m[2][3][1] = eps + m_avg[14][col]
+                #                 m[3][0][0] = m[0][3][0]
+                #                 m[3][0][1] = -m[0][3][1]
+                #                 m[3][1][0] = m[1][3][0]
+                #                 m[3][1][1] = -m[1][3][1]
+                #                 m[3][2][0] = m[2][3][0]
+                #                 m[3][2][1] = -m[2][3][1]
+                #                 m[3][3][0] = eps + m_avg[15][col]
+                #                 m[3][3][1] = 0.
+
+                #             # Seeking for the closest cluster center
+                #             for area in range(1, n_area):
+                #                 for k in range(n_pp):
+                #                     for l in range(n_pp):
+                #                         coh_m1[k][l][0] = coh_area_m1[k][l][0][area]
+                #                         coh_m1[k][l][1] = coh_area_m1[k][l][1][area]
+                #                 distance[area] = math.log(math.sqrt(det_area[0][area] * det_area[0][area] + det_area[1][area] * det_area[1][area]))
+                #                 if pol_type_out in ['C2', 'C2pp1', 'C2pp2', 'C2pp3']:
+                #                     distance[area] = distance[area] + trace2_hm1xhm2(coh_m1, m)
+                #                 if pol_type_out in ['C3', 'T3']:
+                #                     distance[area] = distance[area] + trace3_hm1xhm2(coh_m1, m)
+                #                 if pol_type_out in ['C4', 'T4']:
+                #                     distance[area] = distance[area] + trace4_hm1xhm2(coh_m1, m)
+
+                #         dist_min = init_minmax
+                #         for area in range(1, n_area):
+                #             if dist_min > distance[area]:
+                #                 dist_min = distance[area]
+                #                 self.tmp_class_im[lig_g][col] = area
+                #         self.tmp_dist_im[lig_g][col] = dist_min
+                #         mean_dist_area[(int)(self.tmp_class_im[lig_g][col])] += dist_min
+                #         mean_dist_area2[(int)(self.tmp_class_im[lig_g][col])] += dist_min * dist_min
+                #         cpt_area[(int)(self.tmp_class_im[lig_g][col])] += 1
+
+                #         self.class_im[lig_g][col] = class_map[(int)(self.tmp_class_im[lig_g][col])]
+                #     else:
+                #         self.class_im[lig_g][col] = 0.
 
             n_lig_g += n_lig_block[nb]
 
@@ -790,8 +945,8 @@ class App(lib.util.Application):
         logging.info('--= Started: Saving supervised classification results bin =--')
         init_time = datetime.datetime.now()
 
-        with open(file_name_out[0], mode='wb') as class_file:
-            lib.util_block.write_block_matrix_float(class_file, self.class_im, sub_n_lig, sub_n_col, 0, 0, sub_n_col)
+        lib.util_block.write_block_matrix_float(class_file, self.class_im, sub_n_lig, sub_n_col, 0, 0, sub_n_col)
+        class_file.close()
 
         logging.info('--= Started: Create BMP file =--')
         # Create BMP file

@@ -27,8 +27,9 @@ PolSARPro.Py is a python library of selected polarimetric functionalities , extr
 To run PolSARPro.py effectively, the system must meet the following prerequisites:
 - Python Version: Python 3.11 or higher.
 Required Libraries: The software depends on specific versions of various libraries. These are listed in the requirements.txt file, including:
-- numpy==1.25.0
-- numba==0.58.0
+- numba==0.60.0
+- numpy==2.0.1
+- scipy==1.14.0
 
 ## Installation
 To install PolSARpro.py Software, user has to:

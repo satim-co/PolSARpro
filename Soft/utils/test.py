@@ -210,6 +210,7 @@ class Module:
             print(f'\nimport module {m}')
             module = __import__(self.name)
             module.main(**self.params)
+            sys.modules.pop(self.name)
         elif self.lang == 'c':
             params = []
             params.append(os.path.join(self.dir_bin, f'{self.name}.exe'))

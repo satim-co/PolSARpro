@@ -167,10 +167,6 @@ def freeman_decomposition_algorithm(nb, n_lig_block, m_in, valid, n_polar_out, s
                     m_dbl[lig][col] = span_max
                 if m_vol[lig][col] > span_max:
                     m_vol[lig][col] = span_max
-            else:
-                m_odd[lig][col] = 0.
-                m_dbl[lig][col] = 0.
-                m_vol[lig][col] = 0.
 
 
 class App(lib.util.Application):
@@ -237,7 +233,7 @@ class App(lib.util.Application):
         logging.info(f'{n_lig=}, {n_col=}, {polar_case=}, {polar_type=}')
 
         # POLAR TYPE CONFIGURATION
-        pol_type, n_polar_in, pol_type_in, n_polar_out, pol_type_out = lib.util.pol_type_config(pol_type)
+        pol_type, n_polar_in, pol_type_in, n_polar_out, pol_type_out = lib.util.pol_type_config(pol_type, polar_type)
         logging.info(f'{pol_type=}, {n_polar_in=}, {pol_type_in=}, {n_polar_out=}, {pol_type_out=}')
 
         # INPUT/OUTPUT FILE CONFIGURATION

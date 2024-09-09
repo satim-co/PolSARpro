@@ -346,7 +346,7 @@ class App(lib.util.Application):
         if pol_type == 'SPP':
             pol_type = 'SPPC2'
 
-        pol_type, n_polar_in, pol_type_in, n_polar_out, pol_type_out = lib.util.pol_type_config(pol_type)
+        pol_type, n_polar_in, pol_type_in, n_polar_out, pol_type_out = lib.util.pol_type_config(pol_type, polar_type)
         logging.info(f'{pol_type=}, {n_polar_in=}, {pol_type_in=}, {n_polar_out=}, {pol_type_out=}')
 
         file_name_in = lib.util.init_file_name(pol_type_in, in_dir)

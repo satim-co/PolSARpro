@@ -47,7 +47,6 @@ matrices
 ********************************************************************/
 '''
 
-
 import os
 import sys
 import platform
@@ -787,7 +786,7 @@ class App(lib.util.Application):
                 pol_type = 'S2T4'
         logging.info(f'{pol_type=}')
 
-        pol_type, n_polar_in, pol_type_in, n_polar_out, pol_type_out = lib.util.pol_type_config(pol_type)
+        pol_type, n_polar_in, pol_type_in, n_polar_out, pol_type_out = lib.util.pol_type_config(pol_type, polar_type)
         logging.info(f'{pol_type=}, {n_polar_in=}, {pol_type_in=}, {n_polar_out=}, {pol_type_out=}')
 
         # INPUT/OUTPUT FILE CONFIGURATION

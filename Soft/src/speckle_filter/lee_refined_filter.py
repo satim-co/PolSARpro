@@ -154,7 +154,6 @@ def make_coeff(sigma2, deplct, nnwin, nwin_m1_s2, sub_n_lig, sub_ncol, span, mas
                     for kk in range(nnwin):
                         for ll in range(nnwin):
                             subwin[k][n] += span[row_start + kk, col_start + ll] * divisor
-
             # Directional gradient computation
             Dist[0] = -subwin[0][0] + subwin[0][2] - subwin[1][0] + subwin[1][2] - subwin[2][0] + subwin[2][2]
             Dist[1] = subwin[0][1] + subwin[0][2] - subwin[1][0] + subwin[1][2] - subwin[2][0] - subwin[2][1]
@@ -316,7 +315,7 @@ class App(lib.util.Application):
         logging.info(f'{n_lig=}, {n_col=}, {polar_case=}, {polar_type=}')
 
         # POLAR TYPE CONFIGURATION
-        pol_type, n_polar_in, pol_type_in, n_polar_out, pol_type_out = lib.util.pol_type_config(pol_type)
+        pol_type, n_polar_in, pol_type_in, n_polar_out, pol_type_out = lib.util.pol_type_config(pol_type, polar_type)
         logging.info(f'{pol_type=}, {n_polar_in=}, {pol_type_in=}, {n_polar_out=}, {pol_type_out=}')
 
         # INPUT/OUTPUT FILE CONFIGURATION

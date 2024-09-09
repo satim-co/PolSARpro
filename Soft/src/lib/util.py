@@ -3,7 +3,6 @@ Polsarpro
 ===
 util
 """
-# %% [codecell] import
 import errno
 import os
 import sys
@@ -331,34 +330,34 @@ def my_isfinite(x):
     return x == x and (x - x == 0.0) if True else False
 
 
-# /* S2 matrix */
+# S2 matrix
 S11: Final[int] = 0
 S12: Final[int] = 1
 S21: Final[int] = 2
 S22: Final[int] = 3
 
-# /* IPP Full */
+# IPP Full
 I411: Final[int] = 0
 I412: Final[int] = 1
 I421: Final[int] = 2
 I422: Final[int] = 3
 
-# /* IPP pp4 */
+# IPP pp4
 I311: Final[int] = 0
 I312: Final[int] = 1
 I322: Final[int] = 2
 
-# /* IPP pp5-pp6-pp7 */
+# IPP pp5-pp6-pp7
 I211: Final[int] = 0
 I212: Final[int] = 1
 
-# /* C2 matrix */
+# C2 matrix
 C211: Final[int] = 0
 C212_RE: Final[int] = 1
 C212_IM: Final[int] = 2
 C222: Final[int] = 3
 
-# /* C3 matrix */
+# C3 matrix
 C311: Final[int] = 0
 C312_RE: Final[int] = 1
 C312_IM: Final[int] = 2
@@ -369,7 +368,7 @@ C323_RE: Final[int] = 6
 C323_IM: Final[int] = 7
 C333: Final[int] = 8
 
-# /* C4 matrix */
+# C4 matrix
 C411: Final[int] = 0
 C412_RE: Final[int] = 1
 C412_IM: Final[int] = 2
@@ -387,13 +386,13 @@ C434_RE: Final[int] = 13
 C434_IM: Final[int] = 14
 C444: Final[int] = 15
 
-# /* T2 matrix */
+# T2 matrix
 T211: Final[int] = 0
 T212_RE: Final[int] = 1
 T212_IM: Final[int] = 2
 T222: Final[int] = 3
 
-# /* T3 matrix */
+# T3 matrix
 T311: Final[int] = 0
 T312_RE: Final[int] = 1
 T312_IM: Final[int] = 2
@@ -404,7 +403,7 @@ T323_RE: Final[int] = 6
 T323_IM: Final[int] = 7
 T333: Final[int] = 8
 
-# /* T4 matrix */
+# T4 matrix
 T411: Final[int] = 0
 T412_RE: Final[int] = 1
 T412_IM: Final[int] = 2
@@ -422,14 +421,14 @@ T434_RE: Final[int] = 13
 T434_IM: Final[int] = 14
 T444: Final[int] = 15
 
-# /* C2 or T2 matrix */
+# C2 or T2 matrix
 X211: Final[int] = 0
 X212_RE: Final[int] = 1
 X212_IM: Final[int] = 2
 X222: Final[int] = 3
 X212: Final[int] = 4
 
-# /* C3 or T3 matrix */
+# C3 or T3 matrix
 X311: Final[int] = 0
 X312_RE: Final[int] = 1
 X312_IM: Final[int] = 2
@@ -443,7 +442,7 @@ X312: Final[int] = 9
 X313: Final[int] = 10
 X323: Final[int] = 11
 
-# /* C4 or T4 matrix */
+# C4 or T4 matrix
 X411: Final[int] = 0
 X412_RE: Final[int] = 1
 X412_IM: Final[int] = 2
@@ -467,7 +466,7 @@ X423: Final[int] = 19
 X424: Final[int] = 20
 X434: Final[int] = 21
 
-# /* T6 matrix */
+# T6 matrix
 T611: Final[int] = 0
 T612_RE: Final[int] = 1
 T612_IM: Final[int] = 2
@@ -506,8 +505,7 @@ T656_IM: Final[int] = 34
 T666: Final[int] = 35
 
 
-# %% [codecell] pol_type_config
-def pol_type_config(pol_type):
+def pol_type_config(pol_type, polar_type):
     """Check the polarimetric format configuration"""
     config = False
     pol_type_config = [
@@ -1205,56 +1203,56 @@ def pol_type_config(pol_type):
         pol_type_in = "S2"
         pol_type_out = "T6"
 
-    # elif pol_type_tmp == "SPP":
-    #     n_polar_in = 2
-    #     n_polar_out = 2
-    #     pol_type = "SPP"
-    #     pol_type_in = "SPP" + polar_type
-    #     pol_type_out = "SPP" + polar_type
+    elif pol_type_tmp == "SPP":
+        n_polar_in = 2
+        n_polar_out = 2
+        pol_type = "SPP"
+        pol_type_in = "SPP" + polar_type
+        pol_type_out = "SPP" + polar_type
 
-    # elif pol_type_tmp == "SPPC2":
-    #     n_polar_in = 2
-    #     n_polar_out = 4
-    #     pol_type = "SPP"
-    #     pol_type_in = "SPP" + polar_type
-    #     pol_type_out = "C2" + polar_type
+    elif pol_type_tmp == "SPPC2":
+        n_polar_in = 2
+        n_polar_out = 4
+        pol_type = "SPP"
+        pol_type_in = "SPP" + polar_type
+        pol_type_out = "C2" + polar_type
 
-    # elif pol_type_tmp == "SPPT2":
-    #     n_polar_in = 2
-    #     n_polar_out = 4
-    #     pol_type = "SPP"
-    #     pol_type_in = "SPP" + polar_type
-    #     pol_type_out = "T2" + polar_type
+    elif pol_type_tmp == "SPPT2":
+        n_polar_in = 2
+        n_polar_out = 4
+        pol_type = "SPP"
+        pol_type_in = "SPP" + polar_type
+        pol_type_out = "T2" + polar_type
 
-    # elif pol_type_tmp == "SPPT4":
-    #     n_polar_in = 2
-    #     n_polar_out = 16
-    #     pol_type = "SPP"
-    #     pol_type_in = "SPP" + polar_type
-    #     pol_type_out = "T4"
+    elif pol_type_tmp == "SPPT4":
+        n_polar_in = 2
+        n_polar_out = 16
+        pol_type = "SPP"
+        pol_type_in = "SPP" + polar_type
+        pol_type_out = "T4"
 
-    # elif pol_type_tmp == "SPPIPP":
-    #     n_polar_in = 2
-    #     n_polar_out = 2
-    #     pol_type = "SPP"
-    #     pol_type_in = "SPP" + polar_type
-    #     pol_type_out = "IPP"
-    #     if polar_type == "pp1":
-    #         pol_type_out += "pp5"
-    #     elif polar_type == "pp2":
-    #         pol_type_out += "pp6"
-    #     elif polar_type == "pp3":
-    #         pol_type_out += "pp7"
+    elif pol_type_tmp == "SPPIPP":
+        n_polar_in = 2
+        n_polar_out = 2
+        pol_type = "SPP"
+        pol_type_in = "SPP" + polar_type
+        pol_type_out = "IPP"
+        if polar_type == "pp1":
+            pol_type_out += "pp5"
+        elif polar_type == "pp2":
+            pol_type_out += "pp6"
+        elif polar_type == "pp3":
+            pol_type_out += "pp7"
 
-    # elif pol_type_tmp == "IPP":
-    #     if polar_type == "full":
-    #         n_polar_in = 4
-    #         n_polar_out = 4
-    #     elif polar_type in ["pp4", "pp5", "pp6", "pp7"]:
-    #         n_polar_in = 2
-    #         n_polar_out = 2
-    #     pol_type_in = "IPP" + polar_type
-    #     pol_type_out = "IPP" + polar_type
+    elif pol_type_tmp == "IPP":
+        if polar_type == "full":
+            n_polar_in = 4
+            n_polar_out = 4
+        elif polar_type in ["pp4", "pp5", "pp6", "pp7"]:
+            n_polar_in = 2
+            n_polar_out = 2
+        pol_type_in = "IPP" + polar_type
+        pol_type_out = "IPP" + polar_type
 
     elif pol_type_tmp == "Ixx":
         n_polar_in = 1
@@ -1265,7 +1263,6 @@ def pol_type_config(pol_type):
     return pol_type, n_polar_in, pol_type_in, n_polar_out, pol_type_out
 
 
-# %% [codecell] init_file_name
 def init_file_name(pol_type, file_dir):
     """Initialisation of the binary file names"""
     file_name = []
@@ -1477,7 +1474,6 @@ def init_file_name(pol_type, file_dir):
     return file_name
 
 
-# %% [codecell] read_config
 def read_config(file_dir):
     """Read a configuration file"""
     nlig = 0

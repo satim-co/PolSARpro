@@ -20,6 +20,8 @@
 * [Installation](#installation)
 * [Features](#features)
 * [Simple benchmark of processing times for py and c versions](#simple-benchmark-of-processing-times-for-py-and-c-versions)
+* [Contact](#contact)
+* [License](#license)
 
 ## **Introduction**
 PolSarPro Python version is an advanced open-source tool for processing polarimetric SAR (Synthetic Aperture Radar) data. This project is based on the PolSARpro Bio, version 6.0 (currently implemented in C) described on https://step.esa.int/main/toolboxes/polsarpro-v6-0-biomass-edition-toolbox/ and
@@ -157,10 +159,15 @@ It is strictly recommended to not change, extract, move or modify any component 
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
+## **Contact**
+
+My Name - email@example.com
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
 ## **License**
 
 This project uses the following license: [<license_name>](<link>).
-
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 

@@ -1,50 +1,46 @@
-"""
-Polsarpro
-===
-util_convert
-"""
+'''
+********************************************************************
+PolSARpro v5.0 is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License as
+published by the Free Software Foundation; either version 2 (1991) of
+the License, or any later version. This program is distributed in the
+hope that it will be useful, but WITHOUT ANY WARRANTY; without even
+the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+PURPOSE.
 
-# %% [codecell] import
-from concurrent.futures import ThreadPoolExecutor
+See the GNU General Public License (Version 2, 1991) for more details
+
+*********************************************************************
+
+File   : util_convert.c
+Project  : ESA_POLSARPRO
+Authors  : Eric POTTIER
+Version  : 1.0
+Creation : 08/2010
+Update  :
+
+--------------------------------------------------------------------
+INSTITUT D'ELECTRONIQUE et de TELECOMMUNICATIONS de RENNES (I.E.T.R)
+UMR CNRS 6164
+
+Waves and Signal department
+SHINE Team
+
+
+UNIVERSITY OF RENNES I
+Bât. 11D - Campus de Beaulieu
+263 Avenue Général Leclerc
+35042 RENNES Cedex
+Tel :(+33) 2 23 23 57 63
+Fax :(+33) 2 23 23 69 63
+e-mail: eric.pottier@univ-rennes1.fr
+    laurent.ferro-famil@univ-rennes1.fr
+--------------------------------------------------------------------
+'''
+
 import math
 import numba
 from . import util
-
-
-def S2_to_T6(S_in1, S_in2, M_in, Nlig, Ncol, NwinLig, NwinCol):
-    hh = 0
-    hv = 1
-    vh = 2
-    vv = 3
-
-    with ThreadPoolExecutor() as executor:
-        executor.map(process_s2_to_t6, range(Nlig + NwinLig),
-                     [Ncol] * Nlig, [NwinCol] * Nlig,
-                     [hh] * Nlig, [hv] * Nlig, [vh] * Nlig, [vv] * Nlig,
-                     [S_in1] * Nlig, [S_in2] * Nlig, [M_in] * Nlig)
-
-    return 1
-
-
-def process_s2_to_t6(lig, Ncol, NwinCol, hh, hv, vh, vv, S_in1, S_in2, M_in):
-    for col in range(Ncol + NwinCol):
-        k1r = (S_in1[hh][lig][2 * col] + S_in1[vv][lig][2 * col]) / math.sqrt(2.)
-        k1i = (S_in1[hh][lig][2 * col + 1] + S_in1[vv][lig][2 * col + 1]) / math.sqrt(2.)
-        # assigned to but never used
-        # k2r = (S_in1[hh][lig][2 * col] - S_in1[vv][lig][2 * col]) / math.sqrt(2.)
-        # k2i = (S_in1[hh][lig][2 * col + 1] - S_in1[vv][lig][2 * col + 1]) / math.sqrt(2.)
-        # k3r = (S_in1[hv][lig][2 * col] + S_in1[vh][lig][2 * col]) / math.sqrt(2.)
-        # k3i = (S_in1[hv][lig][2 * col + 1] + S_in1[vh][lig][2 * col + 1]) / math.sqrt(2.)
-
-        # assigned to but never used
-        # k4r = (S_in2[hh][lig][2 * col] + S_in2[vv][lig][2 * col]) / math.sqrt(2.)
-        # k4i = (S_in2[hh][lig][2 * col + 1] + S_in2[vv][lig][2 * col + 1]) / math.sqrt(2.)
-        # k5r = (S_in2[hh][lig][2 * col] - S_in2[vv][lig][2 * col]) / math.sqrt(2.)
-        # k5i = (S_in2[hh][lig][2 * col + 1] - S_in2[vv][lig][2 * col + 1]) / math.sqrt(2.)
-        # k6r = (S_in2[hv][lig][2 * col] + S_in2[vh][lig][2 * col]) / math.sqrt(2.)
-        # k6i = (S_in2[hv][lig][2 * col + 1] + S_in2[vh][lig][2 * col + 1]) / math.sqrt(2.)
-
-        M_in[0][lig][col] = k1r * k1r + k1i * k1i
 
 
 @numba.njit(parallel=False, fastmath=True)

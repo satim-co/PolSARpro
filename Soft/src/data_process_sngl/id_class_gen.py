@@ -49,6 +49,7 @@ Description :  Basic identification of the classes resulting of a
 import os
 import sys
 import platform
+import datetime
 import numpy
 import math
 import logging
@@ -89,14 +90,6 @@ LIM_A = 0.5
 
 # ALIASES
 NCLASS_POL = 100
-ent = 0
-anis = 1
-al1 = 2
-al2 = 3
-be1 = 4
-be2 = 5
-pr1 = 6
-pr2 = 7
 CL_H_A = 0
 CL_AL1 = 1
 CL_AL1_AL2 = 2
@@ -607,20 +600,26 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         main(sys.argv[1:])
     else:
+        # For manual test
         dir_in = None
         dir_out = None
         params = {}
+        module_name = os.path.splitext(f'{os.path.basename(sys.argv[0])}')[0]
+        timestamp = datetime.datetime.now().strftime('%Y%m%dT%H%M%S')
         if platform.system().lower().startswith('win') is True:
-            dir_in = 'c:\\Projekty\\polsarpro.svn\\in\\id_class_gen\\'
-            dir_out = 'c:\\Projekty\\polsarpro.svn\\out\\id_class_gen\\py'
+            home = os.environ['USERPROFILE']
+            dir_in = f'{home}\\polsarpro\\in\\{module_name}\\'
+            dir_out = f'{home}\\polsarpro\\out\\artifacts\\{timestamp}\\{module_name}\\out\\'
         elif platform.system().lower().startswith('lin') is True:
-            dir_in = '/home/krzysiek/polsarpro/in/id_class_gen/'
-            dir_out = '/home/krzysiek/polsarpro/out/id_class_gen/py/'
+            home = os.environ["HOME"]
+            dir_in = f'{home}/polsarpro/in/{module_name}/'
+            dir_out = f'{home}/polsarpro/out/artifacts/{timestamp}/{module_name}/out'
             params['v'] = None
         else:
-            logging.error(f'unknown platform: {platform.system()}')
+            print(f'unknown platform: {platform.system()}')
             lib.util.exit_failure()
-
+        if not os.path.exists(dir_out):
+            os.makedirs(dir_out)
         # Pass params as expand dictionary with '**'
         params['id'] = dir_in
         params['od'] = dir_out
@@ -631,7 +630,8 @@ if __name__ == "__main__":
         params['icf'] = os.path.join(f'{dir_in}', 'wishart_H_A_alpha_class_3x3.bin')
         params['clm'] = os.path.join(f'{dir_in}', 'Wishart_ColorMap16.pal')
         params['errf'] = os.path.join(f'{dir_out}', 'MemoryAllocError.txt')
-        params['mask'] = os.path.join(f'{dir_in}', 'mask_valid_pixels.bin')
+        params['mask'] = os.path.join(f'{dir_in}', 'mask_valid_pixels.bin')  # optional param
+        lib.util.dump_dict(params)
         main(**params)
 
         # Pass parasm as positional arguments

@@ -330,6 +330,14 @@ def my_isfinite(x):
     return x == x and (x - x == 0.0) if True else False
 
 
+def dump_dict(d, indent=0):
+    for key, value in d.items():
+        if isinstance(value, dict):
+            dump_dict(value, indent + 1)
+        else:
+            print(' ' * (indent + 1) + str(key) + ': ' + str(value))
+
+
 # S2 matrix
 S11: Final[int] = 0
 S12: Final[int] = 1

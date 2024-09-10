@@ -47,6 +47,7 @@ Description :  J.S. LEE refined fully polarimetric speckle filter
 import os
 import sys
 import platform
+import datetime
 import numpy
 import math
 import logging
@@ -473,20 +474,26 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         main(sys.argv[1:])
     else:
+        # For manual test
         dir_in = None
         dir_out = None
         params = {}
+        module_name = os.path.splitext(f'{os.path.basename(sys.argv[0])}')[0]
+        timestamp = datetime.datetime.now().strftime('%Y%m%dT%H%M%S')
         if platform.system().lower().startswith('win') is True:
-            dir_in = 'c:\\Projekty\\polsarpro.svn\\in\\lee_refined_filter\\'
-            dir_out = 'c:\\Projekty\\polsarpro.svn\\out\\lee_refined_filter\\'
+            home = os.environ['USERPROFILE']
+            dir_in = f'{home}\\polsarpro\\in\\{module_name}\\'
+            dir_out = f'{home}\\polsarpro\\out\\artifacts\\{timestamp}\\{module_name}\\out\\'
         elif platform.system().lower().startswith('lin') is True:
-            dir_in = '/home/krzysiek/polsarpro/in/lee_refined_filter/'
-            dir_out = '/home/krzysiek/polsarpro/out/lee_refined_filter/'
+            home = os.environ["HOME"]
+            dir_in = f'{home}/polsarpro/in/{module_name}/'
+            dir_out = f'{home}/polsarpro/out/artifacts/{timestamp}/{module_name}/out'
             params['v'] = None
         else:
             logging.error(f'unknown platform: {platform.system()}')
             lib.util.exit_failure()
-
+        if not os.path.exists(dir_out):
+            os.makedirs(dir_out)
         # Pass params as expanded dictionary with '**'
         params['id'] = dir_in
         params['od'] = dir_out
@@ -498,10 +505,11 @@ if __name__ == "__main__":
         params['fnr'] = 18432
         params['fnc'] = 1248
         params['errf'] = os.path.join(dir_out, 'MemoryAllocError.txt')
-        params['mask'] = os.path.join(dir_in, 'mask_valid_pixels.bin')
+        params['mask'] = os.path.join(dir_in, 'mask_valid_pixels.bin')  # optional param
+        lib.util.dump_dict(params)
         main(**params)
 
-        # Pass parasm as positional arguments
+        # Pass params as positional arguments
         # main(id=dir_in,
         #      od=dir_out,
         #      iodf='T3',

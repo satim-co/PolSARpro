@@ -21,9 +21,10 @@ DIR_PATTERN = None
 DIR_ARTIFACTS = None
 
 if platform.system().lower().startswith('win') is True:
-    DIR_PATTERN = 'c:\\Projekty\\polsarpro.svn\\pattern\\'
-    DIR_IN = 'c:\\Projekty\\polsarpro.svn\\in\\'
-    DIR_OUT = 'c:\\Projekty\\polsarpro.svn\\out\\'
+    home = os.environ['USERPROFILE']
+    DIR_PATTERN = f'{home}\\polsarpro\\pattern\\'
+    DIR_IN = f'{home}\\polsarpro\\in\\'
+    DIR_OUT = f'{home}\\polsarpro\\out\\'
     DIR_BIN = 'c:\\Program Files (x86)\\PolSARpro_v6.0.3_Biomass_Edition\\Soft\\bin\\data_process_sngl\\'
     DIR_ARTIFACTS = os.path.join(DIR_OUT, 'artifacts')
 elif platform.system().lower().startswith('lin') is True:
@@ -188,7 +189,7 @@ class Module:
     def run(self):
         Logger.make_dirs(self.dir_out)
         Logger.log_test = self.get_log()
-        print(f'{"START":<10}: {self.name}')
+        print(f'{"START":<10}: {self.name} (lang: {self.lang})')
         time_start = datetime.datetime.now()
         for i, (k, v) in enumerate(self.params.items()):
             if i == 0:
@@ -214,6 +215,7 @@ class Module:
         elif self.lang == 'c':
             params = []
             params.append(os.path.join(self.dir_bin, f'{self.name}.exe'))
+            print(f'\nrun {params}')
             for k, v in self.params.items():
                 params.append(f'-{k}')
                 params.append(f'{v}')

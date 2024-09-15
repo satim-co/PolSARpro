@@ -155,6 +155,7 @@ def make_coeff(sigma2, deplct, nnwin, nwin_m1_s2, sub_n_lig, sub_ncol, span, mas
                     for kk in range(nnwin):
                         for ll in range(nnwin):
                             subwin[k][n] += span[row_start + kk, col_start + ll] * divisor
+                    # subwin[k][n] = numpy.sum(span[k * deplct + lig:k * deplct + lig + nnwin, n * deplct + col: n * deplct + col + nnwin]) * divisor  # longer proc time 4[s]
             # Directional gradient computation
             Dist[0] = -subwin[0][0] + subwin[0][2] - subwin[1][0] + subwin[1][2] - subwin[2][0] + subwin[2][2]
             Dist[1] = subwin[0][1] + subwin[0][2] - subwin[1][0] + subwin[1][2] - subwin[2][0] - subwin[2][1]

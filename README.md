@@ -161,13 +161,15 @@ It is strictly recommended to not change, extract, move or modify any component 
 
 ## **Contact**
 
-My Name - email@example.com
+hello@satim.co
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 ## **License**
 
-This project uses the following license: [<license_name>](<link>).
+The PolSARpro.py software is distributed as educational software designed to support self-education in the field of Polarimetric SAR (Synthetic Aperture Radar) data processing and analysis. It is primarily developed under contracts with the European Space Agency (ESA) and is freely available for non-commercial use.
+
+This project uses the following license: [Licensed under the Apache License, Version 2.0] http://www.apache.org/licenses/LICENSE-2.0.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 

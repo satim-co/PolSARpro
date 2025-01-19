@@ -563,7 +563,7 @@ def main(*args, **kwargs):
     local_args = lib.util.ParseArgs.get_args(*args, **kwargs)
     parser_args = lib.util.ParseArgs(args=local_args, desc=f'{os.path.basename(sys.argv[0])}', pol_types=POL_TYPE_VALUES)
     parser_args.make_def_args()
-    parser_args.add_req_arg('-mod', str, 'decomposition mode (Y4O, Y4R, S4R)', {'Y40', 'Y4R', 'S4R'})
+    parser_args.add_req_arg('-mod', str, 'decomposition mode (Y4O, Y4R, S4R)', {'Y4O', 'Y4R', 'S4R'})
     parsed_args = parser_args.parse_args()
     app = App(parsed_args)
     app.run()

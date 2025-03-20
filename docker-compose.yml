@@ -3,14 +3,14 @@ version: "3.7"
 
 services:
 
-  polsarpro-sandbox:
+  polsarpro-dev:
     build: 
       context: .
       dockerfile: Dockerfile
     environment:
-      PYTHONPATH: /polsarpro-sandbox
+      PYTHONPATH: /polsarpro-dev
     volumes:
-      - ${HOME}/code/python/polsarpro-sandbox:/polsarpro-sandbox
+      - ${HOME}/code/python/PolSARpro:/polsarpro-dev
       - ${HOME}/data:/data
     command: /bin/sh -c "while sleep 1000; do :; done" 
     # network_mode: host

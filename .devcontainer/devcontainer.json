@@ -1,8 +1,8 @@
 {
-  "name": "polsarpro-sandbox",
+  "name": "polsarpro-dev",
   "dockerComposeFile": "../docker-compose.yml",
-  "service": "polsarpro-sandbox",
-  "workspaceFolder": "/polsarpro-sandbox",
+  "service": "polsarpro-dev",
+  "workspaceFolder": "/polsarpro-dev",
   "customizations": {
     "vscode": {
       "extensions": [

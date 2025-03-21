@@ -1,8 +1,11 @@
 from pathlib import Path
+import logging
 import numpy as np
 from scipy.ndimage import convolve
 import dask.array as da
 from bench import timeit
+
+log = logging.getLogger(__name__)
 
 
 @timeit
@@ -155,6 +158,14 @@ def read_T3(input_dir: str):
         lines = [line.replace("\n", "") for line in lines if "---" not in line]
         for i in range(0, len(lines), 2):
             dict_cfg[lines[i]] = lines[i + 1]
+    
+    valid_mask_path = input_dir / "mask_valid_pixels.bin"
+    is_valid_mask = True
+    if valid_mask_path.is_file():
+        valid_mask = read_PSP_bin(valid_mask_path).astype(bool)
+    else:
+        is_valid_mask = False
+        log.info("Valid pixel mask not found, skipping.")
 
     # image dimensions (azimuth, range)
     naz = int(dict_cfg["Nrow"])
@@ -180,6 +191,10 @@ def read_T3(input_dir: str):
     T3[..., 1, 0] = T3[..., 0, 1].conj()
     T3[..., 2, 0] = T3[..., 0, 2].conj()
     T3[..., 2, 1] = T3[..., 1, 2].conj()
+
+    if is_valid_mask:
+        T3[~valid_mask] = np.nan + 1j*np.nan
+
     return T3
 
 
@@ -200,6 +215,14 @@ def read_C3(input_dir: str):
         lines = [line.replace("\n", "") for line in lines if "---" not in line]
         for i in range(0, len(lines), 2):
             dict_cfg[lines[i]] = lines[i + 1]
+
+    valid_mask_path = input_dir / "mask_valid_pixels.bin"
+    is_valid_mask = True
+    if valid_mask_path.is_file():
+        valid_mask = read_PSP_bin(valid_mask_path).astype(bool)
+    else:
+        is_valid_mask = False
+        log.info("Valid pixel mask not found, skipping.")
 
     # image dimensions (azimuth, range)
     naz = int(dict_cfg["Nrow"])
@@ -225,6 +248,10 @@ def read_C3(input_dir: str):
     C3[..., 1, 0] = C3[..., 0, 1].conj()
     C3[..., 2, 0] = C3[..., 0, 2].conj()
     C3[..., 2, 1] = C3[..., 1, 2].conj()
+
+    if is_valid_mask:
+        C3[~valid_mask] = np.nan + 1j*np.nan
+
     return C3
 
 

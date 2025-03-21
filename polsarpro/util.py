@@ -357,11 +357,12 @@ def vec_to_mat(vec):
     return vec[None, :] * vec[:, None].conj()
 
 
-@timeit
+# @timeit
 def span(M):
     if M.ndim != 4:
         raise ValueError("Matrix valued image is expected (dimension 4)")
     if M.shape[2] != M.shape[3]:
         raise ValueError("Input shape [naz, nrg, N, N] expected")
 
-    return M.diagonal(axis1=2, axis2=3).real.sum(axis=-1)
+    return np.diagonal(M, axis1=2, axis2=3).real.sum(axis=-1)
+    # return M.diagonal(axis1=2, axis2=3).real.sum(axis=-1)

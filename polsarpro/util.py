@@ -50,6 +50,13 @@ def boxcar_dask(img: np.ndarray, dim_az: int, dim_rg: int):
     Note:
         The filter is always applied along 2 dimensions (azimuth, range). Please ensure to provide a valid image.
     """
+    if type(dim_az) != int and type(dim_rg) != int:
+        raise ValueError("dimaz and dimrg must be integers")
+    if (dim_az < 1) or (dim_rg < 1):
+        raise ValueError("dimaz and dimrg must be strictly positive")
+    if img.ndim < 2:
+        raise ValueError("Input must be at least of dimension 2")
+
     process_args = dict(
         dim_az=dim_az,
         dim_rg=dim_rg,

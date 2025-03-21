@@ -76,7 +76,7 @@ def _boxcar_core(img, dim_az, dim_rg):
     n_extra_dims = img.ndim - 2
 
     ker_dtype = img.dtype if not np.iscomplexobj(img) else img.real.dtype
-    
+
     # this convolution mode reduces error between C and python implementations
     mode = "constant"
     if (dim_az > 1) or (dim_rg > 1):
@@ -165,7 +165,7 @@ def read_T3(input_dir: str):
         lines = [line.replace("\n", "") for line in lines if "---" not in line]
         for i in range(0, len(lines), 2):
             dict_cfg[lines[i]] = lines[i + 1]
-    
+
     valid_mask_path = input_dir / "mask_valid_pixels.bin"
     is_valid_mask = True
     if valid_mask_path.is_file():
@@ -200,7 +200,7 @@ def read_T3(input_dir: str):
     T3[..., 2, 1] = T3[..., 1, 2].conj()
 
     if is_valid_mask:
-        T3[~valid_mask] = np.nan + 1j*np.nan
+        T3[~valid_mask] = np.nan + 1j * np.nan
 
     return T3
 
@@ -257,7 +257,7 @@ def read_C3(input_dir: str):
     C3[..., 2, 1] = C3[..., 1, 2].conj()
 
     if is_valid_mask:
-        C3[~valid_mask] = np.nan + 1j*np.nan
+        C3[~valid_mask] = np.nan + 1j * np.nan
 
     return C3
 

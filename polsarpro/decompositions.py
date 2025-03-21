@@ -13,6 +13,7 @@ import dask.array as da
 # idea1: block process by creating dask / xarray data_arrays on top of np.ndarray
 # idea2: in the long run we should directly pass a data array (and keep numpy compatible?)
 
+
 # @timeit
 def freeman(
     input_data: np.ndarray,
@@ -45,6 +46,7 @@ def freeman(
     in_ = boxcar(in_, boxcar_size[0], boxcar_size[1])
 
     return _compute_freeman_components(in_)
+
 
 @timeit
 def freeman_dask(
@@ -79,7 +81,7 @@ def freeman_dask(
     in_ = boxcar_dask(in_, boxcar_size[0], boxcar_size[1])
 
     return _compute_freeman_components(in_)
- 
+
 
 # convenience function not to be called by users
 # @timeit
@@ -98,7 +100,6 @@ def _compute_freeman_components(
     c11 -= fv
     c33 -= fv
     c13r -= fv / 3
-
 
     # intermediate parameters
     fd = np.zeros(c11.shape[:2], dtype="float32")
@@ -144,7 +145,7 @@ def _compute_freeman_components(
     Pd = fd * (1 + alpha**2)
     Pv = 8 * fv / 3
     sp = span(C3)
-    min_span, max_span = sp.min(), sp.max()
+    min_span, max_span = np.nanmin(sp), np.nanmax(sp).max()
     min_span = min_span if min_span >= eps else eps
     Ps = Ps.clip(min_span, max_span)
     Pd = Pd.clip(min_span, max_span)

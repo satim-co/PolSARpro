@@ -8,7 +8,7 @@ from bench import timeit
 log = logging.getLogger(__name__)
 
 
-@timeit
+# @timeit
 def boxcar(img: np.ndarray, dim_az: int, dim_rg: int):
     """
     Apply a boxcar filter to an image.
@@ -34,7 +34,7 @@ def boxcar(img: np.ndarray, dim_az: int, dim_rg: int):
     return _boxcar_core(img, dim_az, dim_rg)
 
 
-@timeit
+# @timeit
 def boxcar_dask(img: np.ndarray, dim_az: int, dim_rg: int):
     """
     Apply a boxcar filter to an image.
@@ -99,7 +99,7 @@ def _boxcar_core(img, dim_az, dim_rg):
         return img
 
 
-@timeit
+# @timeit
 def multilook(img: np.ndarray, dim_az: int, dim_rg: int):
     """
     Computes the m by n presummed image.
@@ -154,19 +154,25 @@ def read_T3(input_dir: str):
     Args:
         input_dir (str): Input directory containing the elements of the T3 matrix and the configuration file config.txt.
     """
-    pth_cfg = input_dir / "config.txt"
 
-    # TODO add exceptions
+    input_path = Path(input_dir)
 
-    # read config and store in a dict
-    dict_cfg = {}
-    with open(pth_cfg, "r") as f:
-        lines = f.readlines()
-        lines = [line.replace("\n", "") for line in lines if "---" not in line]
-        for i in range(0, len(lines), 2):
-            dict_cfg[lines[i]] = lines[i + 1]
+    if not input_path.is_dir():
+        raise FileNotFoundError(f"Directory {input_dir} not found.")
 
-    valid_mask_path = input_dir / "mask_valid_pixels.bin"
+    pth_cfg = input_path / "config.txt"
+    if pth_cfg.is_file():
+        # read config and store in a dict
+        dict_cfg = {}
+        with open(pth_cfg, "r") as f:
+            lines = f.readlines()
+            lines = [line.replace("\n", "") for line in lines if "---" not in line]
+            for i in range(0, len(lines), 2):
+                dict_cfg[lines[i]] = lines[i + 1]
+    else:
+        raise FileNotFoundError("Configuration file config.txt does not exist.")
+
+    valid_mask_path = input_path / "mask_valid_pixels.bin"
     is_valid_mask = True
     if valid_mask_path.is_file():
         valid_mask = read_PSP_bin(valid_mask_path).astype(bool)
@@ -185,14 +191,14 @@ def read_T3(input_dir: str):
             elt = f"T{r+1}{c+1}"
             if r == c:
                 T3[..., r, c].real = np.fromfile(
-                    input_dir / f"{elt}.bin", dtype="float32", count=naz * nrg
+                    input_path / f"{elt}.bin", dtype="float32", count=naz * nrg
                 ).reshape((naz, nrg))
             else:
                 T3[..., r, c].real = np.fromfile(
-                    input_dir / f"{elt}_real.bin", dtype="float32", count=naz * nrg
+                    input_path / f"{elt}_real.bin", dtype="float32", count=naz * nrg
                 ).reshape((naz, nrg))
                 T3[..., r, c].imag = np.fromfile(
-                    input_dir / f"{elt}_imag.bin", dtype="float32", count=naz * nrg
+                    input_path / f"{elt}_imag.bin", dtype="float32", count=naz * nrg
                 ).reshape((naz, nrg))
 
     T3[..., 1, 0] = T3[..., 0, 1].conj()
@@ -211,19 +217,25 @@ def read_C3(input_dir: str):
     Args:
         input_dir (str): Input directory containing the elements of the C3 matrix and the configuration file config.txt.
     """
-    pth_cfg = input_dir / "config.txt"
 
-    # TODO add exceptions
+    input_path = Path(input_dir)
 
-    # read config and store in a dict
-    dict_cfg = {}
-    with open(pth_cfg, "r") as f:
-        lines = f.readlines()
-        lines = [line.replace("\n", "") for line in lines if "---" not in line]
-        for i in range(0, len(lines), 2):
-            dict_cfg[lines[i]] = lines[i + 1]
+    if not input_path.is_dir():
+        raise FileNotFoundError(f"Directory {input_dir} not found.")
 
-    valid_mask_path = input_dir / "mask_valid_pixels.bin"
+    pth_cfg = input_path / "config.txt"
+    if pth_cfg.is_file():
+        # read config and store in a dict
+        dict_cfg = {}
+        with open(pth_cfg, "r") as f:
+            lines = f.readlines()
+            lines = [line.replace("\n", "") for line in lines if "---" not in line]
+            for i in range(0, len(lines), 2):
+                dict_cfg[lines[i]] = lines[i + 1]
+    else:
+        raise FileNotFoundError("Configuration file config.txt does not exist.")
+
+    valid_mask_path = input_path / "mask_valid_pixels.bin"
     is_valid_mask = True
     if valid_mask_path.is_file():
         valid_mask = read_PSP_bin(valid_mask_path).astype(bool)
@@ -242,14 +254,18 @@ def read_C3(input_dir: str):
             elt = f"C{r+1}{c+1}"
             if r == c:
                 C3[..., r, c].real = np.fromfile(
-                    input_dir / f"{elt}.bin", dtype="float32", count=naz * nrg
+                    input_path / f"{elt}.bin", dtype="float32", count=naz * nrg
                 ).reshape((naz, nrg))
             else:
                 C3[..., r, c].real = np.fromfile(
-                    input_dir / f"{elt}_real.bin", dtype="float32", count=naz * nrg
+                    input_path / f"{elt}_real.bin",
+                    dtype="float32",
+                    count=naz * nrg,
                 ).reshape((naz, nrg))
                 C3[..., r, c].imag = np.fromfile(
-                    input_dir / f"{elt}_imag.bin", dtype="float32", count=naz * nrg
+                    input_path / f"{elt}_imag.bin",
+                    dtype="float32",
+                    count=naz * nrg,
                 ).reshape((naz, nrg))
 
     C3[..., 1, 0] = C3[..., 0, 1].conj()
@@ -365,4 +381,3 @@ def span(M):
         raise ValueError("Input shape [naz, nrg, N, N] expected")
 
     return np.diagonal(M, axis1=2, axis2=3).real.sum(axis=-1)
-    # return M.diagonal(axis1=2, axis2=3).real.sum(axis=-1)

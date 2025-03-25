@@ -308,7 +308,7 @@ def S_to_C3(S):
 
 @timeit
 def T3_to_C3(T3: np.ndarray) -> np.ndarray:
-    """Converts the Pauli coherency matrix T3 to the lexicographic covariance matrix.
+    """Converts the Pauli coherency matrix T3 to the lexicographic covariance matrix C3.
 
     Args:
         T3 (np.ndarray): input image of coherency matrices with shape (naz, nrg, 3, 3)
@@ -326,7 +326,7 @@ def T3_to_C3(T3: np.ndarray) -> np.ndarray:
 
 @timeit
 def T3_to_C3_dask(T3: np.ndarray) -> np.ndarray:
-    """Converts the Pauli coherency matrix T3 to the lexicographic covariance matrix.
+    """Converts the Pauli coherency matrix T3 to the lexicographic covariance matrix C3.
 
     Args:
         T3 (np.ndarray): input image of coherency matrices with shape (naz, nrg, 3, 3)

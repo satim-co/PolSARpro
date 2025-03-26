@@ -18,7 +18,6 @@ def test_freeman():
             Ps, Pd, Pv = fun(
                 input_data=input_data, input_poltype=poltype, boxcar_size=[5, 5]
             )
-            print(Ps.dtype)
 
             assert all((it.shape == input_data.shape[:2] for it in [Ps, Pd, Pv]))
             assert all((it.dtype == "float32" for it in [Ps, Pd, Pv]))

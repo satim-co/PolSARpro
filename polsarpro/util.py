@@ -302,8 +302,51 @@ def read_PSP_bin(file_name: str, dtype: str = "float32"):
     return np.fromfile(file_path, dtype=dtype, count=naz * nrg).reshape((naz, nrg))
 
 
-def S_to_C3(S):
-    pass
+def S_to_C3(S: np.ndarray) -> np.ndarray:
+    """Converts the Sinclair scattering matrix S to the lexicographic covariance matrix C3.
+
+    Args:
+        S (np.ndarray): input image of scattering matrices with shape (naz, nrg, 2, 2)
+
+    Returns:
+        np.ndarray: C3 covariance matrix
+    """
+    if S.ndim != 4:
+        raise ValueError("A matrix-valued image is expected (dimension 4)")
+    if S.shape[-2:] != (2, 2):
+        raise ValueError("S must have a shape like (naz, nrg, 2, 2)")
+    return _S_to_C3_core(S)
+
+def S_to_C3_dask(S: np.ndarray) -> np.ndarray:
+    """Converts the Sinclair scattering matrix S to the lexicographic covariance matrix C3.
+
+    Args:
+        S (np.ndarray): input image of scattering matrices with shape (naz, nrg, 2, 2)
+
+    Returns:
+        np.ndarray: C3 covariance matrix
+    """
+    if S.ndim != 4:
+        raise ValueError("A matrix-valued image is expected (dimension 4)")
+    if S.shape[-2:] != (2, 2):
+        raise ValueError("S must have a shape like (naz, nrg, 2, 2)")
+    
+    da_in = da.map_blocks(
+        _S_to_C3_core,
+        da.from_array(S, chunks=(500, 500, -1, -1)),
+        dtype="complex64",
+    )
+
+    return np.asarray(da_in)
+
+
+def _S_to_C3_core(S: np.ndarray) -> np.ndarray:
+
+    k = np.dstack(
+        (S[..., 0, 0], (1.0 / np.sqrt(2)) * (S[..., 0, 1] + S[..., 1, 0]), S[..., 1, 1])
+    )
+
+    return vec_to_mat(k)
 
 
 @timeit
@@ -369,8 +412,9 @@ def _T3_to_C3_core(T3: np.ndarray) -> np.ndarray:
     return C3
 
 
+
 def vec_to_mat(vec):
-    return vec[None, :] * vec[:, None].conj()
+    return vec[:, :, None, :] * vec[:, :, :, None].conj()
 
 
 # @timeit

@@ -1,5 +1,6 @@
 import numpy as np
 from polsarpro.util import T3_to_C3, T3_to_C3_dask 
+from polsarpro.util import S_to_C3, S_to_C3_dask 
 from polsarpro.util import span, boxcar, boxcar_dask
 from bench import timeit
 import dask.array as da
@@ -37,8 +38,7 @@ def freeman(
     elif input_poltype == "T3":
         in_ = T3_to_C3(input_data)
     elif input_poltype == "S":
-        raise NotImplementedError("Support for Sinclair matrix not yet implemented.")
-        # in_ = S_to_C3(input_data)
+        in_ = S_to_C3(input_data)
     else:
         raise ValueError("Invalid polarimetric type")
 
@@ -72,8 +72,7 @@ def freeman_dask(
     elif input_poltype == "T3":
         in_ = T3_to_C3_dask(input_data)
     elif input_poltype == "S":
-        raise NotImplementedError("Support for Sinclair matrix not yet implemented.")
-        # in_ = S_to_C3(input_data)
+        in_ = S_to_C3_dask(input_data)
     else:
         raise ValueError("Invalid polarimetric type")
 

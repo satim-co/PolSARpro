@@ -353,7 +353,7 @@ def _S_to_C3_core(S: np.ndarray) -> np.ndarray:
         (S[..., 0, 0], (1.0 / np.sqrt(2)) * (S[..., 0, 1] + S[..., 1, 0]), S[..., 1, 1])
     )
 
-    return vec_to_mat(k)
+    return vec_to_mat(k).astype("complex64")
 
 
 @timeit

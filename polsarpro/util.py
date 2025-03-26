@@ -279,7 +279,13 @@ def read_C3(input_dir: str):
 
 
 def read_PSP_bin(file_name: str, dtype: str = "float32"):
+    """Reads a raster bin file in the PolSARPro format.
 
+    Args:
+        file_name (str): Input file.
+    Note:
+        The parent directory must contain a config.txt file.
+    """
     file_path = Path(file_name)
     input_dir = file_path.parent
 
@@ -317,6 +323,7 @@ def S_to_C3(S: np.ndarray) -> np.ndarray:
         raise ValueError("S must have a shape like (naz, nrg, 2, 2)")
     return _S_to_C3_core(S)
 
+
 def S_to_C3_dask(S: np.ndarray) -> np.ndarray:
     """Converts the Sinclair scattering matrix S to the lexicographic covariance matrix C3.
 
@@ -330,7 +337,7 @@ def S_to_C3_dask(S: np.ndarray) -> np.ndarray:
         raise ValueError("A matrix-valued image is expected (dimension 4)")
     if S.shape[-2:] != (2, 2):
         raise ValueError("S must have a shape like (naz, nrg, 2, 2)")
-    
+
     da_in = da.map_blocks(
         _S_to_C3_core,
         da.from_array(S, chunks=(500, 500, -1, -1)),
@@ -412,16 +419,19 @@ def _T3_to_C3_core(T3: np.ndarray) -> np.ndarray:
     return C3
 
 
-
-def vec_to_mat(vec):
+def vec_to_mat(vec: np.ndarray) -> np.ndarray:
+    """Vector to matrix conversion. Input should have (naz, nrg, N) shape"""
+    if vec.ndim != 3:
+        raise ValueError("Vector valued image is expected (dimension 3)")
     return vec[:, :, None, :] * vec[:, :, :, None].conj()
 
 
 # @timeit
-def span(M):
+def span(M: np.ndarray) -> np.ndarray:
+    """Span computation for a image of matrices. Input should have (naz, nrg, N, N) shape"""
     if M.ndim != 4:
         raise ValueError("Matrix valued image is expected (dimension 4)")
     if M.shape[2] != M.shape[3]:
-        raise ValueError("Input shape [naz, nrg, N, N] expected")
+        raise ValueError("Input shape (naz, nrg, N, N) expected")
 
     return np.diagonal(M, axis1=2, axis2=3).real.sum(axis=-1)

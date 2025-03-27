@@ -1,6 +1,5 @@
 import numpy as np
 import pytest
-import warnings
 from polsarpro.util import vec_to_mat
 from polsarpro.decompositions import freeman, freeman_dask
 

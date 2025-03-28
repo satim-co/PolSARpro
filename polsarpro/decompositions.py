@@ -206,7 +206,7 @@ def _compute_freeman_components_dask(
 
     # Compute c13 power
     pow_c13 = c13r**2 + c13i**2
-    
+
     # Data conditioning for non-realizable term
     cnd2 = ~cnd1 & (pow_c13 > c11 * c33)
     arg_sqrt = da.maximum(c11 * c33 / da.maximum(pow_c13, eps), 0)
@@ -220,23 +220,23 @@ def _compute_freeman_components_dask(
     # Odd bounce dominates
     cnd3 = ~cnd1 & (c13r >= 0)
     alpha = da.where(cnd3, da.float32(-1), da.float32(eps))
-    arg_div = (c11 + c33 + 2 * c13r)
-    arg_div = np.where(arg_div==0, eps, arg_div)
+    arg_div = c11 + c33 + 2 * c13r
+    arg_div = np.where(arg_div == 0, eps, arg_div)
     fd = da.where(cnd3, (c11 * c33 - pow_c13) / arg_div, eps)
     fs = da.where(cnd3, c33 - fd, eps)
     arg_sqrt = da.maximum((fd + c13r) ** 2 + c13i**2, eps)
-    arg_div = np.where(fs==0, eps, fs)
+    arg_div = np.where(fs == 0, eps, fs)
     beta = da.where(cnd3, da.sqrt(arg_sqrt) / arg_div, eps)
 
     # Even bounce dominates
     cnd4 = ~cnd1 & (c13r < 0)
     beta = da.where(cnd4, 1, beta)
-    arg_div = (c11 + c33 - 2 * c13r)
-    arg_div = np.where(arg_div==0, eps, arg_div)
+    arg_div = c11 + c33 - 2 * c13r
+    arg_div = np.where(arg_div == 0, eps, arg_div)
     fs = da.where(cnd4, (c11 * c33 - pow_c13) / arg_div, fs)
     fd = da.where(cnd4, c33 - fs, fd)
     arg_sqrt = da.maximum((fs - c13r) ** 2 + c13i**2, eps)
-    arg_div = np.where(fd==0, eps, fd)
+    arg_div = np.where(fd == 0, eps, fd)
     alpha = da.where(cnd4, da.sqrt(arg_sqrt) / arg_div, alpha)
 
     # Compute Freeman components
@@ -250,6 +250,6 @@ def _compute_freeman_components_dask(
 
     Ps = da.where(Ps <= min_span, min_span, da.where(Ps > max_span, max_span, Ps))
     Pd = da.where(Pd <= min_span, min_span, da.where(Pd > max_span, max_span, Pd))
-    Pv = da.where(Pv <=min_span, min_span, da.where(Pv > max_span, max_span, Pv))
+    Pv = da.where(Pv <= min_span, min_span, da.where(Pv > max_span, max_span, Pv))
 
     return Ps, Pd, Pv

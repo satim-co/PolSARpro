@@ -49,7 +49,7 @@ def freeman(
     return _compute_freeman_components(in_)
 
 
-@timeit
+# @timeit
 def freeman_dask(
     input_data: np.ndarray,
     input_poltype: str = "C3",
@@ -70,7 +70,6 @@ def freeman_dask(
     """
 
     in_ = da.from_array(input_data, chunks="auto")
-    print(in_)
     if input_poltype == "T3":
         in_ = da.map_blocks(
             _T3_to_C3_core,
@@ -187,7 +186,7 @@ def _compute_freeman_components_dask(
         tuple[da.Array, da.Array, da.Array]: Freeman decomposition components (Ps, Pd, Pv).
     """
 
-    eps = 1e-12
+    eps = 1e-30
 
     # Extract real and imaginary parts
     c11 = C3[..., 0, 0].real.copy()
@@ -207,10 +206,10 @@ def _compute_freeman_components_dask(
 
     # Compute c13 power
     pow_c13 = c13r**2 + c13i**2
-
+    
     # Data conditioning for non-realizable term
     cnd2 = ~cnd1 & (pow_c13 > c11 * c33)
-    arg_sqrt = da.maximum(c11 * c33 / (pow_c13 + eps), eps)
+    arg_sqrt = da.maximum(c11 * c33 / da.maximum(pow_c13, eps), 0)
     scale_factor = da.where(cnd2, da.sqrt(arg_sqrt), 1)
     c13r *= scale_factor
     c13i *= scale_factor
@@ -220,19 +219,25 @@ def _compute_freeman_components_dask(
 
     # Odd bounce dominates
     cnd3 = ~cnd1 & (c13r >= 0)
-    alpha = da.where(cnd3, da.float32(-1), da.float32(0))
-    fd = da.where(cnd3, (c11 * c33 - pow_c13) / (c11 + c33 + 2 * c13r), 0)
-    fs = da.where(cnd3, c33 - fd, 0)
+    alpha = da.where(cnd3, da.float32(-1), da.float32(eps))
+    arg_div = (c11 + c33 + 2 * c13r)
+    arg_div = np.where(arg_div==0, eps, arg_div)
+    fd = da.where(cnd3, (c11 * c33 - pow_c13) / arg_div, eps)
+    fs = da.where(cnd3, c33 - fd, eps)
     arg_sqrt = da.maximum((fd + c13r) ** 2 + c13i**2, eps)
-    beta = da.where(cnd3, da.sqrt(arg_sqrt) / (fs + eps), 0)
+    arg_div = np.where(fs==0, eps, fs)
+    beta = da.where(cnd3, da.sqrt(arg_sqrt) / arg_div, eps)
 
     # Even bounce dominates
     cnd4 = ~cnd1 & (c13r < 0)
     beta = da.where(cnd4, 1, beta)
-    fs = da.where(cnd4, (c11 * c33 - pow_c13) / (c11 + c33 - 2 * c13r), fs)
+    arg_div = (c11 + c33 - 2 * c13r)
+    arg_div = np.where(arg_div==0, eps, arg_div)
+    fs = da.where(cnd4, (c11 * c33 - pow_c13) / arg_div, fs)
     fd = da.where(cnd4, c33 - fs, fd)
-    arg_sqrt = np.maximum((fs - c13r) ** 2 + c13i**2, eps)
-    alpha = da.where(cnd4, da.sqrt(arg_sqrt) / (fd + eps), alpha)
+    arg_sqrt = da.maximum((fs - c13r) ** 2 + c13i**2, eps)
+    arg_div = np.where(fd==0, eps, fd)
+    alpha = da.where(cnd4, da.sqrt(arg_sqrt) / arg_div, alpha)
 
     # Compute Freeman components
     Ps = fs * (1 + beta**2)
@@ -243,8 +248,8 @@ def _compute_freeman_components_dask(
     min_span, max_span = da.nanmin(sp), da.nanmax(sp)
     min_span = max(min_span, eps)
 
-    Ps = da.where(Ps < min_span, min_span, da.where(Ps > max_span, max_span, Ps))
-    Pd = da.where(Pd < min_span, min_span, da.where(Pd > max_span, max_span, Pd))
-    Pv = da.where(Pv < min_span, min_span, da.where(Pv > max_span, max_span, Pv))
+    Ps = da.where(Ps <= min_span, min_span, da.where(Ps > max_span, max_span, Ps))
+    Pd = da.where(Pd <= min_span, min_span, da.where(Pd > max_span, max_span, Pd))
+    Pv = da.where(Pv <=min_span, min_span, da.where(Pv > max_span, max_span, Pv))
 
     return Ps, Pd, Pv

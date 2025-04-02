@@ -4,6 +4,7 @@
 ## To use as a devcontainer in VSCode
 
 - This method is recommended because it installs all dependencies and sets up environments.
+- Jupyter notebooks are also supported directly in VSCode.
 - This assumes `docker` and `docker compose` are installed on your system.
 - Edit `docker-compose.yml` to set volume paths that suit your needs. 
 - Open the directory in VSCode
@@ -22,7 +23,6 @@ conda activate psp
 export PYTHONPATH="${PYTHONPATH}:/mypath/to/polsarpo/source"
 ```
 - To check that the module is working, `pytest` can be run from the `eo_tools` directory. All tests should pass.
-- Note: with this installation method, the visualization using TiTiler cannot be used.
 
 ## To run the docker container without VSCode (untested)
 

@@ -5,6 +5,7 @@ from polsarpro.util import _boxcar_core, _T3_to_C3_core, _S_to_C3_core
 from polsarpro.util import span
 from bench import timeit
 import dask.array as da
+from dask.diagnostics import ProgressBar
 
 # TODO: better poltype handling
 # idea1: read functions return {"data": array, "poltype": "T3"}
@@ -98,8 +99,8 @@ def freeman_dask(
     )
 
     out = _compute_freeman_components_dask(in_)
-
-    return da.compute(out)[0]
+    with ProgressBar():
+        return da.compute(out)[0]
 
 
 # convenience function not to be called by users

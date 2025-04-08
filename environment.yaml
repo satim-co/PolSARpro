@@ -25,3 +25,4 @@ dependencies:
   - dask
   - bottleneck
   - jupyter
+  - spectral

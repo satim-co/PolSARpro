@@ -1,11 +1,12 @@
 import numpy as np
 import warnings
-from polsarpro.util import boxcar, T3_to_C3, S_to_C3
-from polsarpro.util import _boxcar_core, _T3_to_C3_core, _S_to_C3_core
+from polsarpro.util import boxcar, T3_to_C3, C3_to_T3, S_to_T3, S_to_C3
+from polsarpro.util import _boxcar_core, _T3_to_C3_core, _S_to_T3_core, _S_to_C3_core
 from polsarpro.util import span
 from bench import timeit
 import dask.array as da
 from dask.diagnostics import ProgressBar
+
 
 # TODO: better poltype handling
 # idea1: read functions return {"data": array, "poltype": "T3"}
@@ -15,6 +16,70 @@ from dask.diagnostics import ProgressBar
 # TODO: think about block processing options:
 # idea1: block process by creating dask / xarray data_arrays on top of np.ndarray
 # idea2: in the long run we should directly pass a data array (and keep numpy compatible?)
+
+
+# H-A-Alpha decomposition
+# TODO: discuss useful flags.
+# Are combinations like CombH1mA relevant in python, since they are straightforward, e.g. H*(1-alpha)?
+def h_a_alpha(
+    input_data: np.ndarray,
+    input_poltype: str = "C3",
+    boxcar_size: list[int, int] = [3, 3],
+    # TODO: add flags
+) -> np.ndarray:
+    if input_poltype == "C3":
+        in_ = C3_to_T3(input_data)
+    elif input_poltype == "T3":
+        in_ = input_data
+    elif input_poltype == "S":
+        in_ = S_to_T3(input_data)
+    else:
+        raise ValueError("Invalid polarimetric type")
+
+    eps = 1e-30
+
+    # TODO: Notes to remove
+    # eigh puts eig vals in ascending order
+    # The column eigenvectors[:, i] is the normalized eigenvector corresponding to the eigenvalue eigenvalues[i]. Will return a matrix object if a is a matrix object.
+
+    # Eigendecomposition
+    l, v = np.linalg.eigh(in_)
+    l = l[..., ::-1]  # put in descending order
+    v = v[..., ::-1]
+
+    # Alpha angle for each mechanism
+    alpha_i = np.arccos(np.sqrt(v[:, :, 0, :] * np.conj(v[:, :, 0, :])))
+    alpha_i *= 180 / np.pi
+
+    # Pseudo-probabilities (normalized eigenvalues)
+    p = np.clip(l / (eps + l.sum(axis=2)), 0, 1)
+
+    # Mean alpha
+    alpha = np.sum(p * alpha, axis=2)
+
+    # Entropy
+    H = np.sum(-p * np.log(p), axis=2) / np.log(3)
+
+    # Anisotropy
+    A = (p[..., 0] - p[..., 1]) / (p[..., 0] + p[..., 1] + eps)
+
+    return H, A, alpha
+
+
+def h_a_alpha_dask(
+    input_data: np.ndarray,
+    input_poltype: str = "C3",
+    boxcar_size: list[int, int] = [3, 3],
+    # TODO: add flags
+) -> np.ndarray:
+    if input_poltype == "C3":
+        in_ = C3_to_T3(input_data)
+    elif input_poltype == "T3":
+        in_ = input_data
+    elif input_poltype == "S":
+        in_ = S_to_T3(input_data)
+    else:
+        raise ValueError("Invalid polarimetric type")
 
 
 # @timeit

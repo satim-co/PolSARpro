@@ -323,6 +323,21 @@ def S_to_C3(S: np.ndarray) -> np.ndarray:
         raise ValueError("S must have a shape like (naz, nrg, 2, 2)")
     return _S_to_C3_core(S)
 
+def S_to_T3(S: np.ndarray) -> np.ndarray:
+    """Converts the Sinclair scattering matrix S to the Pauli coherency matrix T3.
+
+    Args:
+        S (np.ndarray): input image of scattering matrices with shape (naz, nrg, 2, 2)
+
+    Returns:
+        np.ndarray: T3 coherency matrix
+    """
+    if S.ndim != 4:
+        raise ValueError("A matrix-valued image is expected (dimension 4)")
+    if S.shape[-2:] != (2, 2):
+        raise ValueError("S must have a shape like (naz, nrg, 2, 2)")
+    return _S_to_T3_core(S)
+
 
 def S_to_C3_dask(S: np.ndarray) -> np.ndarray:
     """Converts the Sinclair scattering matrix S to the lexicographic covariance matrix C3.
@@ -346,12 +361,43 @@ def S_to_C3_dask(S: np.ndarray) -> np.ndarray:
 
     return np.asarray(da_in)
 
+def S_to_T3_dask(S: np.ndarray) -> np.ndarray:
+    """Converts the Sinclair scattering matrix S to the Pauli coherency matrix T3.
+
+    Args:
+        S (np.ndarray): input image of scattering matrices with shape (naz, nrg, 2, 2)
+
+    Returns:
+        np.ndarray: T3 coherency matrix
+    """
+    if S.ndim != 4:
+        raise ValueError("A matrix-valued image is expected (dimension 4)")
+    if S.shape[-2:] != (2, 2):
+        raise ValueError("S must have a shape like (naz, nrg, 2, 2)")
+
+    da_in = da.map_blocks(
+        _S_to_T3_core,
+        da.from_array(S, chunks=(500, 500, -1, -1)),
+        dtype="complex64",
+    )
+
+    return np.asarray(da_in)
+
 
 def _S_to_C3_core(S: np.ndarray) -> np.ndarray:
 
     k = np.dstack(
         (S[..., 0, 0], (1.0 / np.sqrt(2)) * (S[..., 0, 1] + S[..., 1, 0]), S[..., 1, 1])
     )
+
+    return vec_to_mat(k).astype("complex64")
+
+
+def _S_to_T3_core(S: np.ndarray) -> np.ndarray:
+
+    k = np.dstack(
+        (S[..., 0, 0] + S[..., 1, 1], S[..., 0, 0] - S[..., 1, 1], 2 * S[..., 0, 1])
+    ) / np.sqrt(2)
 
     return vec_to_mat(k).astype("complex64")
 
@@ -417,6 +463,62 @@ def _T3_to_C3_core(T3: np.ndarray) -> np.ndarray:
     C3[..., 2, 1] = np.conj(C3[..., 1, 2])
 
     return C3
+
+
+def C3_to_T3(C3: np.ndarray) -> np.ndarray:
+    """Converts the lexicographic covariance matrix T3 to the Pauli coherency matrix T3.
+
+    Args:
+        C3 (np.ndarray): input image of coherency matrices with shape (naz, nrg, 3, 3)
+
+    Returns:
+        np.ndarray: T3 coherency matrix
+    """
+    if C3.ndim != 4:
+        raise ValueError("A matrix-valued image is expected (dimension 4)")
+    if C3.shape[-2:] != (3, 3):
+        raise ValueError("C3 must have a shape like (naz, nrg, 3, 3)")
+
+    return _C3_to_T3_core(T3=C3)
+
+def C3_to_T3_dask(C3: np.ndarray) -> np.ndarray:
+    """Converts the lexicographic covariance matrix C3 to the Pauli coherency matrix T3.
+
+    Args:
+        C3 (np.ndarray): input image of coherency matrices with shape (naz, nrg, 3,
+
+    Returns:
+        np.ndarray: T3 coherency matrix
+    """
+    if C3.ndim != 4:
+        raise ValueError("A matrix-valued image is expected (dimension 4)")
+    if C3.shape[-2:] != (3, 3):
+        raise ValueError("C3 must have a shape like (naz, nrg, 3, 3)")
+
+    da_in = da.map_blocks(
+        _C3_to_T3_core,
+        da.from_array(C3, chunks=(500, 500, -1, -1)),
+        dtype="complex64",
+    )
+
+    return np.asarray(da_in)
+
+def _C3_to_T3_core(C3: np.ndarray) -> np.ndarray:
+    T3 = np.zeros_like(C3, dtype="complex64")
+
+    # Reproject T3 matrix in the lexicographic basis
+    T3[..., 0, 0] = 0.5 * (C3[..., 0, 0] + 2 * C3[..., 0, 2].real + C3[..., 2, 2])
+    T3[..., 0, 1] = 0.5 * (C3[..., 0, 0] - C3[..., 2, 2]) - 1j * C3[..., 0, 2].imag
+    T3[..., 0, 2] = (C3[..., 0, 1] + np.conj(C3[..., 1, 2])) / np.srqt(2)
+    T3[..., 1, 1] = 0.5 * (C3[..., 0, 0] - 2 * C3[..., 0, 2].real + C3[..., 2, 2])
+    T3[..., 1, 2] = (C3[..., 0, 1] - np.conj(C3[..., 1, 2])) / np.srqt(2)
+    T3[..., 2, 2] = C3[..., 1, 1]
+
+    T3[..., 1, 0] = np.conj(T3[..., 0, 1])
+    T3[..., 2, 0] = np.conj(T3[..., 0, 2])
+    T3[..., 2, 1] = np.conj(T3[..., 1, 2])
+
+    return T3
 
 
 def vec_to_mat(vec: np.ndarray) -> np.ndarray:

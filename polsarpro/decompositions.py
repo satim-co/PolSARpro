@@ -48,17 +48,18 @@ def h_a_alpha(
     v = v[..., ::-1]
 
     # Alpha angle for each mechanism
-    alpha_i = np.arccos(np.sqrt(v[:, :, 0, :] * np.conj(v[:, :, 0, :])))
+    arg_sqrt = (v[:, :, 0, :] * v[:, :, 0, :].conj()).real
+    alpha_i = np.arccos(np.sqrt(arg_sqrt))
     alpha_i *= 180 / np.pi
 
     # Pseudo-probabilities (normalized eigenvalues)
-    p = np.clip(l / (eps + l.sum(axis=2)), 0, 1)
+    p = np.clip(l / (eps + l.sum(axis=2)[..., None]), eps, 1)
 
     # Mean alpha
-    alpha = np.sum(p * alpha, axis=2)
+    alpha = np.sum(p * alpha_i, axis=2)
 
     # Entropy
-    H = np.sum(-p * np.log(p), axis=2) / np.log(3)
+    H = np.sum(-p * np.log(p), axis=2) / np.float32(np.log(3))
 
     # Anisotropy
     A = (p[..., 0] - p[..., 1]) / (p[..., 0] + p[..., 1] + eps)

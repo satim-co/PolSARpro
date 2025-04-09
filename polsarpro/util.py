@@ -479,7 +479,7 @@ def C3_to_T3(C3: np.ndarray) -> np.ndarray:
     if C3.shape[-2:] != (3, 3):
         raise ValueError("C3 must have a shape like (naz, nrg, 3, 3)")
 
-    return _C3_to_T3_core(T3=C3)
+    return _C3_to_T3_core(C3=C3)
 
 def C3_to_T3_dask(C3: np.ndarray) -> np.ndarray:
     """Converts the lexicographic covariance matrix C3 to the Pauli coherency matrix T3.
@@ -509,9 +509,9 @@ def _C3_to_T3_core(C3: np.ndarray) -> np.ndarray:
     # Reproject T3 matrix in the lexicographic basis
     T3[..., 0, 0] = 0.5 * (C3[..., 0, 0] + 2 * C3[..., 0, 2].real + C3[..., 2, 2])
     T3[..., 0, 1] = 0.5 * (C3[..., 0, 0] - C3[..., 2, 2]) - 1j * C3[..., 0, 2].imag
-    T3[..., 0, 2] = (C3[..., 0, 1] + np.conj(C3[..., 1, 2])) / np.srqt(2)
+    T3[..., 0, 2] = (C3[..., 0, 1] + np.conj(C3[..., 1, 2])) / np.sqrt(2)
     T3[..., 1, 1] = 0.5 * (C3[..., 0, 0] - 2 * C3[..., 0, 2].real + C3[..., 2, 2])
-    T3[..., 1, 2] = (C3[..., 0, 1] - np.conj(C3[..., 1, 2])) / np.srqt(2)
+    T3[..., 1, 2] = (C3[..., 0, 1] - np.conj(C3[..., 1, 2])) / np.sqrt(2)
     T3[..., 2, 2] = C3[..., 1, 1]
 
     T3[..., 1, 0] = np.conj(T3[..., 0, 1])

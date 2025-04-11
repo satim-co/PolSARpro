@@ -1,5 +1,5 @@
 # Installation guidelines
-- Clone the repository and follow the instructions below.
+- Clone the repository, type `git checkout feature/pythonic-freeman` and follow the instructions below 
 
 ## To use as a devcontainer in VSCode
 

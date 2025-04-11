@@ -19,16 +19,14 @@ from dask.diagnostics import ProgressBar
 
 
 # H-A-Alpha decomposition
-# TODO: discuss useful flags.
-# Are combinations like CombH1mA relevant in python, since they are straightforward, e.g. H*(1-alpha)?
 def h_a_alpha(
     input_data: np.ndarray,
     input_poltype: str = "C3",
     boxcar_size: list[int, int] = [3, 3],
-    # beta_out: bool = False,
-    # delta_out: bool = False,
-    # gamma_out: bool = False,
-    # lambda_out: bool = False,
+    beta_out: bool = False,
+    delta_out: bool = False,
+    gamma_out: bool = False,
+    lambda_out: bool = False,
 ) -> np.ndarray:
     if input_poltype == "C3":
         in_ = C3_to_T3(input_data)
@@ -41,14 +39,9 @@ def h_a_alpha(
 
     eps = 1e-30
 
-    # TODO: Notes to remove
-    # eigh puts eig vals in ascending order
-    # The column eigenvectors[:, i] is the normalized eigenvector corresponding to the eigenvalue eigenvalues[i]. Will return a matrix object if a is a matrix object.
+    # pre-processing step, filtering is required for full rank matrices
+    in_ = boxcar(in_, boxcar_size[0], boxcar_size[1])
 
-    # pre-processing step, it is recommended to filter the matrices to mitigate speckle effects
-    in_ = boxcar(in_, boxcar_size[0], boxcar_size[1])   
-
-    
     # Eigendecomposition
     l, v = np.linalg.eigh(in_)
     l = l[..., ::-1]  # put in descending order
@@ -65,17 +58,47 @@ def h_a_alpha(
 
     # Alpha angles for each mechanism
     alphas = np.arccos(np.abs(v[:, :, 0, :]))
-    alphas *= 180 / np.pi
 
     # Mean alpha
     alpha = np.sum(p * alphas, axis=2)
 
-    # outputs = {"H": H, "A": A, "alpha": alpha}
+    # Convert to degrees
+    alpha *= 180 / np.pi
 
-    # if beta_out:
-    #     beta_i = np.atan2(np.abs(v[:,:,2,:]), eps + v[:, :, 1, :])
+    outputs = {"H": H, "A": A, "alpha": alpha}
 
-    return H, A, alpha 
+    # Extra angles: beta, delta and gamma angles
+    if beta_out:
+        betas = np.atan2(np.abs(v[:, :, 2, :]), eps + np.abs(v[:, :, 1, :]))
+        beta = np.sum(p * betas, axis=2)
+        beta *= 180 / np.pi
+        outputs["beta"] = beta
+
+    if delta_out or gamma_out:
+        phases = np.atan2(v[:, :, 0, :].imag, eps + v[:, :, 0, :].real)
+
+    if delta_out:
+        deltas = np.atan2(v[:, :, 1, :].imag, eps + v[:, :, 1, :].real) - phases
+        deltas = np.atan2(np.sin(deltas), eps + np.cos(deltas))
+        delta = np.sum(p * deltas, axis=2)
+        delta *= 180 / np.pi
+        outputs["delta"] = delta
+    
+    if gamma_out:
+        gammas = np.atan2(v[:, :, 2, :].imag, eps + v[:, :, 2, :].real) - phases
+        gammas = np.atan2(np.sin(gammas), eps + np.cos(gammas))
+        gamma = np.sum(p * gammas, axis=2)
+        gamma *= 180 / np.pi
+        outputs["gamma"] = gamma
+
+    # Average target eigenvalue 
+    if lambda_out:
+        # lambda is a python reserved keyword, using lambd instead
+        lambd = np.sum(p * l, axis=2)
+        outputs["lambda"] = lambd
+
+
+    return outputs
 
 
 def h_a_alpha_dask(

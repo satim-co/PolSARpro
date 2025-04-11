@@ -24,7 +24,7 @@ conda activate psp
 ```bash
 export PYTHONPATH="${PYTHONPATH}:/mypath/to/polsarpo/source"
 ```
-- To check that the module is working, `pytest` can be run from the `eo_tools` directory. All tests should pass.
+- To check that the module is working, `pytest` can be run from the main directory. All tests should pass.
 
 ## To run the docker container without VSCode (untested)
 - This assumes `docker` and `docker compose` are installed on your system.

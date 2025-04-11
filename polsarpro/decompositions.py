@@ -25,7 +25,10 @@ def h_a_alpha(
     input_data: np.ndarray,
     input_poltype: str = "C3",
     boxcar_size: list[int, int] = [3, 3],
-    # TODO: add flags
+    # beta_out: bool = False,
+    # delta_out: bool = False,
+    # gamma_out: bool = False,
+    # lambda_out: bool = False,
 ) -> np.ndarray:
     if input_poltype == "C3":
         in_ = C3_to_T3(input_data)
@@ -42,29 +45,37 @@ def h_a_alpha(
     # eigh puts eig vals in ascending order
     # The column eigenvectors[:, i] is the normalized eigenvector corresponding to the eigenvalue eigenvalues[i]. Will return a matrix object if a is a matrix object.
 
+    # pre-processing step, it is recommended to filter the matrices to mitigate speckle effects
+    in_ = boxcar(in_, boxcar_size[0], boxcar_size[1])   
+
+    
     # Eigendecomposition
     l, v = np.linalg.eigh(in_)
     l = l[..., ::-1]  # put in descending order
     v = v[..., ::-1]
 
-    # Alpha angle for each mechanism
-    arg_sqrt = (v[:, :, 0, :] * v[:, :, 0, :].conj()).real
-    alpha_i = np.arccos(np.sqrt(arg_sqrt))
-    alpha_i *= 180 / np.pi
-
     # Pseudo-probabilities (normalized eigenvalues)
     p = np.clip(l / (eps + l.sum(axis=2)[..., None]), eps, 1)
-
-    # Mean alpha
-    alpha = np.sum(p * alpha_i, axis=2)
 
     # Entropy
     H = np.sum(-p * np.log(p), axis=2) / np.float32(np.log(3))
 
     # Anisotropy
-    A = (p[..., 0] - p[..., 1]) / (p[..., 0] + p[..., 1] + eps)
+    A = (l[..., 1] - l[..., 2]) / (l[..., 1] + l[..., 2] + eps)
 
-    return H, A, alpha
+    # Alpha angles for each mechanism
+    alphas = np.arccos(np.abs(v[:, :, 0, :]))
+    alphas *= 180 / np.pi
+
+    # Mean alpha
+    alpha = np.sum(p * alphas, axis=2)
+
+    # outputs = {"H": H, "A": A, "alpha": alpha}
+
+    # if beta_out:
+    #     beta_i = np.atan2(np.abs(v[:,:,2,:]), eps + v[:, :, 1, :])
+
+    return H, A, alpha 
 
 
 def h_a_alpha_dask(

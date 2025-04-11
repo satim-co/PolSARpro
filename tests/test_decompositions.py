@@ -22,12 +22,12 @@ def test_freeman():
             assert all((it.shape == input_data.shape[:2] for it in [Ps, Pd, Pv]))
             assert all((it.dtype == "float32" for it in [Ps, Pd, Pv]))
 
-# @pytest.mark.filterwarnings("ignore:invalid")
+@pytest.mark.filterwarnings("ignore:invalid")
 def test_h_a_alpha():
     N = 128
     D = 3
-    v = np.random.rand(N, N, D) + 1j * np.random.rand(N, N, D)
-    S = np.random.rand(N, N, 2, 2) + 1j * np.random.rand(N, N, 2, 2).astype("complex64")
+    v = np.random.randn(N, N, D) + 1j * np.random.randn(N, N, D)
+    S = np.random.randn(N, N, 2, 2) + 1j * np.random.randn(N, N, 2, 2).astype("complex64")
     # fake T3 matrix
     T3 = vec_to_mat(v).astype("complex64")
     # TODO: add dask version when ready

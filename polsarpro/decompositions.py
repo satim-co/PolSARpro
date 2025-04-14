@@ -31,18 +31,17 @@ def h_a_alpha(
     boxcar_size: list[int, int] = [3, 3],
     flags: tuple[str] = ("entropy", "alpha", "anisotropy"),
 ) -> np.ndarray:
-
     """Performs the H/A/Alpha polarimetric decomposition on full-pol SAR data.
 
-    This function computes the H/A/Alpha decomposition from input polarimetric SAR data 
-    using eigenvalue analysis of the coherency matrix. The decomposition 
-    provides physical insight into scattering mechanisms through parameters such as 
-    entropy (H), anisotropy (A), and the alpha scattering angle (alpha). Additional 
+    This function computes the H/A/Alpha decomposition from input polarimetric SAR data
+    using eigenvalue analysis of the coherency matrix. The decomposition
+    provides physical insight into scattering mechanisms through parameters such as
+    entropy (H), anisotropy (A), and the alpha scattering angle (alpha). Additional
     eigenvalue-based parameters can also be computed by specifying corresponding flags.
 
     Args:
         input_data (np.ndarray): The input polarimetric SAR data array. Expected to represent
-            a 3x3 matrix (or 2x2 in the case of Sinclair) per pixel, typically with shape 
+            a 3x3 matrix (or 2x2 in the case of Sinclair) per pixel, typically with shape
             (..., 3, 3) or (..., 2, 2) depending on `input_poltype`.
         input_poltype (str, optional): The polarimetric basis of the input data. Supported types are:
             - "C3": Lexicographic covariance matrix
@@ -61,7 +60,7 @@ def h_a_alpha(
             Defaults to ("entropy", "alpha", "anisotropy").
 
     Returns:
-        dict[str, np.ndarray]: A dictionary where keys correspond to the requested flags, 
+        dict[str, np.ndarray]: A dictionary where keys correspond to the requested flags,
         and values are the corresponding 2D arrays (or 3D if the flag returns multiple values per pixel).
 
     Raises:
@@ -129,15 +128,15 @@ def h_a_alpha_dask(
 ) -> np.ndarray:
     """Performs the H/A/Alpha polarimetric decomposition on full-pol SAR data.
 
-    This function computes the H/A/Alpha decomposition from input polarimetric SAR data 
-    using eigenvalue analysis of the coherency matrix. The decomposition 
-    provides physical insight into scattering mechanisms through parameters such as 
-    entropy (H), anisotropy (A), and the alpha scattering angle (alpha). Additional 
+    This function computes the H/A/Alpha decomposition from input polarimetric SAR data
+    using eigenvalue analysis of the coherency matrix. The decomposition
+    provides physical insight into scattering mechanisms through parameters such as
+    entropy (H), anisotropy (A), and the alpha scattering angle (alpha). Additional
     eigenvalue-based parameters can also be computed by specifying corresponding flags.
 
     Args:
         input_data (np.ndarray): The input polarimetric SAR data array. Expected to represent
-            a 3x3 matrix (or 2x2 in the case of Sinclair) per pixel, typically with shape 
+            a 3x3 matrix (or 2x2 in the case of Sinclair) per pixel, typically with shape
             (..., 3, 3) or (..., 2, 2) depending on `input_poltype`.
         input_poltype (str, optional): The polarimetric basis of the input data. Supported types are:
             - "C3": Lexicographic covariance matrix
@@ -156,7 +155,7 @@ def h_a_alpha_dask(
             Defaults to ("entropy", "alpha", "anisotropy").
 
     Returns:
-        dict[str, np.ndarray]: A dictionary where keys correspond to the requested flags, 
+        dict[str, np.ndarray]: A dictionary where keys correspond to the requested flags,
         and values are the corresponding 2D arrays (or 3D if the flag returns multiple values per pixel).
 
     Raises:
@@ -507,6 +506,8 @@ def _compute_h_a_alpha_parameters(l, v, flags):
         alphas = np.arccos(np.abs(v[:, :, 0, :]))
         # Convert to degrees
         alphas *= 180 / np.pi
+
+    if "alpha" in flags:
         # Mean alpha
         alpha = np.sum(p * alphas, axis=2)
         outputs["alpha"] = alpha
@@ -515,6 +516,8 @@ def _compute_h_a_alpha_parameters(l, v, flags):
     if "beta" in flags or "betas" in flags:
         betas = np.atan2(np.abs(v[:, :, 2, :]), eps + np.abs(v[:, :, 1, :]))
         betas *= 180 / np.pi
+
+    if "beta" in flags:
         beta = np.sum(p * betas, axis=2)
         outputs["beta"] = beta
 
@@ -525,6 +528,8 @@ def _compute_h_a_alpha_parameters(l, v, flags):
         deltas = np.atan2(v[:, :, 1, :].imag, eps + v[:, :, 1, :].real) - phases
         deltas = np.atan2(np.sin(deltas), eps + np.cos(deltas))
         deltas *= 180 / np.pi
+
+    if "delta" in flags:
         delta = np.sum(p * deltas, axis=2)
         outputs["delta"] = delta
 
@@ -532,6 +537,8 @@ def _compute_h_a_alpha_parameters(l, v, flags):
         gammas = np.atan2(v[:, :, 2, :].imag, eps + v[:, :, 2, :].real) - phases
         gammas = np.atan2(np.sin(gammas), eps + np.cos(gammas))
         gammas *= 180 / np.pi
+
+    if "gamma" in flags:
         gamma = np.sum(p * gammas, axis=2)
         outputs["gamma"] = gamma
 

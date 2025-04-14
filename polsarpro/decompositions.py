@@ -129,13 +129,17 @@ def h_a_alpha_dask(
         boundary=1e-30,
     )
 
-    # # Eigendecomposition
-    l, v = np.linalg.eigh(in_)
+    # Eigendecomposition
+    meta = (np.array([], dtype="float32").reshape((0,0,0)),
+            np.array([], dtype="complex64").reshape((0,0,0,0)))
+    l, v = da.apply_gufunc(np.linalg.eigh, "(i,j)->(i), (i,j)", in_, meta=meta)
+
     l = l[..., ::-1]  # put in descending order
     v = v[..., ::-1]
 
-    outputs = _compute_h_a_alpha_parameters(l, v, flags)
-    return outputs
+    out = _compute_h_a_alpha_parameters(l, v, flags)
+    with ProgressBar():
+        return da.compute(out)[0]
 
 
 # @timeit

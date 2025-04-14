@@ -317,6 +317,8 @@ def S_to_C3(S: np.ndarray) -> np.ndarray:
     Returns:
         np.ndarray: C3 covariance matrix
     """
+    if np.isrealobj(S):
+        raise ValueError("Inputs must be complex-valued.")
     if S.ndim != 4:
         raise ValueError("A matrix-valued image is expected (dimension 4)")
     if S.shape[-2:] != (2, 2):
@@ -333,6 +335,8 @@ def S_to_C3_dask(S: np.ndarray) -> np.ndarray:
     Returns:
         np.ndarray: C3 covariance matrix
     """
+    if np.isrealobj(S):
+        raise ValueError("Inputs must be complex-valued.")
     if S.ndim != 4:
         raise ValueError("A matrix-valued image is expected (dimension 4)")
     if S.shape[-2:] != (2, 2):
@@ -366,6 +370,8 @@ def T3_to_C3(T3: np.ndarray) -> np.ndarray:
     Returns:
         np.ndarray: C3 covariance matrix
     """
+    if np.isrealobj(T3):
+        raise ValueError("Inputs must be complex-valued.")
     if T3.ndim != 4:
         raise ValueError("A matrix-valued image is expected (dimension 4)")
     if T3.shape[-2:] != (3, 3):
@@ -384,6 +390,8 @@ def T3_to_C3_dask(T3: np.ndarray) -> np.ndarray:
     Returns:
         np.ndarray: C3 covariance matrix
     """
+    if np.isrealobj(T3):
+        raise ValueError("Inputs must be complex-valued.")
     if T3.ndim != 4:
         raise ValueError("A matrix-valued image is expected (dimension 4)")
     if T3.shape[-2:] != (3, 3):

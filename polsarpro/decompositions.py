@@ -541,7 +541,7 @@ def _compute_h_a_alpha_parameters(l, v, flags):
         lambd = np.sum(p * l, axis=2)
         outputs["lambda"] = lambd
 
-    # extras outputs: non averaged parameters (ex: alpha2, alpha2, alpha3)
+    # extras outputs: non averaged parameters (ex: alpha1, alpha2, alpha3)
     if "alphas" in flags:
         outputs["alphas"] = alphas
 

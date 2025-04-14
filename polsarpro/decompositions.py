@@ -23,10 +23,7 @@ def h_a_alpha(
     input_data: np.ndarray,
     input_poltype: str = "C3",
     boxcar_size: list[int, int] = [3, 3],
-    beta_out: bool = False,
-    delta_out: bool = False,
-    gamma_out: bool = False,
-    lambda_out: bool = False,
+    flags: tuple[str] = ("entropy", "alpha", "anisotropy"),
 ) -> np.ndarray:
     if input_poltype == "C3":
         in_ = C3_to_T3(input_data)
@@ -37,67 +34,33 @@ def h_a_alpha(
     else:
         raise ValueError("Invalid polarimetric type")
 
+    # check flags vailidity
+    possible_flags = (
+        "entropy",
+        "anisotropy",
+        "alpha",
+        "beta",
+        "delta",
+        "gamma",
+        "lambda",
+    )
+    for flag in flags:
+        if flag not in possible_flags:
+            raise ValueError(
+                f"Flag '{flag}' not recognized. Possible values are {possible_flags}."
+            )
+
     eps = 1e-30
 
     # pre-processing step, filtering is required for full rank matrices
     in_ = boxcar(in_, boxcar_size[0], boxcar_size[1])
 
-    # Eigendecomposition
+    # # Eigendecomposition
     l, v = np.linalg.eigh(in_)
     l = l[..., ::-1]  # put in descending order
     v = v[..., ::-1]
 
-    # Pseudo-probabilities (normalized eigenvalues)
-    p = np.clip(l / (eps + l.sum(axis=2)[..., None]), eps, 1)
-
-    # Entropy
-    H = np.sum(-p * np.log(p), axis=2) / np.float32(np.log(3))
-
-    # Anisotropy
-    A = (l[..., 1] - l[..., 2]) / (l[..., 1] + l[..., 2] + eps)
-
-    # Alpha angles for each mechanism
-    alphas = np.arccos(np.abs(v[:, :, 0, :]))
-
-    # Mean alpha
-    alpha = np.sum(p * alphas, axis=2)
-
-    # Convert to degrees
-    alpha *= 180 / np.pi
-
-    outputs = {"H": H, "A": A, "alpha": alpha}
-
-    # Extra angles: beta, delta and gamma angles
-    if beta_out:
-        betas = np.atan2(np.abs(v[:, :, 2, :]), eps + np.abs(v[:, :, 1, :]))
-        beta = np.sum(p * betas, axis=2)
-        beta *= 180 / np.pi
-        outputs["beta"] = beta
-
-    if delta_out or gamma_out:
-        phases = np.atan2(v[:, :, 0, :].imag, eps + v[:, :, 0, :].real)
-
-    if delta_out:
-        deltas = np.atan2(v[:, :, 1, :].imag, eps + v[:, :, 1, :].real) - phases
-        deltas = np.atan2(np.sin(deltas), eps + np.cos(deltas))
-        delta = np.sum(p * deltas, axis=2)
-        delta *= 180 / np.pi
-        outputs["delta"] = delta
-    
-    if gamma_out:
-        gammas = np.atan2(v[:, :, 2, :].imag, eps + v[:, :, 2, :].real) - phases
-        gammas = np.atan2(np.sin(gammas), eps + np.cos(gammas))
-        gamma = np.sum(p * gammas, axis=2)
-        gamma *= 180 / np.pi
-        outputs["gamma"] = gamma
-
-    # Average target eigenvalue 
-    if lambda_out:
-        # lambda is a python reserved keyword, using lambd instead
-        lambd = np.sum(p * l, axis=2)
-        outputs["lambda"] = lambd
-
-
+    outputs = _compute_h_a_alpha_parameters(l, v, flags)
     return outputs
 
 
@@ -354,3 +317,61 @@ def _compute_freeman_components_dask(
     Pv = da.where(Pv <= min_span, min_span, da.where(Pv > max_span, max_span, Pv))
 
     return Ps, Pd, Pv
+
+def _compute_h_a_alpha_parameters(l, v, flags):
+    eps = 1e-30
+
+    # Pseudo-probabilities (normalized eigenvalues)
+    p = np.clip(l / (eps + l.sum(axis=2)[..., None]), eps, 1)
+
+    outputs = {}
+    if "entropy" in flags:
+        H = np.sum(-p * np.log(p), axis=2) / np.float32(np.log(3))
+        outputs["entropy"] = H
+
+    if "anisotropy" in flags:
+        A = (l[..., 1] - l[..., 2]) / (l[..., 1] + l[..., 2] + eps)
+        outputs["anisotropy"] = A
+
+
+    if "alpha" in flags:
+        # Alpha angles for each mechanism
+        alphas = np.arccos(np.abs(v[:, :, 0, :]))
+        # Mean alpha
+        alpha = np.sum(p * alphas, axis=2)
+        # Convert to degrees
+        alpha *= 180 / np.pi
+        outputs["alpha"] = alpha
+
+
+    # Extra angles: beta, delta and gamma angles
+    if "beta" in flags:
+        betas = np.atan2(np.abs(v[:, :, 2, :]), eps + np.abs(v[:, :, 1, :]))
+        beta = np.sum(p * betas, axis=2)
+        beta *= 180 / np.pi
+        outputs["beta"] = beta
+
+    if "delta" in flags or "gamma" in flags:
+        phases = np.atan2(v[:, :, 0, :].imag, eps + v[:, :, 0, :].real)
+
+    if "delta" in flags:
+        deltas = np.atan2(v[:, :, 1, :].imag, eps + v[:, :, 1, :].real) - phases
+        deltas = np.atan2(np.sin(deltas), eps + np.cos(deltas))
+        delta = np.sum(p * deltas, axis=2)
+        delta *= 180 / np.pi
+        outputs["delta"] = delta
+
+    if "gamma" in flags:
+        gammas = np.atan2(v[:, :, 2, :].imag, eps + v[:, :, 2, :].real) - phases
+        gammas = np.atan2(np.sin(gammas), eps + np.cos(gammas))
+        gamma = np.sum(p * gammas, axis=2)
+        gamma *= 180 / np.pi
+        outputs["gamma"] = gamma
+
+    # Average target eigenvalue
+    if "lambda" in flags:
+        # lambda is a python reserved keyword, using lambd instead
+        lambd = np.sum(p * l, axis=2)
+        outputs["lambda"] = lambd
+
+    return outputs

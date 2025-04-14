@@ -31,16 +31,8 @@ def h_a_alpha(
     boxcar_size: list[int, int] = [3, 3],
     flags: tuple[str] = ("entropy", "alpha", "anisotropy"),
 ) -> np.ndarray:
-    if input_poltype == "C3":
-        in_ = C3_to_T3(input_data)
-    elif input_poltype == "T3":
-        in_ = input_data
-    elif input_poltype == "S":
-        in_ = S_to_T3(input_data)
-    else:
-        raise ValueError("Invalid polarimetric type")
 
-    # check flags vailidity
+    # check flags validity
     possible_flags = (
         "entropy",
         "anisotropy",
@@ -56,7 +48,19 @@ def h_a_alpha(
                 f"Flag '{flag}' not recognized. Possible values are {possible_flags}."
             )
 
-    eps = 1e-30
+    if np.isrealobj(input_data):
+        raise ValueError("Inputs must be complex-valued.")
+
+    in_ = input_data.astype("complex64", copy=False)
+
+    if input_poltype == "C3":
+        in_ = C3_to_T3(input_data)
+    elif input_poltype == "T3":
+        pass
+    elif input_poltype == "S":
+        in_ = S_to_T3(input_data)
+    else:
+        raise ValueError("Invalid polarimetric type")
 
     # pre-processing step, filtering is required for full rank matrices
     in_ = boxcar(in_, boxcar_size[0], boxcar_size[1])
@@ -76,7 +80,7 @@ def h_a_alpha_dask(
     boxcar_size: list[int, int] = [3, 3],
     flags: tuple[str] = ("entropy", "alpha", "anisotropy"),
 ) -> np.ndarray:
-    # check flags vailidity
+    # check flags validity
     possible_flags = (
         "entropy",
         "anisotropy",
@@ -92,13 +96,18 @@ def h_a_alpha_dask(
                 f"Flag '{flag}' not recognized. Possible values are {possible_flags}."
             )
 
-    in_ = da.from_array(input_data, chunks="auto")
+    if np.isrealobj(input_data):
+        raise ValueError("Inputs must be complex-valued.")
+
+    in_ = da.from_array(input_data.astype("complex64", copy=False), chunks="auto")
     if input_poltype == "C3":
         in_ = da.map_blocks(
             _C3_to_T3_core,
             in_,
             dtype="complex64",
         )
+    if input_poltype == "T3":
+        pass
     elif input_poltype == "S":
         in_ = da.map_blocks(
             _S_to_T3_core,

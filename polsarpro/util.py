@@ -482,6 +482,8 @@ def C3_to_T3(C3: np.ndarray) -> np.ndarray:
     Returns:
         np.ndarray: T3 coherency matrix
     """
+    if np.isrealobj(C3):
+        raise ValueError("Inputs must be complex-valued.")
     if C3.ndim != 4:
         raise ValueError("A matrix-valued image is expected (dimension 4)")
     if C3.shape[-2:] != (3, 3):
@@ -498,6 +500,8 @@ def C3_to_T3_dask(C3: np.ndarray) -> np.ndarray:
     Returns:
         np.ndarray: T3 coherency matrix
     """
+    if np.isrealobj(C3):
+        raise ValueError("Inputs must be complex-valued.")
     if C3.ndim != 4:
         raise ValueError("A matrix-valued image is expected (dimension 4)")
     if C3.shape[-2:] != (3, 3):

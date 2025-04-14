@@ -33,9 +33,10 @@ def test_h_a_alpha():
     # TODO: add dask version when ready
     for fun in [h_a_alpha]:
         for poltype, input_data in zip(["T3", "S"], [T3, S]):
-            h, a, alpha = fun(
+            outputs = fun(
                 input_data=input_data, input_poltype=poltype, boxcar_size=[5, 5]
             )
+            h, a, alpha = outputs["entropy"], outputs["anisotropy"], outputs["alpha"]
 
             assert all((it.shape == input_data.shape[:2] for it in [h, a, alpha]))
             assert all((it.dtype == "float32" for it in [h, a, alpha]))

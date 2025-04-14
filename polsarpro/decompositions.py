@@ -57,7 +57,7 @@ def h_a_alpha(
             - "anisotropy": Scattering anisotropy (A)
             - "alpha": Mean alpha scattering angle (alpha)
             - "beta", "delta", "gamma", "lambda": Other angular or eigenvalue related parameters
-            - "alphas", "betas", "deltas", "gammas", "lambdas": Per-eigenvector versions of the above
+            - "alphas", "betas", "deltas", "gammas", "lambdas": Per-eigenvalue versions of the above
             Defaults to ("entropy", "alpha", "anisotropy").
 
     Returns:
@@ -152,7 +152,7 @@ def h_a_alpha_dask(
             - "anisotropy": Scattering anisotropy (A)
             - "alpha": Mean alpha scattering angle (alpha)
             - "beta", "delta", "gamma", "lambda": Other angular or eigenvalue related parameters
-            - "alphas", "betas", "deltas", "gammas", "lambdas": Per-eigenvector versions of the above
+            - "alphas", "betas", "deltas", "gammas", "lambdas": Per-eigenvalue versions of the above
             Defaults to ("entropy", "alpha", "anisotropy").
 
     Returns:

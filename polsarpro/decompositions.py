@@ -32,6 +32,48 @@ def h_a_alpha(
     flags: tuple[str] = ("entropy", "alpha", "anisotropy"),
 ) -> np.ndarray:
 
+    """Performs the H/A/Alpha polarimetric decomposition on full-pol SAR data.
+
+    This function computes the H/A/Alpha decomposition from input polarimetric SAR data 
+    using eigenvalue analysis of the coherency matrix. The decomposition 
+    provides physical insight into scattering mechanisms through parameters such as 
+    entropy (H), anisotropy (A), and the alpha scattering angle (alpha). Additional 
+    eigenvalue-based parameters can also be computed by specifying corresponding flags.
+
+    Args:
+        input_data (np.ndarray): The input polarimetric SAR data array. Expected to represent
+            a 3x3 matrix (or 2x2 in the case of Sinclair) per pixel, typically with shape 
+            (..., 3, 3) or (..., 2, 2) depending on `input_poltype`.
+        input_poltype (str, optional): The polarimetric basis of the input data. Supported types are:
+            - "C3": Lexicographic covariance matrix
+            - "T3": Pauli coherency matrix
+            - "S": Sinclair scattering matrix
+            Defaults to "C3".
+        boxcar_size (list[int, int], optional): Size of the spatial averaging window to be
+            applied before decomposition (boxcar filter). Defaults to [3, 3].
+        flags (tuple[str], optional): Parameters to compute and return from the decomposition.
+            Possible values include:
+            - "entropy": Scattering entropy (H)
+            - "anisotropy": Scattering anisotropy (A)
+            - "alpha": Mean alpha scattering angle (alpha)
+            - "beta", "delta", "gamma", "lambda": Other angular or eigenvalue related parameters
+            - "alphas", "betas", "deltas", "gammas", "lambdas": Per-eigenvector versions of the above
+            Defaults to ("entropy", "alpha", "anisotropy").
+
+    Returns:
+        dict[str, np.ndarray]: A dictionary where keys correspond to the requested flags, 
+        and values are the corresponding 2D arrays (or 3D if the flag returns multiple values per pixel).
+
+    Raises:
+        ValueError: If `input_poltype` is not one of the supported types, or if any
+        requested flag is unrecognized.
+
+    References:
+        Cloude, S. R., & Pottier, E. (1997). An entropy based classification scheme for land
+        applications of polarimetric SAR. *IEEE Transactions on Geoscience and Remote Sensing*,
+        35(1), 68-78.
+    """
+
     # check flags validity
     possible_flags = (
         "entropy",
@@ -85,6 +127,48 @@ def h_a_alpha_dask(
     boxcar_size: list[int, int] = [3, 3],
     flags: tuple[str] = ("entropy", "alpha", "anisotropy"),
 ) -> np.ndarray:
+    """Performs the H/A/Alpha polarimetric decomposition on full-pol SAR data.
+
+    This function computes the H/A/Alpha decomposition from input polarimetric SAR data 
+    using eigenvalue analysis of the coherency matrix. The decomposition 
+    provides physical insight into scattering mechanisms through parameters such as 
+    entropy (H), anisotropy (A), and the alpha scattering angle (alpha). Additional 
+    eigenvalue-based parameters can also be computed by specifying corresponding flags.
+
+    Args:
+        input_data (np.ndarray): The input polarimetric SAR data array. Expected to represent
+            a 3x3 matrix (or 2x2 in the case of Sinclair) per pixel, typically with shape 
+            (..., 3, 3) or (..., 2, 2) depending on `input_poltype`.
+        input_poltype (str, optional): The polarimetric basis of the input data. Supported types are:
+            - "C3": Lexicographic covariance matrix
+            - "T3": Pauli coherency matrix
+            - "S": Sinclair scattering matrix
+            Defaults to "C3".
+        boxcar_size (list[int, int], optional): Size of the spatial averaging window to be
+            applied before decomposition (boxcar filter). Defaults to [3, 3].
+        flags (tuple[str], optional): Parameters to compute and return from the decomposition.
+            Possible values include:
+            - "entropy": Scattering entropy (H)
+            - "anisotropy": Scattering anisotropy (A)
+            - "alpha": Mean alpha scattering angle (alpha)
+            - "beta", "delta", "gamma", "lambda": Other angular or eigenvalue related parameters
+            - "alphas", "betas", "deltas", "gammas", "lambdas": Per-eigenvector versions of the above
+            Defaults to ("entropy", "alpha", "anisotropy").
+
+    Returns:
+        dict[str, np.ndarray]: A dictionary where keys correspond to the requested flags, 
+        and values are the corresponding 2D arrays (or 3D if the flag returns multiple values per pixel).
+
+    Raises:
+        ValueError: If `input_poltype` is not one of the supported types, or if any
+        requested flag is unrecognized.
+
+    References:
+        Cloude, S. R., & Pottier, E. (1997). An entropy based classification scheme for land
+        applications of polarimetric SAR. *IEEE Transactions on Geoscience and Remote Sensing*,
+        35(1), 68-78.
+    """
+
     # check flags validity
     possible_flags = (
         "entropy",

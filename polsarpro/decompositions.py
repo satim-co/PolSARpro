@@ -421,17 +421,17 @@ def _compute_h_a_alpha_parameters(l, v, flags):
     if "alpha" in flags or "alphas" in flags:
         # Alpha angles for each mechanism
         alphas = np.arccos(np.abs(v[:, :, 0, :]))
+        # Convert to degrees
+        alphas *= 180 / np.pi
         # Mean alpha
         alpha = np.sum(p * alphas, axis=2)
-        # Convert to degrees
-        alpha *= 180 / np.pi
         outputs["alpha"] = alpha
 
     # Extra angles: beta, delta and gamma angles
     if "beta" in flags or "betas" in flags:
         betas = np.atan2(np.abs(v[:, :, 2, :]), eps + np.abs(v[:, :, 1, :]))
+        betas *= 180 / np.pi
         beta = np.sum(p * betas, axis=2)
-        beta *= 180 / np.pi
         outputs["beta"] = beta
 
     if "delta" in flags or "gamma" in flags or "deltas" in flags or "gammas" in flags:
@@ -440,15 +440,15 @@ def _compute_h_a_alpha_parameters(l, v, flags):
     if "delta" in flags or "deltas" in flags:
         deltas = np.atan2(v[:, :, 1, :].imag, eps + v[:, :, 1, :].real) - phases
         deltas = np.atan2(np.sin(deltas), eps + np.cos(deltas))
+        deltas *= 180 / np.pi
         delta = np.sum(p * deltas, axis=2)
-        delta *= 180 / np.pi
         outputs["delta"] = delta
 
     if "gamma" in flags or "gammas" in flags:
         gammas = np.atan2(v[:, :, 2, :].imag, eps + v[:, :, 2, :].real) - phases
         gammas = np.atan2(np.sin(gammas), eps + np.cos(gammas))
+        gammas *= 180 / np.pi
         gamma = np.sum(p * gammas, axis=2)
-        gamma *= 180 / np.pi
         outputs["gamma"] = gamma
 
     # Average target eigenvalue

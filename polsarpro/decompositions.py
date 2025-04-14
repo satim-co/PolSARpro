@@ -35,12 +35,13 @@ def freeman(
     Returns:
         list[np.ndarray, np.ndarray, np.ndarray]: Ps, Pd and Pv components.
     """
+    in_ = input_data.astype("complex64", copy=False)
     if input_poltype == "C3":
-        in_ = input_data
+        pass
     elif input_poltype == "T3":
-        in_ = T3_to_C3(input_data)
+        in_ = T3_to_C3(in_)
     elif input_poltype == "S":
-        in_ = S_to_C3(input_data)
+        in_ = S_to_C3(in_)
     else:
         raise ValueError("Invalid polarimetric type")
 
@@ -70,8 +71,10 @@ def freeman_dask(
         list[np.ndarray, np.ndarray, np.ndarray]: Ps, Pd and Pv components.
     """
 
-    in_ = da.from_array(input_data, chunks="auto")
-    if input_poltype == "T3":
+    in_ = da.from_array(input_data.astype("complex64", copy=False), chunks="auto")
+    if input_poltype == "C3":
+        pass
+    elif input_poltype == "T3":
         in_ = da.map_blocks(
             _T3_to_C3_core,
             in_,

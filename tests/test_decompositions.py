@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from polsarpro.util import vec_to_mat
+from polsarpro.util import vec_to_mat, T3_to_C3
 from polsarpro.decompositions import freeman, freeman_dask
 
 
@@ -12,8 +12,9 @@ def test_freeman():
     S = np.random.rand(N, N, 2, 2) + 1j * np.random.rand(N, N, 2, 2)
     # fake T3 matrix
     T3 = vec_to_mat(v)
+    C3 = T3_to_C3(T3)
     for fun in [freeman, freeman_dask]:
-        for poltype, input_data in zip(["T3", "S"], [T3, S]):
+        for poltype, input_data in zip(["C3", "T3", "S"], [C3, T3, S]):
             Ps, Pd, Pv = fun(
                 input_data=input_data, input_poltype=poltype, boxcar_size=[5, 5]
             )

@@ -35,6 +35,10 @@ def freeman(
     Returns:
         list[np.ndarray, np.ndarray, np.ndarray]: Ps, Pd and Pv components.
     """
+
+    if np.isrealobj(input_data):
+        raise ValueError("Inputs must be complex-valued.")
+
     in_ = input_data.astype("complex64", copy=False)
     if input_poltype == "C3":
         pass
@@ -70,6 +74,9 @@ def freeman_dask(
     Returns:
         list[np.ndarray, np.ndarray, np.ndarray]: Ps, Pd and Pv components.
     """
+
+    if np.isrealobj(input_data):
+        raise ValueError("Inputs must be complex-valued.")
 
     in_ = da.from_array(input_data.astype("complex64", copy=False), chunks="auto")
     if input_poltype == "C3":

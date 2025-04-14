@@ -1,7 +1,13 @@
 import numpy as np
 import warnings
 from polsarpro.util import boxcar, T3_to_C3, C3_to_T3, S_to_T3, S_to_C3
-from polsarpro.util import _boxcar_core, _T3_to_C3_core, _S_to_T3_core, _S_to_C3_core
+from polsarpro.util import (
+    _boxcar_core,
+    _T3_to_C3_core,
+    _S_to_T3_core,
+    _S_to_C3_core,
+    _C3_to_T3_core,
+)
 from polsarpro.util import span
 from bench import timeit
 import dask.array as da
@@ -68,16 +74,59 @@ def h_a_alpha_dask(
     input_data: np.ndarray,
     input_poltype: str = "C3",
     boxcar_size: list[int, int] = [3, 3],
-    # TODO: add flags
+    flags: tuple[str] = ("entropy", "alpha", "anisotropy"),
 ) -> np.ndarray:
+    # check flags vailidity
+    possible_flags = (
+        "entropy",
+        "anisotropy",
+        "alpha",
+        "beta",
+        "delta",
+        "gamma",
+        "lambda",
+    )
+    for flag in flags:
+        if flag not in possible_flags:
+            raise ValueError(
+                f"Flag '{flag}' not recognized. Possible values are {possible_flags}."
+            )
+
+    in_ = da.from_array(input_data, chunks="auto")
     if input_poltype == "C3":
-        in_ = C3_to_T3(input_data)
-    elif input_poltype == "T3":
-        in_ = input_data
+        in_ = da.map_blocks(
+            _C3_to_T3_core,
+            in_,
+            dtype="complex64",
+        )
     elif input_poltype == "S":
-        in_ = S_to_T3(input_data)
+        in_ = da.map_blocks(
+            _S_to_T3_core,
+            in_,
+            dtype="complex64",
+            chunks=in_.chunksize[:2] + (3, 3),
+        )
     else:
         raise ValueError("Invalid polarimetric type")
+
+    # pre-processing step, it is recommended to filter the matrices to mitigate speckle effects
+    in_ = da.map_overlap(
+        _boxcar_core,
+        in_,
+        dim_az=boxcar_size[0],
+        dim_rg=boxcar_size[1],
+        depth=(boxcar_size[0], boxcar_size[1]),
+        dtype="complex64",
+        boundary=1e-30,
+    )
+
+    # # Eigendecomposition
+    l, v = np.linalg.eigh(in_)
+    l = l[..., ::-1]  # put in descending order
+    v = v[..., ::-1]
+
+    outputs = _compute_h_a_alpha_parameters(l, v, flags)
+    return outputs
 
 
 # @timeit
@@ -318,6 +367,7 @@ def _compute_freeman_components_dask(
 
     return Ps, Pd, Pv
 
+
 def _compute_h_a_alpha_parameters(l, v, flags):
     eps = 1e-30
 
@@ -333,7 +383,6 @@ def _compute_h_a_alpha_parameters(l, v, flags):
         A = (l[..., 1] - l[..., 2]) / (l[..., 1] + l[..., 2] + eps)
         outputs["anisotropy"] = A
 
-
     if "alpha" in flags:
         # Alpha angles for each mechanism
         alphas = np.arccos(np.abs(v[:, :, 0, :]))
@@ -342,7 +391,6 @@ def _compute_h_a_alpha_parameters(l, v, flags):
         # Convert to degrees
         alpha *= 180 / np.pi
         outputs["alpha"] = alpha
-
 
     # Extra angles: beta, delta and gamma angles
     if "beta" in flags:

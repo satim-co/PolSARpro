@@ -41,6 +41,11 @@ def h_a_alpha(
         "delta",
         "gamma",
         "lambda",
+        "alphas",
+        "betas",
+        "deltas",
+        "gammas",
+        "lambdas",
     )
     for flag in flags:
         if flag not in possible_flags:
@@ -89,6 +94,11 @@ def h_a_alpha_dask(
         "delta",
         "gamma",
         "lambda",
+        "alphas",
+        "betas",
+        "deltas",
+        "gammas",
+        "lambdas",
     )
     for flag in flags:
         if flag not in possible_flags:
@@ -130,8 +140,10 @@ def h_a_alpha_dask(
     )
 
     # Eigendecomposition
-    meta = (np.array([], dtype="float32").reshape((0,0,0)),
-            np.array([], dtype="complex64").reshape((0,0,0,0)))
+    meta = (
+        np.array([], dtype="float32").reshape((0, 0, 0)),
+        np.array([], dtype="complex64").reshape((0, 0, 0, 0)),
+    )
     l, v = da.apply_gufunc(np.linalg.eigh, "(i,j)->(i), (i,j)", in_, meta=meta)
 
     l = l[..., ::-1]  # put in descending order
@@ -406,7 +418,7 @@ def _compute_h_a_alpha_parameters(l, v, flags):
         A = (l[..., 1] - l[..., 2]) / (l[..., 1] + l[..., 2] + eps)
         outputs["anisotropy"] = A
 
-    if "alpha" in flags:
+    if "alpha" in flags or "alphas" in flags:
         # Alpha angles for each mechanism
         alphas = np.arccos(np.abs(v[:, :, 0, :]))
         # Mean alpha
@@ -416,23 +428,23 @@ def _compute_h_a_alpha_parameters(l, v, flags):
         outputs["alpha"] = alpha
 
     # Extra angles: beta, delta and gamma angles
-    if "beta" in flags:
+    if "beta" in flags or "betas" in flags:
         betas = np.atan2(np.abs(v[:, :, 2, :]), eps + np.abs(v[:, :, 1, :]))
         beta = np.sum(p * betas, axis=2)
         beta *= 180 / np.pi
         outputs["beta"] = beta
 
-    if "delta" in flags or "gamma" in flags:
+    if "delta" in flags or "gamma" in flags or "deltas" in flags or "gammas" in flags:
         phases = np.atan2(v[:, :, 0, :].imag, eps + v[:, :, 0, :].real)
 
-    if "delta" in flags:
+    if "delta" in flags or "deltas" in flags:
         deltas = np.atan2(v[:, :, 1, :].imag, eps + v[:, :, 1, :].real) - phases
         deltas = np.atan2(np.sin(deltas), eps + np.cos(deltas))
         delta = np.sum(p * deltas, axis=2)
         delta *= 180 / np.pi
         outputs["delta"] = delta
 
-    if "gamma" in flags:
+    if "gamma" in flags or "gammas" in flags:
         gammas = np.atan2(v[:, :, 2, :].imag, eps + v[:, :, 2, :].real) - phases
         gammas = np.atan2(np.sin(gammas), eps + np.cos(gammas))
         gamma = np.sum(p * gammas, axis=2)
@@ -440,9 +452,24 @@ def _compute_h_a_alpha_parameters(l, v, flags):
         outputs["gamma"] = gamma
 
     # Average target eigenvalue
-    if "lambda" in flags:
+    if "lambda" in flags or "lambdas" in flags:
         # lambda is a python reserved keyword, using lambd instead
         lambd = np.sum(p * l, axis=2)
         outputs["lambda"] = lambd
 
+    # extras outputs: non averaged parameters (ex: alpha2, alpha2, alpha3)
+    if "alphas" in flags:
+        outputs["alphas"] = alphas
+
+    if "betas" in flags:
+        outputs["betas"] = betas
+
+    if "deltas" in flags:
+        outputs["deltas"] = deltas
+
+    if "gammas" in flags:
+        outputs["gammas"] = gammas
+
+    if "lambdas" in flags:
+        outputs["lambdas"] = l
     return outputs

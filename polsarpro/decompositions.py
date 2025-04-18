@@ -106,7 +106,7 @@ def h_a_alpha(
     elif input_poltype == "S":
         in_ = S_to_T3(input_data)
     else:
-        raise ValueError("Invalid polarimetric type")
+        raise ValueError(f"Invalid polarimetric type: {input_poltype}")
 
     # pre-processing step, filtering is required for full rank matrices
     in_ = boxcar(in_, boxcar_size[0], boxcar_size[1])
@@ -199,7 +199,7 @@ def h_a_alpha_dask(
             in_,
             dtype="complex64",
         )
-    if input_poltype == "T3":
+    elif input_poltype == "T3":
         pass
     elif input_poltype == "S":
         in_ = da.map_blocks(
@@ -209,7 +209,7 @@ def h_a_alpha_dask(
             chunks=in_.chunksize[:2] + (3, 3),
         )
     else:
-        raise ValueError("Invalid polarimetric type")
+        raise ValueError(f"Invalid polarimetric type: {input_poltype}")
 
     # pre-processing step, it is recommended to filter the matrices to mitigate speckle effects
     in_ = da.map_overlap(
@@ -267,7 +267,7 @@ def freeman(
     elif input_poltype == "S":
         in_ = S_to_C3(in_)
     else:
-        raise ValueError("Invalid polarimetric type")
+        raise ValueError(f"Invalid polarimetric type: {input_poltype}")
 
     # pre-processing step, it is recommended to filter the matrices to mitigate speckle effects
     in_ = boxcar(in_, boxcar_size[0], boxcar_size[1])
@@ -315,7 +315,7 @@ def freeman_dask(
             chunks=in_.chunksize[:2] + (3, 3),
         )
     else:
-        raise ValueError("Invalid polarimetric type")
+        raise ValueError(f"Invalid polarimetric type: {input_poltype}")
 
     # pre-processing step, it is recommended to filter the matrices to mitigate speckle effects
     in_ = da.map_overlap(

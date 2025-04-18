@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 from polsarpro.util import vec_to_mat, T3_to_C3, C3_to_T3
 from polsarpro.decompositions import freeman, freeman_dask
-from polsarpro.decompositions import h_a_alpha 
+from polsarpro.decompositions import h_a_alpha, h_a_alpha_dask 
 
 
 @pytest.mark.filterwarnings("ignore:invalid")
@@ -32,8 +32,7 @@ def test_h_a_alpha():
     # fake input matrices
     C3 = vec_to_mat(v).astype("complex64")
     T3 = C3_to_T3(C3)
-    # TODO: add dask version when ready
-    for fun in [h_a_alpha]:
+    for fun in [h_a_alpha, h_a_alpha_dask]:
         for poltype, input_data in zip(["C3", "T3", "S"], [C3, T3, S]):
             outputs = fun(
                 input_data=input_data, input_poltype=poltype, boxcar_size=[5, 5]

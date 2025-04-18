@@ -35,9 +35,10 @@ def test_h_a_alpha():
     for fun in [h_a_alpha, h_a_alpha_dask]:
         for poltype, input_data in zip(["C3", "T3", "S"], [C3, T3, S]):
             outputs = fun(
-                input_data=input_data, input_poltype=poltype, boxcar_size=[5, 5]
+                input_data=input_data, input_poltype=poltype, boxcar_size=[5, 5], flags=("alpha", "entropy", "anisotropy", "betas")
             )
-            h, a, alpha = outputs["entropy"], outputs["anisotropy"], outputs["alpha"]
+            h, a, alpha, betas = outputs["entropy"], outputs["anisotropy"], outputs["alpha"], outputs["betas"]
 
             assert all((it.shape == input_data.shape[:2] for it in [h, a, alpha]))
+            assert betas.shape ==  input_data.shape[:2] + (3,)
             assert all((it.dtype == "float32" for it in [h, a, alpha]))

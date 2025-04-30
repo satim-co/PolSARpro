@@ -9,7 +9,7 @@ log = logging.getLogger(__name__)
 
 
 # @timeit
-def boxcar(img: np.ndarray, dim_az: int, dim_rg: int):
+def boxcar(img: np.ndarray, dim_az: int, dim_rg: int) -> np.ndarray:
     """
     Apply a boxcar filter to an image.
 
@@ -35,7 +35,7 @@ def boxcar(img: np.ndarray, dim_az: int, dim_rg: int):
 
 
 # @timeit
-def boxcar_dask(img: np.ndarray, dim_az: int, dim_rg: int):
+def boxcar_dask(img: np.ndarray, dim_az: int, dim_rg: int) -> np.ndarray:
     """
     Apply a boxcar filter to an image.
 
@@ -64,7 +64,8 @@ def boxcar_dask(img: np.ndarray, dim_az: int, dim_rg: int):
     )
     da_in = da.map_overlap(
         _boxcar_core,
-        da.from_array(img, chunks=(500, 500, 3, 3)),
+        # da.from_array(img, chunks=(500, 500, 3, 3)),
+        da.from_array(img, chunks="auto"),
         **process_args,
         dtype="complex64",
     )
@@ -72,7 +73,7 @@ def boxcar_dask(img: np.ndarray, dim_az: int, dim_rg: int):
     return np.asarray(da_in)
 
 
-def _boxcar_core(img, dim_az, dim_rg):
+def _boxcar_core(img: np.ndarray, dim_az: int, dim_rg: int) -> np.ndarray:
     n_extra_dims = img.ndim - 2
 
     ker_dtype = img.dtype if not np.iscomplexobj(img) else img.real.dtype
@@ -100,7 +101,7 @@ def _boxcar_core(img, dim_az, dim_rg):
 
 
 # @timeit
-def multilook(img: np.ndarray, dim_az: int, dim_rg: int):
+def multilook(img: np.ndarray, dim_az: int, dim_rg: int) -> np.ndarray:
     """
     Computes the m by n presummed image.
 
@@ -359,7 +360,8 @@ def S_to_C3_dask(S: np.ndarray) -> np.ndarray:
 
     da_in = da.map_blocks(
         _S_to_C3_core,
-        da.from_array(S, chunks=(500, 500, -1, -1)),
+        da.from_array(S, chunks="auto"),
+        # da.from_array(S, chunks=(500, 500, -1, -1)),
         dtype="complex64",
     )
 
@@ -381,7 +383,8 @@ def S_to_T3_dask(S: np.ndarray) -> np.ndarray:
 
     da_in = da.map_blocks(
         _S_to_T3_core,
-        da.from_array(S, chunks=(500, 500, -1, -1)),
+        da.from_array(S, chunks="auto"),
+        # da.from_array(S, chunks=(500, 500, -1, -1)),
         dtype="complex64",
     )
 
@@ -445,7 +448,8 @@ def T3_to_C3_dask(T3: np.ndarray) -> np.ndarray:
 
     da_in = da.map_blocks(
         _T3_to_C3_core,
-        da.from_array(T3, chunks=(500, 500, -1, -1)),
+        # da.from_array(T3, chunks=(500, 500, -1, -1)),
+        da.from_array(T3, chunks="auto"),
         dtype="complex64",
     )
 
@@ -509,7 +513,8 @@ def C3_to_T3_dask(C3: np.ndarray) -> np.ndarray:
 
     da_in = da.map_blocks(
         _C3_to_T3_core,
-        da.from_array(C3, chunks=(500, 500, -1, -1)),
+        da.from_array(C3, chunks="auto"),
+        # da.from_array(C3, chunks=(500, 500, -1, -1)),
         dtype="complex64",
     )
 

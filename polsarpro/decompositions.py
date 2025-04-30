@@ -63,10 +63,6 @@ def h_a_alpha(
         dict[str, np.ndarray]: A dictionary where keys correspond to the requested flags,
         and values are the corresponding 2D arrays (or 3D if the flag returns multiple values per pixel).
 
-    Raises:
-        ValueError: If `input_poltype` is not one of the supported types, or if any
-        requested flag is unrecognized.
-
     References:
         Cloude, S. R., & Pottier, E. (1997). An entropy based classification scheme for land
         applications of polarimetric SAR. *IEEE Transactions on Geoscience and Remote Sensing*,
@@ -96,6 +92,17 @@ def h_a_alpha(
 
     if np.isrealobj(input_data):
         raise ValueError("Inputs must be complex-valued.")
+
+    if input_data.ndim != 4:
+        raise ValueError("A matrix-valued image is expected (dimension 4)")
+
+    # check matrix shapes
+    expected_shape = (3, 3) if input_poltype in ("C3", "T3") else (2, 2)
+    if input_data.shape[-2:] != expected_shape:
+        raise ValueError(
+            f"Unexpected matrix shape {in_.shape[-2:]} for polarimetric type {input_poltype}. "
+            f"Expected shape: {expected_shape}"
+        )
 
     in_ = input_data.astype("complex64", copy=False)
 
@@ -158,10 +165,6 @@ def h_a_alpha_dask(
         dict[str, np.ndarray]: A dictionary where keys correspond to the requested flags,
         and values are the corresponding 2D arrays (or 3D if the flag returns multiple values per pixel).
 
-    Raises:
-        ValueError: If `input_poltype` is not one of the supported types, or if any
-        requested flag is unrecognized.
-
     References:
         Cloude, S. R., & Pottier, E. (1997). An entropy based classification scheme for land
         applications of polarimetric SAR. *IEEE Transactions on Geoscience and Remote Sensing*,
@@ -191,6 +194,17 @@ def h_a_alpha_dask(
 
     if np.isrealobj(input_data):
         raise ValueError("Inputs must be complex-valued.")
+
+    if input_data.ndim != 4:
+        raise ValueError("A matrix-valued image is expected (dimension 4)")
+
+    # check matrix shapes
+    expected_shape = (3, 3) if input_poltype in ("C3", "T3") else (2, 2)
+    if input_data.shape[-2:] != expected_shape:
+        raise ValueError(
+            f"Unexpected matrix shape {in_.shape[-2:]} for polarimetric type {input_poltype}. "
+            f"Expected shape: {expected_shape}"
+        )
 
     in_ = da.from_array(input_data.astype("complex64", copy=False), chunks="auto")
     if input_poltype == "C3":
@@ -259,6 +273,17 @@ def freeman(
     if np.isrealobj(input_data):
         raise ValueError("Inputs must be complex-valued.")
 
+    if input_data.ndim != 4:
+        raise ValueError("A matrix-valued image is expected (dimension 4)")
+
+    # check matrix shapes
+    expected_shape = (3, 3) if input_poltype in ("C3", "T3") else (2, 2)
+    if input_data.shape[-2:] != expected_shape:
+        raise ValueError(
+            f"Unexpected matrix shape {in_.shape[-2:]} for polarimetric type {input_poltype}. "
+            f"Expected shape: {expected_shape}"
+        )
+
     in_ = input_data.astype("complex64", copy=False)
     if input_poltype == "C3":
         pass
@@ -297,6 +322,17 @@ def freeman_dask(
 
     if np.isrealobj(input_data):
         raise ValueError("Inputs must be complex-valued.")
+
+    if input_data.ndim != 4:
+        raise ValueError("A matrix-valued image is expected (dimension 4)")
+
+    # check matrix shapes
+    expected_shape = (3, 3) if input_poltype in ("C3", "T3") else (2, 2)
+    if input_data.shape[-2:] != expected_shape:
+        raise ValueError(
+            f"Unexpected matrix shape {in_.shape[-2:]} for polarimetric type {input_poltype}. "
+            f"Expected shape: {expected_shape}"
+        )
 
     in_ = da.from_array(input_data.astype("complex64", copy=False), chunks="auto")
     if input_poltype == "C3":

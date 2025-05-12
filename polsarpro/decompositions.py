@@ -30,7 +30,7 @@ def h_a_alpha(
     input_poltype: str = "C3",
     boxcar_size: list[int, int] = [3, 3],
     flags: tuple[str] = ("entropy", "alpha", "anisotropy"),
-) -> np.ndarray:
+) -> dict[str, np.ndarray]:
     """Performs the H/A/Alpha polarimetric decomposition on full-pol SAR data.
 
     This function computes the H/A/Alpha decomposition from input polarimetric SAR data
@@ -132,7 +132,7 @@ def h_a_alpha_dask(
     input_poltype: str = "C3",
     boxcar_size: list[int, int] = [3, 3],
     flags: tuple[str] = ("entropy", "alpha", "anisotropy"),
-) -> np.ndarray:
+) -> dict[str, np.ndarray]:
     """Performs the H/A/Alpha polarimetric decomposition on full-pol SAR data.
 
     This function computes the H/A/Alpha decomposition from input polarimetric SAR data

@@ -1,0 +1,15 @@
+---
+version: "3.7"
+
+services:
+
+  polsarpro-dev:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      PYTHONPATH: /polsarpro-dev
+    volumes:
+      - ${HOME}/code/python/PolSARpro:/polsarpro-dev
+      - ${HOME}/data:/data
+    command: /bin/sh -c "while sleep 1000; do :; done" 

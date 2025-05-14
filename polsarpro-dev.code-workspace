@@ -1,0 +1,22 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../home/c_psp"
+		}
+	],
+	"settings": {
+		"workbench.colorCustomizations": {
+			"titleBar.activeBackground": "#000000",
+			"titleBar.border": "#000000",
+			"titleBar.activeForeground": "#f55fb1",
+			"titleBar.inactiveBackground": "#262626",
+			"titleBar.inactiveForeground": "#f777bd",
+			"activityBar.background": "#000000",
+			"activityBar.foreground": "#f55fb1",
+			"activityBar.inactiveForeground": "#c44c8e"
+		}
+	}
+}

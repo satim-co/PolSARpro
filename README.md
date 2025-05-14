@@ -1,6 +1,8 @@
 <a id="readme-top"></a>
 # **PolSARpro**
 
+This is the old version which we keep in a separate branch for reference.
+
 ![Stars](https://img.shields.io/github/stars/satim-co/PolSARpro?style=flat-square&label=Stars)
 ![Contributors](https://img.shields.io/github/contributors/satim-co/PolSARpro.svg?label=Contributors)
 ![Issues](https://img.shields.io/github/issues/satim-co/PolSARpro?label=Issues)

@@ -1,5 +1,7 @@
 # PolSARPro
 
+Re-implementation of selected PolSARpro functions in Python, following the scientific recommendations of PolInSAR 2021 (Work In Progress). 
+
 ## Installation guidelines
 - Clone the repository and follow the instructions below 
 

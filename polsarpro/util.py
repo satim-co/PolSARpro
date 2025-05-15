@@ -4,7 +4,7 @@ This code is part of the Python PolSARpro software:
 "A re-implementation of selected PolSARPro functions in Python,
 following the scientific recommendations of PolInSAR 2021"
 
-and developed within an ESA funded project with SATIM.
+developed within an ESA funded project with SATIM.
 
 Author: Olivier D'Hondt, 2025.
 Scientific advisors: Armando Marino and Eric Pottier.

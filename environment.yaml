@@ -26,3 +26,4 @@ dependencies:
   - bottleneck
   - jupyter
   - spectral
+  - zarr

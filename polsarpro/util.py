@@ -27,6 +27,7 @@ import numpy as np
 from scipy.ndimage import convolve
 import dask.array as da
 from bench import timeit
+import xarray
 
 log = logging.getLogger(__name__)
 
@@ -95,6 +96,25 @@ def boxcar_dask(img: np.ndarray, dim_az: int, dim_rg: int) -> np.ndarray:
 
     return np.asarray(da_in)
 
+def boxcar_xarray(img: xarray.Dataset, dim_az: int, dim_rg: int) -> xarray.Dataset:
+    """
+    Apply a boxcar filter to an image.
+
+    Args:
+        img (complex or real array): Input image with arbitrary number of dimensions, shape (naz, nrg, ...).
+        dim_az (int): Size in azimuth of the filter.
+        dim_rg (int): Size in range of the filter.
+
+    Returns:
+        complex or real array: Filtered image, shape (naz, nrg, ...).
+
+    Note:
+        The filter is always applied along 2 dimensions (azimuth, range). Please ensure to provide a valid image.
+    """
+    if ("x" in img.dims and "y" in img.dims):
+        return img.rolling(x=dim_rg, y=dim_az, centered=True).mean()
+    else:
+        raise ValueError("'x' and 'y' must be in the dimensions of the input data.")
 
 def _boxcar_core(img: np.ndarray, dim_az: int, dim_rg: int) -> np.ndarray:
     n_extra_dims = img.ndim - 2

@@ -25,6 +25,10 @@ limitations under the License.
 import logging
 from pathlib import Path
 import numpy as np
+import rioxarray as riox
+import warnings
+from rasterio.errors import NotGeoreferencedWarning
+import xarray
 
 
 log = logging.getLogger(__name__)
@@ -188,3 +192,53 @@ def read_PSP_bin(file_name: str, dtype: str = "float32"):
     nrg = int(dict_cfg["Ncol"])
 
     return np.fromfile(file_path, dtype=dtype, count=naz * nrg).reshape((naz, nrg))
+
+
+def read_demo_data(data_dir: str) -> xarray.Dataset:
+    """Reads ALOS-1 PALSAR San Francisco demo dataset.
+
+    Args:
+        data_dir (str): Input directory
+
+    Returns:
+        xarray.Dataset: Returns the elements of the Sinclair scattering matrix in a dataset.
+    Note:
+        The dataset must be downloaded at https://ietr-lab.univ-rennes1.fr/polsarpro-bio/sample_datasets/dataset/SAN_FRANCISCO_ALOS1.zip and unzipped in the directory of your choice.
+    """
+
+    # read metadata to extract the radiometric calibaration factor
+    def extract_calibration_factor(data_path):
+        from math import sqrt, pow
+
+        file_path = data_path / "ceos_leader.txt"
+        with open(file_path, "r") as file:
+            for line in file:
+                if "Calibration Factor:" in line:
+                    parts = line.strip().split()
+                    # Assume the last element is the calibration value
+                    try:
+                        value = float(parts[-1])
+                        # dB to linear
+                        value = sqrt(pow(10.0, (value - 32.0) / 10.0))
+                        return value
+                    except ValueError("Invalid metadata."):
+                        continue
+        return None
+
+    data_path = Path(data_dir)
+    calfac = extract_calibration_factor(data_path=data_path)
+    # silence warnings when dataset is in the SAR geometry
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", category=NotGeoreferencedWarning)
+        # open with chunks to use dask arrays
+        S = riox.open_rasterio(
+            data_path / "VOL-ALPSRP202350750-P1.1__A",
+            chunks="auto",
+            # chunks=(-1, "auto", "auto"),
+            band_as_variable=True,
+        ).rename(band_1="hh", band_2="hv", band_3="vh", band_4="vv")
+    # convert digital number to RCS
+    S *= calfac
+    # set polarimetric data type
+    S.attrs = {"poltype": "S", "description": "Scattering matrix"}
+    return S

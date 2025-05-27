@@ -27,6 +27,7 @@ import numpy as np
 from scipy.ndimage import convolve
 import dask.array as da
 from bench import timeit
+import xarray as xr
 import xarray
 
 log = logging.getLogger(__name__)
@@ -96,6 +97,7 @@ def boxcar_dask(img: np.ndarray, dim_az: int, dim_rg: int) -> np.ndarray:
 
     return np.asarray(da_in)
 
+
 def boxcar_xarray(img: xarray.Dataset, dim_az: int, dim_rg: int) -> xarray.Dataset:
     """
     Apply a boxcar filter to an image.
@@ -111,10 +113,18 @@ def boxcar_xarray(img: xarray.Dataset, dim_az: int, dim_rg: int) -> xarray.Datas
     Note:
         The filter is always applied along 2 dimensions (azimuth, range). Please ensure to provide a valid image.
     """
-    if ("x" in img.dims and "y" in img.dims):
-        return img.rolling(x=dim_rg, y=dim_az, centered=True).mean()
+    if "x" in img.dims and "y" in img.dims:
+        # pad the data with zeros
+        res = img.pad(dict(x=dim_rg, y=dim_az), mode="constant", constant_values=0)
+        # compute rolling mean
+        res = res.rolling(x=dim_rg, y=dim_az, center=True).mean()
+        # trim the padded borders
+        res = res.isel(x=slice(dim_rg, -dim_rg), y=slice(dim_az, -dim_az))
+        return res
+        # return img.rolling(x=dim_rg, y=dim_az, center=True).mean()
     else:
         raise ValueError("'x' and 'y' must be in the dimensions of the input data.")
+
 
 def _boxcar_core(img: np.ndarray, dim_az: int, dim_rg: int) -> np.ndarray:
     n_extra_dims = img.ndim - 2
@@ -209,6 +219,7 @@ def S_to_C3(S: np.ndarray) -> np.ndarray:
         raise ValueError("S must have a shape like (naz, nrg, 2, 2)")
     return _S_to_C3_core(S)
 
+
 def S_to_T3(S: np.ndarray) -> np.ndarray:
     """Converts the Sinclair scattering matrix S to the Pauli coherency matrix T3.
 
@@ -249,6 +260,42 @@ def S_to_C3_dask(S: np.ndarray) -> np.ndarray:
     )
 
     return np.asarray(da_in)
+
+
+def S_to_C3_xarray(S: xarray.Dataset) -> xarray.Dataset:
+    """Converts the Sinclair scattering matrix S to the lexicographic covariance matrix C3.
+
+    Args:
+        S (xarray.Dataset): input image of scattering matrices with shape
+
+    Returns:
+        xarray.Dataset: C3 covariance matrix
+    """
+
+    if S.attrs["poltype"] == "S":
+        # scattering vector
+        k1 = S.hh
+        k2 = S.vv
+        k3 = 0.5 * (S.hv + S.vh)
+
+        # compute the Hermitian matrix elements
+        C3_dict = {}
+
+        # force real diagonal to save space
+        C3_dict["m11"] = (k1 * k1.conj()).real
+        C3_dict["m22"] = (k2 * k2.conj()).real
+        C3_dict["m33"] = (k3 * k3.conj()).real
+
+        # upper diagonal terms
+        C3_dict["m12"] = k1 * k2.conj()
+        C3_dict["m13"] = k1 * k3.conj()
+        C3_dict["m23"] = k2 * k3.conj()
+
+        attrs = {"poltype": "C3", "description": "Covariance matrix (3x3)"}
+        return xr.Dataset(C3_dict, attrs=attrs)
+    else:
+        raise ValueError("Input polarimetric type must be 'S'")
+
 
 def S_to_T3_dask(S: np.ndarray) -> np.ndarray:
     """Converts the Sinclair scattering matrix S to the Pauli coherency matrix T3.
@@ -378,6 +425,7 @@ def C3_to_T3(C3: np.ndarray) -> np.ndarray:
 
     return _C3_to_T3_core(C3=C3)
 
+
 def C3_to_T3_dask(C3: np.ndarray) -> np.ndarray:
     """Converts the lexicographic covariance matrix C3 to the Pauli coherency matrix T3.
 
@@ -402,6 +450,7 @@ def C3_to_T3_dask(C3: np.ndarray) -> np.ndarray:
     )
 
     return np.asarray(da_in)
+
 
 def _C3_to_T3_core(C3: np.ndarray) -> np.ndarray:
     T3 = np.zeros_like(C3, dtype="complex64")

@@ -220,22 +220,6 @@ def S_to_C3(S: np.ndarray) -> np.ndarray:
     return _S_to_C3_core(S)
 
 
-def S_to_T3(S: np.ndarray) -> np.ndarray:
-    """Converts the Sinclair scattering matrix S to the Pauli coherency matrix T3.
-
-    Args:
-        S (np.ndarray): input image of scattering matrices with shape (naz, nrg, 2, 2)
-
-    Returns:
-        np.ndarray: T3 coherency matrix
-    """
-    if S.ndim != 4:
-        raise ValueError("A matrix-valued image is expected (dimension 4)")
-    if S.shape[-2:] != (2, 2):
-        raise ValueError("S must have a shape like (naz, nrg, 2, 2)")
-    return _S_to_T3_core(S)
-
-
 def S_to_C3_dask(S: np.ndarray) -> np.ndarray:
     """Converts the Sinclair scattering matrix S to the lexicographic covariance matrix C3.
 
@@ -275,8 +259,8 @@ def S_to_C3_xarray(S: xarray.Dataset) -> xarray.Dataset:
     if S.attrs["poltype"] == "S":
         # scattering vector
         k1 = S.hh
-        k2 = S.vv
-        k3 = 0.5 * (S.hv + S.vh)
+        k2 = (1 / np.sqrt(2)) * (S.hv + S.vh)
+        k3 = S.vv
 
         # compute the Hermitian matrix elements
         C3_dict = {}
@@ -295,6 +279,31 @@ def S_to_C3_xarray(S: xarray.Dataset) -> xarray.Dataset:
         return xr.Dataset(C3_dict, attrs=attrs)
     else:
         raise ValueError("Input polarimetric type must be 'S'")
+
+
+def _S_to_C3_core(S: np.ndarray) -> np.ndarray:
+
+    k = np.dstack(
+        (S[..., 0, 0], (1.0 / np.sqrt(2)) * (S[..., 0, 1] + S[..., 1, 0]), S[..., 1, 1])
+    )
+
+    return vec_to_mat(k).astype("complex64")
+
+
+def S_to_T3(S: np.ndarray) -> np.ndarray:
+    """Converts the Sinclair scattering matrix S to the Pauli coherency matrix T3.
+
+    Args:
+        S (np.ndarray): input image of scattering matrices with shape (naz, nrg, 2, 2)
+
+    Returns:
+        np.ndarray: T3 coherency matrix
+    """
+    if S.ndim != 4:
+        raise ValueError("A matrix-valued image is expected (dimension 4)")
+    if S.shape[-2:] != (2, 2):
+        raise ValueError("S must have a shape like (naz, nrg, 2, 2)")
+    return _S_to_T3_core(S)
 
 
 def S_to_T3_dask(S: np.ndarray) -> np.ndarray:
@@ -319,15 +328,6 @@ def S_to_T3_dask(S: np.ndarray) -> np.ndarray:
     )
 
     return np.asarray(da_in)
-
-
-def _S_to_C3_core(S: np.ndarray) -> np.ndarray:
-
-    k = np.dstack(
-        (S[..., 0, 0], (1.0 / np.sqrt(2)) * (S[..., 0, 1] + S[..., 1, 0]), S[..., 1, 1])
-    )
-
-    return vec_to_mat(k).astype("complex64")
 
 
 def _S_to_T3_core(S: np.ndarray) -> np.ndarray:

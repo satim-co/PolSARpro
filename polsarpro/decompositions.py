@@ -496,7 +496,9 @@ def freeman_dask(
             _S_to_C3_core,
             in_,
             dtype="complex64",
-            chunks=in_.chunksize[:2] + (3, 3),
+            # chunks=in_.chunksize[:2] + (3, 3),
+            # since the shape changes, we need to specify chunk output sizes
+            chunks=in_.chunks[:-2] + ((3,), (3,)),
         )
     else:
         raise ValueError(f"Invalid polarimetric type: {input_poltype}")

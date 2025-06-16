@@ -257,10 +257,11 @@ def S_to_C3_xarray(S: xarray.Dataset) -> xarray.Dataset:
     """
 
     if S.attrs["poltype"] == "S":
-        # scattering vector
-        k1 = S.hh
-        k2 = (1 / np.sqrt(2)) * (S.hv + S.vh)
-        k3 = S.vv
+        # scattering vector, enforce type as in C version
+        c = np.sqrt(np.float32(2))
+        k1 = S.hh.astype("complex64", copy=False)
+        k2 =  ((S.hv + S.vh) / c).astype("complex64", copy=False)
+        k3 = S.vv.astype("complex64", copy=False)
 
         # compute the Hermitian matrix elements
         C3_dict = {}
@@ -328,6 +329,41 @@ def S_to_T3_dask(S: np.ndarray) -> np.ndarray:
     )
 
     return np.asarray(da_in)
+
+def S_to_T3_xarray(S: xarray.Dataset) -> xarray.Dataset:
+    """Converts the Sinclair scattering matrix S to the Pauli coherency matrix T3.
+
+    Args:
+        S (xarray.Dataset): input image of scattering matrices with shape
+
+    Returns:
+        xarray.Dataset: T3 covariance matrix
+    """
+
+    if S.attrs["poltype"] == "S":
+        # scattering vector
+        c = np.sqrt(np.float32(2))
+        k1 = ((S.hh + S.vv) / c).astype("complex64", copy=False)
+        k2 = ((S.hh - S.vv) / c).astype("complex64", copy=False)
+        k3 = (c * S.hv).astype("complex64", copy=False)
+
+        # compute the Hermitian matrix elements
+        T3_dict = {}
+
+        # force real diagonal to save space
+        T3_dict["m11"] = (k1 * k1.conj()).real
+        T3_dict["m22"] = (k2 * k2.conj()).real
+        T3_dict["m33"] = (k3 * k3.conj()).real
+
+        # upper diagonal terms
+        T3_dict["m12"] = k1 * k2.conj()
+        T3_dict["m13"] = k1 * k3.conj()
+        T3_dict["m23"] = k2 * k3.conj()
+
+        attrs = {"poltype": "T3", "description": "Coherency matrix (3x3)"}
+        return xr.Dataset(T3_dict, attrs=attrs)
+    else:
+        raise ValueError("Input polarimetric type must be 'S'")
 
 
 def _S_to_T3_core(S: np.ndarray) -> np.ndarray:

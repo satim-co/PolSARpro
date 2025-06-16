@@ -1,9 +1,10 @@
 import numpy as np
-from polsarpro.util import vec_to_mat, S_to_C3, S_to_C3_dask
-from polsarpro.util import S_to_T3, S_to_T3_dask
+from polsarpro.util import vec_to_mat, S_to_C3, S_to_C3_dask, S_to_C3_xarray
+from polsarpro.util import S_to_T3, S_to_T3_dask, S_to_T3_xarray
 from polsarpro.util import T3_to_C3, T3_to_C3_dask
 from polsarpro.util import C3_to_T3, C3_to_T3_dask
 from polsarpro.util import boxcar, boxcar_dask
+import xarray as xr
 
 
 def test_vec_to_mat():
@@ -29,6 +30,23 @@ def test_S_to_C3():
         assert np.allclose(C3.transpose((0, 1, 3, 2)), C3.conj())
         assert np.allclose(C3.diagonal(axis1=2, axis2=3).imag, 0)
 
+    # Xarray version
+    dims=("y", "x") 
+    S_dict = dict(
+        hh=xr.DataArray(S[..., 0, 0], dims=dims), 
+        hv=xr.DataArray(S[..., 0, 1], dims=dims), 
+        vh=xr.DataArray(S[..., 1, 0], dims=dims), 
+        vv=xr.DataArray(S[..., 1, 1], dims=dims)
+    )
+    Sx = xr.Dataset(S_dict, attrs=dict(poltype="S"))
+    C3x = S_to_C3_xarray(Sx)
+
+    # test ouput shapes and types
+    assert all(C3x[var].shape == (N, N) for var in C3x.data_vars)
+    assert all(C3x[var].dtype == "float32" for var in ["m11", "m22", "m33"])
+    assert all(C3x[var].dtype == "complex64" for var in ["m12", "m13", "m23"])
+
+
 def test_S_to_T3():
 
     N = 128
@@ -39,6 +57,22 @@ def test_S_to_T3():
         # C3 has to be Hermitian
         assert np.allclose(T3.transpose((0, 1, 3, 2)), T3.conj())
         assert np.allclose(T3.diagonal(axis1=2, axis2=3).imag, 0)
+    
+    # Xarray version
+    dims=("y", "x") 
+    S_dict = dict(
+        hh=xr.DataArray(S[..., 0, 0], dims=dims), 
+        hv=xr.DataArray(S[..., 0, 1], dims=dims), 
+        vh=xr.DataArray(S[..., 1, 0], dims=dims), 
+        vv=xr.DataArray(S[..., 1, 1], dims=dims)
+    )
+    Sx = xr.Dataset(S_dict, attrs=dict(poltype="S"))
+    T3x = S_to_T3_xarray(Sx)
+
+    # test ouput shapes and types
+    assert all(T3x[var].shape == (N, N) for var in T3x.data_vars)
+    assert all(T3x[var].dtype == "float32" for var in ["m11", "m22", "m33"])
+    assert all(T3x[var].dtype == "complex64" for var in ["m12", "m13", "m23"])
 
 
 def test_T3_to_C3():
@@ -60,6 +94,7 @@ def test_T3_to_C3():
             T3.diagonal(axis1=2, axis2=3).sum().real,
         )
 
+
 def test_C3_to_T3():
 
     N = 128
@@ -79,6 +114,7 @@ def test_C3_to_T3():
             C3.diagonal(axis1=2, axis2=3).sum().real,
         )
 
+
 def test_boxcar():
 
     N = 128
@@ -94,4 +130,3 @@ def test_boxcar():
         # output has to be Hermitian
         assert np.allclose(M_box.transpose((0, 1, 3, 2)), M_box.conj())
         assert np.allclose(M_box.diagonal(axis1=2, axis2=3).imag, 0)
-

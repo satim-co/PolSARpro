@@ -1,10 +1,11 @@
 import numpy as np
-from polsarpro.util import vec_to_mat, S_to_C3, S_to_C3_dask, S_to_C3_xarray
+import xarray as xr
+from polsarpro.util import vec_to_mat
+from polsarpro.util import S_to_C3, S_to_C3_dask, S_to_C3_xarray
 from polsarpro.util import S_to_T3, S_to_T3_dask, S_to_T3_xarray
 from polsarpro.util import T3_to_C3, T3_to_C3_dask
 from polsarpro.util import C3_to_T3, C3_to_T3_dask
-from polsarpro.util import boxcar, boxcar_dask
-import xarray as xr
+from polsarpro.util import boxcar, boxcar_dask, boxcar_xarray
 
 
 def test_vec_to_mat():
@@ -31,12 +32,12 @@ def test_S_to_C3():
         assert np.allclose(C3.diagonal(axis1=2, axis2=3).imag, 0)
 
     # Xarray version
-    dims=("y", "x") 
+    dims = ("y", "x")
     S_dict = dict(
-        hh=xr.DataArray(S[..., 0, 0], dims=dims), 
-        hv=xr.DataArray(S[..., 0, 1], dims=dims), 
-        vh=xr.DataArray(S[..., 1, 0], dims=dims), 
-        vv=xr.DataArray(S[..., 1, 1], dims=dims)
+        hh=xr.DataArray(S[..., 0, 0], dims=dims),
+        hv=xr.DataArray(S[..., 0, 1], dims=dims),
+        vh=xr.DataArray(S[..., 1, 0], dims=dims),
+        vv=xr.DataArray(S[..., 1, 1], dims=dims),
     )
     Sx = xr.Dataset(S_dict, attrs=dict(poltype="S"))
     C3x = S_to_C3_xarray(Sx)
@@ -57,14 +58,14 @@ def test_S_to_T3():
         # C3 has to be Hermitian
         assert np.allclose(T3.transpose((0, 1, 3, 2)), T3.conj())
         assert np.allclose(T3.diagonal(axis1=2, axis2=3).imag, 0)
-    
+
     # Xarray version
-    dims=("y", "x") 
+    dims = ("y", "x")
     S_dict = dict(
-        hh=xr.DataArray(S[..., 0, 0], dims=dims), 
-        hv=xr.DataArray(S[..., 0, 1], dims=dims), 
-        vh=xr.DataArray(S[..., 1, 0], dims=dims), 
-        vv=xr.DataArray(S[..., 1, 1], dims=dims)
+        hh=xr.DataArray(S[..., 0, 0], dims=dims),
+        hv=xr.DataArray(S[..., 0, 1], dims=dims),
+        vh=xr.DataArray(S[..., 1, 0], dims=dims),
+        vv=xr.DataArray(S[..., 1, 1], dims=dims),
     )
     Sx = xr.Dataset(S_dict, attrs=dict(poltype="S"))
     T3x = S_to_T3_xarray(Sx)
@@ -130,3 +131,22 @@ def test_boxcar():
         # output has to be Hermitian
         assert np.allclose(M_box.transpose((0, 1, 3, 2)), M_box.conj())
         assert np.allclose(M_box.diagonal(axis1=2, axis2=3).imag, 0)
+
+    # Xarray version
+    dims = ("y", "x")
+    M_dict = dict(
+        m11=xr.DataArray(M[..., 0, 0].real.astype("float32"), dims=dims),
+        m22=xr.DataArray(M[..., 1, 1].real.astype("float32"), dims=dims),
+        m33=xr.DataArray(M[..., 2, 2].real.astype("float32"), dims=dims),
+        m12=xr.DataArray(M[..., 0, 1].astype("complex64"), dims=dims),
+        m13=xr.DataArray(M[..., 0, 2].astype("complex64"), dims=dims),
+        m23=xr.DataArray(M[..., 1, 2].astype("complex64"), dims=dims),
+    )
+    Mx = xr.Dataset(M_dict)
+    param = {"img": Mx, "dim_az": 5, "dim_rg": 3}
+    M_box = boxcar_xarray(**param)
+
+    # test ouput shapes and types
+    assert all(Mx[var].shape == (N, N) for var in Mx.data_vars)
+    assert all(Mx[var].dtype == "float32" for var in ["m11", "m22", "m33"])
+    assert all(Mx[var].dtype == "complex64" for var in ["m12", "m13", "m23"])

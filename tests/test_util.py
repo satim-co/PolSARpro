@@ -3,8 +3,8 @@ import xarray as xr
 from polsarpro.util import vec_to_mat
 from polsarpro.util import S_to_C3, S_to_C3_dask, S_to_C3_xarray
 from polsarpro.util import S_to_T3, S_to_T3_dask, S_to_T3_xarray
-from polsarpro.util import T3_to_C3, T3_to_C3_dask
-from polsarpro.util import C3_to_T3, C3_to_T3_dask
+from polsarpro.util import T3_to_C3, T3_to_C3_dask, T3_to_C3_xarray
+from polsarpro.util import C3_to_T3, C3_to_T3_dask, C3_to_T3_xarray
 from polsarpro.util import boxcar, boxcar_dask, boxcar_xarray
 
 
@@ -43,6 +43,7 @@ def test_S_to_C3():
     C3x = S_to_C3_xarray(Sx)
 
     # test ouput shapes and types
+    assert C3x.poltype == "C3"
     assert all(C3x[var].shape == (N, N) for var in C3x.data_vars)
     assert all(C3x[var].dtype == "float32" for var in ["m11", "m22", "m33"])
     assert all(C3x[var].dtype == "complex64" for var in ["m12", "m13", "m23"])
@@ -71,6 +72,7 @@ def test_S_to_T3():
     T3x = S_to_T3_xarray(Sx)
 
     # test ouput shapes and types
+    assert T3x.poltype == "T3"
     assert all(T3x[var].shape == (N, N) for var in T3x.data_vars)
     assert all(T3x[var].dtype == "float32" for var in ["m11", "m22", "m33"])
     assert all(T3x[var].dtype == "complex64" for var in ["m12", "m13", "m23"])
@@ -95,6 +97,24 @@ def test_T3_to_C3():
             T3.diagonal(axis1=2, axis2=3).sum().real,
         )
 
+    # Xarray version
+    dims = ("y", "x")
+    T3_dict = dict(
+        m11=xr.DataArray(T3[..., 0, 0].real.astype("float32"), dims=dims),
+        m22=xr.DataArray(T3[..., 1, 1].real.astype("float32"), dims=dims),
+        m33=xr.DataArray(T3[..., 2, 2].real.astype("float32"), dims=dims),
+        m12=xr.DataArray(T3[..., 0, 1].astype("complex64"), dims=dims),
+        m13=xr.DataArray(T3[..., 0, 2].astype("complex64"), dims=dims),
+        m23=xr.DataArray(T3[..., 1, 2].astype("complex64"), dims=dims),
+    )
+    T3x = xr.Dataset(T3_dict, attrs=dict(poltype="T3"))
+    C3x = T3_to_C3_xarray(T3x)
+    # test ouput shapes and types
+    assert C3x.poltype == "C3"
+    assert all(C3x[var].shape == (N, N) for var in C3x.data_vars)
+    assert all(C3x[var].dtype == "float32" for var in ["m11", "m22", "m33"])
+    assert all(C3x[var].dtype == "complex64" for var in ["m12", "m13", "m23"])
+
 
 def test_C3_to_T3():
 
@@ -114,6 +134,23 @@ def test_C3_to_T3():
             T3.diagonal(axis1=2, axis2=3).sum().real,
             C3.diagonal(axis1=2, axis2=3).sum().real,
         )
+    # Xarray version
+    dims = ("y", "x")
+    C3_dict = dict(
+        m11=xr.DataArray(C3[..., 0, 0].real.astype("float32"), dims=dims),
+        m22=xr.DataArray(C3[..., 1, 1].real.astype("float32"), dims=dims),
+        m33=xr.DataArray(C3[..., 2, 2].real.astype("float32"), dims=dims),
+        m12=xr.DataArray(C3[..., 0, 1].astype("complex64"), dims=dims),
+        m13=xr.DataArray(C3[..., 0, 2].astype("complex64"), dims=dims),
+        m23=xr.DataArray(C3[..., 1, 2].astype("complex64"), dims=dims),
+    )
+    C3x = xr.Dataset(C3_dict, attrs=dict(poltype="C3"))
+    T3x = C3_to_T3_xarray(C3x)
+    # test ouput shapes and types
+    assert T3x.poltype == "T3"
+    assert all(T3x[var].shape == (N, N) for var in T3x.data_vars)
+    assert all(T3x[var].dtype == "float32" for var in ["m11", "m22", "m33"])
+    assert all(T3x[var].dtype == "complex64" for var in ["m12", "m13", "m23"])
 
 
 def test_boxcar():

@@ -384,13 +384,17 @@ def h_a_alpha_xarray(
     )
     l, v = da.apply_gufunc(np.linalg.eigh, "(i,j)->(i), (i,j)", T3, meta=meta)
 
-    l = l[..., ::-1]  # put in descending order
+    l = l[..., ::-1]  # descending order
     v = v[..., ::-1]
 
+    # returns a dict
     out = _compute_h_a_alpha_parameters(l, v, flags)
     return xr.Dataset(
-        out,
-        dims=("x", "y"),
+        # add dimension names, account for 2D and 3D outputs
+        {
+            k: (["y", "x"], v) if v.ndim == 2 else (["y", "x", "i"], v)
+            for k, v in out.items()
+        },
         attrs=dict(
             poltype="h_a_alpha", description="Results of the H/A/Alpha decomposition."
         ),

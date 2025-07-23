@@ -15,13 +15,13 @@ RUN apt-get install -y unzip
 # https://ietr-lab.univ-rennes1.fr/polsarpro-bio/Linux/PolSARpro_v6.0.3_Biomass_Edition_Linux_Installer_20210501.zip
 ARG CPSPDIR="/home/c_psp/"
 WORKDIR ${CPSPDIR}
-COPY PolSARpro_v6.0.3_Biomass_Edition_Linux_Installer_20210501.zip ${CPSPDIR}
-RUN unzip ${CPSPDIR}PolSARpro_v6.0.3_Biomass_Edition_Linux_Installer_20210501.zip
+COPY PolSARpro_v6.0.4_Biomass_Edition_Linux_Installer_20250122.zip ${CPSPDIR}
+RUN unzip ${CPSPDIR}PolSARpro_v6.0.4_Biomass_Edition_Linux_Installer_20250122.zip
 # we use custom building scripts
 COPY scripts/Compil_PolSARpro_Biomass_Edition_Linux.sh ${CPSPDIR}Soft
-COPY scripts/PolSARpro_v6.0.3_Biomass_Edition_Linux_Installation.sh ${CPSPDIR}
-RUN chmod +x PolSARpro_v6.0.3_Biomass_Edition_Linux_Installation.sh
-RUN ./PolSARpro_v6.0.3_Biomass_Edition_Linux_Installation.sh
+COPY scripts/PolSARpro_v6.0.4_Biomass_Edition_Linux_Installation.sh ${CPSPDIR}
+RUN chmod +x PolSARpro_v6.0.4_Biomass_Edition_Linux_Installation.sh
+RUN ./PolSARpro_v6.0.4_Biomass_Edition_Linux_Installation.sh
 
 # Setup micromamba (lightweight conda clone)
 WORKDIR "/tmp/conda_init/"

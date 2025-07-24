@@ -27,11 +27,11 @@ import xarray as xr
 import warnings
 from polsarpro.util import boxcar, T3_to_C3, C3_to_T3, S_to_T3, S_to_C3
 from polsarpro.util import (
-    boxcar_xarray,
-    T3_to_C3_xarray,
-    C3_to_T3_xarray,
-    S_to_T3_xarray,
-    S_to_C3_xarray,
+    boxcar,
+    T3_to_C3,
+    C3_to_T3,
+    S_to_T3,
+    S_to_C3,
 )
 from polsarpro.util import (
     _boxcar_core,
@@ -355,16 +355,16 @@ def h_a_alpha_xarray(
         ValueError("Polarimetric type `poltype` not found in input attributes.")
 
     if input_data.poltype == "C3":
-        in_ = C3_to_T3_xarray(input_data)
+        in_ = C3_to_T3(input_data)
     elif input_data.poltype == "T3":
         in_ = input_data
     elif input_data.poltype == "S":
-        in_ = S_to_T3_xarray(input_data)
+        in_ = S_to_T3(input_data)
     else:
         raise ValueError(f"Invalid polarimetric type: {input_data.poltype}")
 
     # pre-processing step, it is recommended to filter the matrices to mitigate speckle effects
-    in_ = boxcar_xarray(in_, dim_az=boxcar_size[0], dim_rg=boxcar_size[1])
+    in_ = boxcar(in_, dim_az=boxcar_size[0], dim_rg=boxcar_size[1])
 
     # form a T3 matrix array that can be used in eigh
     # concatenate columns

@@ -25,14 +25,10 @@ limitations under the License.
 import numpy as np
 import xarray as xr
 import dask.array as da
-from polsarpro.util import (
-    boxcar_xarray,
-    C3_to_T3_xarray,
-    S_to_T3_xarray,
-)
+from polsarpro.util import boxcar, C3_to_T3, S_to_T3
 
 
-def h_a_alpha_xarray(
+def h_a_alpha(
     input_data: xr.Dataset,
     boxcar_size: list[int, int] = [3, 3],
     flags: tuple[str] = ("entropy", "alpha", "anisotropy"),
@@ -103,16 +99,16 @@ def h_a_alpha_xarray(
         ValueError("Polarimetric type `poltype` not found in input attributes.")
 
     if input_data.poltype == "C3":
-        in_ = C3_to_T3_xarray(input_data)
+        in_ = C3_to_T3(input_data)
     elif input_data.poltype == "T3":
         in_ = input_data
     elif input_data.poltype == "S":
-        in_ = S_to_T3_xarray(input_data)
+        in_ = S_to_T3(input_data)
     else:
         raise ValueError(f"Invalid polarimetric type: {input_data.poltype}")
 
     # pre-processing step, it is recommended to filter the matrices to mitigate speckle effects
-    in_ = boxcar_xarray(in_, dim_az=boxcar_size[0], dim_rg=boxcar_size[1])
+    in_ = boxcar(in_, dim_az=boxcar_size[0], dim_rg=boxcar_size[1])
 
     # form a T3 matrix array that can be used in eigh
     # concatenate columns
@@ -147,6 +143,7 @@ def h_a_alpha_xarray(
             poltype="h_a_alpha", description="Results of the H/A/Alpha decomposition."
         ),
     )
+
 
 def _compute_h_a_alpha_parameters(l, v, flags):
 

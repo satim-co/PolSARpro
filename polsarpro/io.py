@@ -29,6 +29,7 @@ import rioxarray as riox
 import warnings
 from rasterio.errors import NotGeoreferencedWarning
 import xarray
+import xarray as xr
 
 
 log = logging.getLogger(__name__)
@@ -70,30 +71,33 @@ def read_T3(input_dir: str):
     naz = int(dict_cfg["Nrow"])
     nrg = int(dict_cfg["Ncol"])
 
-    T3 = np.zeros((naz, nrg, 3, 3), dtype="complex64")
+    T3_dict = {}
 
     for c in range(3):
         for r in range(c + 1):
             elt = f"T{r+1}{c+1}"
             if r == c:
-                T3[..., r, c].real = np.fromfile(
+                data = np.fromfile(
                     input_path / f"{elt}.bin", dtype="float32", count=naz * nrg
                 ).reshape((naz, nrg))
+
+                if is_valid_mask:
+                    data = np.where(valid_mask, data, np.nan)
+                T3_dict[f"m{r+1}{c+1}"] = (("y", "x"), data)
             else:
-                T3[..., r, c].real = np.fromfile(
+                data_real = np.fromfile(
                     input_path / f"{elt}_real.bin", dtype="float32", count=naz * nrg
                 ).reshape((naz, nrg))
-                T3[..., r, c].imag = np.fromfile(
+                data_imag = np.fromfile(
                     input_path / f"{elt}_imag.bin", dtype="float32", count=naz * nrg
                 ).reshape((naz, nrg))
+                if is_valid_mask:
+                    data = np.where(valid_mask, data, np.nan + 1j * np.nan)
+                T3_dict[f"m{r+1}{c+1}"] = (("y", "x"), data_real + 1j * data_imag)
 
-    T3[..., 1, 0] = T3[..., 0, 1].conj()
-    T3[..., 2, 0] = T3[..., 0, 2].conj()
-    T3[..., 2, 1] = T3[..., 1, 2].conj()
-
-    if is_valid_mask:
-        T3[~valid_mask] = np.nan + 1j * np.nan
-
+    attrs = {"poltype": "T3", "description": "Coherency matrix (3x3)"}
+    T3 = xr.Dataset(T3_dict, attrs=attrs).chunk("auto")
+    # T3 = xr.Dataset(T3_dict, attrs=attrs).chunk({"y": "auto", "x": "auto"})
     return T3
 
 

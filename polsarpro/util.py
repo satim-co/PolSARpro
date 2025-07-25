@@ -195,7 +195,6 @@ def C3_to_T3(C3: xarray.Dataset) -> xarray.Dataset:
     return xr.Dataset(T3_dict, attrs=attrs)
 
 
-
 def vec_to_mat(vec: np.ndarray) -> np.ndarray:
     """Vector to matrix conversion. Input should have (naz, nrg, N) shape"""
     if vec.ndim != 3:

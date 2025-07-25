@@ -71,30 +71,30 @@ def S_to_C3(S: xarray.Dataset) -> xarray.Dataset:
         xarray.Dataset: C3 covariance matrix
     """
 
-    if S.poltype == "S":
-        # scattering vector, enforce type as in C version
-        c = np.sqrt(np.float32(2))
-        k1 = S.hh.astype("complex64", copy=False)
-        k2 = ((S.hv + S.vh) / c).astype("complex64", copy=False)
-        k3 = S.vv.astype("complex64", copy=False)
-
-        # compute the Hermitian matrix elements
-        C3_dict = {}
-
-        # force real diagonal to save space
-        C3_dict["m11"] = (k1 * k1.conj()).real
-        C3_dict["m22"] = (k2 * k2.conj()).real
-        C3_dict["m33"] = (k3 * k3.conj()).real
-
-        # upper diagonal terms
-        C3_dict["m12"] = k1 * k2.conj()
-        C3_dict["m13"] = k1 * k3.conj()
-        C3_dict["m23"] = k2 * k3.conj()
-
-        attrs = {"poltype": "C3", "description": "Covariance matrix (3x3)"}
-        return xr.Dataset(C3_dict, attrs=attrs)
-    else:
+    if S.poltype != "S":
         raise ValueError("Input polarimetric type must be 'S'")
+
+    # scattering vector, enforce type as in C version
+    c = np.sqrt(np.float32(2))
+    k1 = S.hh.astype("complex64", copy=False)
+    k2 = ((S.hv + S.vh) / c).astype("complex64", copy=False)
+    k3 = S.vv.astype("complex64", copy=False)
+
+    # compute the Hermitian matrix elements
+    C3_dict = {}
+
+    # force real diagonal to save space
+    C3_dict["m11"] = (k1 * k1.conj()).real
+    C3_dict["m22"] = (k2 * k2.conj()).real
+    C3_dict["m33"] = (k3 * k3.conj()).real
+
+    # upper diagonal terms
+    C3_dict["m12"] = k1 * k2.conj()
+    C3_dict["m13"] = k1 * k3.conj()
+    C3_dict["m23"] = k2 * k3.conj()
+
+    attrs = {"poltype": "C3", "description": "Covariance matrix (3x3)"}
+    return xr.Dataset(C3_dict, attrs=attrs)
 
 
 def S_to_T3(S: xarray.Dataset) -> xarray.Dataset:
@@ -107,30 +107,31 @@ def S_to_T3(S: xarray.Dataset) -> xarray.Dataset:
         xarray.Dataset: T3 covariance matrix
     """
 
-    if S.poltype == "S":
-        # scattering vector
-        c = np.sqrt(np.float32(2))
-        k1 = ((S.hh + S.vv) / c).astype("complex64", copy=False)
-        k2 = ((S.hh - S.vv) / c).astype("complex64", copy=False)
-        k3 = (c * S.hv).astype("complex64", copy=False)
-
-        # compute the Hermitian matrix elements
-        T3_dict = {}
-
-        # force real diagonal to save space
-        T3_dict["m11"] = (k1 * k1.conj()).real
-        T3_dict["m22"] = (k2 * k2.conj()).real
-        T3_dict["m33"] = (k3 * k3.conj()).real
-
-        # upper diagonal terms
-        T3_dict["m12"] = k1 * k2.conj()
-        T3_dict["m13"] = k1 * k3.conj()
-        T3_dict["m23"] = k2 * k3.conj()
-
-        attrs = {"poltype": "T3", "description": "Coherency matrix (3x3)"}
-        return xr.Dataset(T3_dict, attrs=attrs)
-    else:
+    if S.poltype != "S":
         raise ValueError("Input polarimetric type must be 'S'")
+
+    # scattering vector
+    c = np.sqrt(np.float32(2))
+    k1 = ((S.hh + S.vv) / c).astype("complex64", copy=False)
+    k2 = ((S.hh - S.vv) / c).astype("complex64", copy=False)
+    k3 = ((S.hv + S.vh) / c).astype("complex64", copy=False)
+    # k3 = (c * S.hv).astype("complex64", copy=False)
+
+    # compute the Hermitian matrix elements
+    T3_dict = {}
+
+    # force real diagonal to save space
+    T3_dict["m11"] = (k1 * k1.conj()).real
+    T3_dict["m22"] = (k2 * k2.conj()).real
+    T3_dict["m33"] = (k3 * k3.conj()).real
+
+    # upper diagonal terms
+    T3_dict["m12"] = k1 * k2.conj()
+    T3_dict["m13"] = k1 * k3.conj()
+    T3_dict["m23"] = k2 * k3.conj()
+
+    attrs = {"poltype": "T3", "description": "Coherency matrix (3x3)"}
+    return xr.Dataset(T3_dict, attrs=attrs)
 
 
 def T3_to_C3(T3: xarray.Dataset) -> xarray.Dataset:
@@ -143,26 +144,25 @@ def T3_to_C3(T3: xarray.Dataset) -> xarray.Dataset:
         xarray.Dataset: C3 covariance matrix
     """
 
-    if T3.poltype == "T3":
-
-        C3_dict = {}
-
-        c = 1 / np.sqrt(np.float32(2))
-
-        # force real diagonal to save space
-        C3_dict["m11"] = 0.5 * (T3.m11 + T3.m22) + T3.m12.real
-        C3_dict["m22"] = T3.m33
-        C3_dict["m33"] = 0.5 * (T3.m11 + T3.m22) - T3.m12.real
-
-        # upper diagonal terms
-        C3_dict["m12"] = c * (T3.m13 + T3.m23)
-        C3_dict["m13"] = 0.5 * (T3.m11.real - T3.m22.real) - 1j * T3.m12.imag
-        C3_dict["m23"] = c * (T3.m13.conj() - T3.m23.conj())
-
-        attrs = {"poltype": "C3", "description": "Covariance matrix (3x3)"}
-        return xr.Dataset(C3_dict, attrs=attrs)
-    else:
+    if T3.poltype != "T3":
         raise ValueError("Input polarimetric type must be 'T3'")
+
+    C3_dict = {}
+
+    c = 1 / np.sqrt(np.float32(2))
+
+    # force real diagonal to save space
+    C3_dict["m11"] = 0.5 * (T3.m11 + T3.m22) + T3.m12.real
+    C3_dict["m22"] = T3.m33
+    C3_dict["m33"] = 0.5 * (T3.m11 + T3.m22) - T3.m12.real
+
+    # upper diagonal terms
+    C3_dict["m12"] = c * (T3.m13 + T3.m23)
+    C3_dict["m13"] = 0.5 * (T3.m11.real - T3.m22.real) - 1j * T3.m12.imag
+    C3_dict["m23"] = c * (T3.m13.conj() - T3.m23.conj())
+
+    attrs = {"poltype": "C3", "description": "Covariance matrix (3x3)"}
+    return xr.Dataset(C3_dict, attrs=attrs)
 
 
 def C3_to_T3(C3: xarray.Dataset) -> xarray.Dataset:
@@ -175,34 +175,25 @@ def C3_to_T3(C3: xarray.Dataset) -> xarray.Dataset:
         xarray.Dataset: T3 coherency matrix
     """
 
-    if C3.poltype == "C3":
-
-        T3_dict = {}
-
-        c = 1 / np.sqrt(np.float32(2))
-
-        # force real diagonal to save space
-        T3_dict["m11"] = 0.5 * (C3.m11 + C3.m33) + C3.m13.real
-        T3_dict["m22"] = 0.5 * (C3.m11 + C3.m33) - C3.m13.real
-        T3_dict["m33"] = C3.m22
-        # upper diagonal terms
-        T3_dict["m12"] = 0.5 * (C3.m11 - C3.m33) - 1j * C3.m13.imag
-        T3_dict["m13"] = c * (C3.m12 + C3.m23.conj())
-        T3_dict["m23"] = c * (C3.m12 - C3.m23.conj())
-
-        attrs = {"poltype": "T3", "description": "Coherency matrix (3x3)"}
-        return xr.Dataset(T3_dict, attrs=attrs)
-
-        # TODO: remove once the function has been tested
-        # T3[..., 0, 0] = 0.5 * (C3[..., 0, 0] + 2 * C3[..., 0, 2].real + C3[..., 2, 2])
-        # T3[..., 0, 1] = 0.5 * (C3[..., 0, 0] - C3[..., 2, 2]) - 1j * C3[..., 0, 2].imag
-        # T3[..., 0, 2] = (C3[..., 0, 1] + np.conj(C3[..., 1, 2])) / np.sqrt(2)
-        # T3[..., 1, 1] = 0.5 * (C3[..., 0, 0] - 2 * C3[..., 0, 2].real + C3[..., 2, 2])
-        # T3[..., 1, 2] = (C3[..., 0, 1] - np.conj(C3[..., 1, 2])) / np.sqrt(2)
-        # T3[..., 2, 2] = C3[..., 1, 1]
-
-    else:
+    if C3.poltype != "C3":
         raise ValueError("Input polarimetric type must be 'T3'")
+
+    T3_dict = {}
+
+    c = 1 / np.sqrt(np.float32(2))
+
+    # force real diagonal to save space
+    T3_dict["m11"] = 0.5 * (C3.m11 + C3.m33) + C3.m13.real
+    T3_dict["m22"] = 0.5 * (C3.m11 + C3.m33) - C3.m13.real
+    T3_dict["m33"] = C3.m22
+    # upper diagonal terms
+    T3_dict["m12"] = 0.5 * (C3.m11 - C3.m33) - 1j * C3.m13.imag
+    T3_dict["m13"] = c * (C3.m12 + C3.m23.conj())
+    T3_dict["m23"] = c * (C3.m12 - C3.m23.conj())
+
+    attrs = {"poltype": "T3", "description": "Coherency matrix (3x3)"}
+    return xr.Dataset(T3_dict, attrs=attrs)
+
 
 
 def vec_to_mat(vec: np.ndarray) -> np.ndarray:

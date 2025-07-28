@@ -107,8 +107,22 @@ def h_a_alpha(
     else:
         raise ValueError(f"Invalid polarimetric type: {input_data.poltype}")
 
+    # check dimensions
+    if {"y", "x"}.issubset(input_data.dims):
+        new_dims = ("y", "x")
+    elif {"lat", "lon"}.issubset(input_data.dims):
+        new_dims = ("lat", "lon")
+    else:
+        ValueError(
+            "Input data does not have valid dimension names. ('y', 'x') or ('lat', 'lon') allowed."
+        )
+
     # pre-processing step, it is recommended to filter the matrices to mitigate speckle effects
     in_ = boxcar(in_, dim_az=boxcar_size[0], dim_rg=boxcar_size[1])
+
+    # remove NaNs to avoid errors in eigh
+    mask = in_.to_array().isnull().any("variable")
+    in_ = in_.fillna(1e-30)
 
     # form a T3 matrix array that can be used in eigh
     # concatenate columns
@@ -116,12 +130,13 @@ def h_a_alpha(
     T3_l2 = xr.concat((in_.m12.conj(), in_.m22, in_.m23), dim="j")
     T3_l3 = xr.concat((in_.m13.conj(), in_.m23.conj(), in_.m33), dim="j")
     # concatenate lines
+    new_dims_array = new_dims + ("i", "j")
     T3 = (
-        xr.concat((T3_l1, T3_l2, T3_l3), dim="i")
-        .transpose("y", "x", "i", "j")
-        .chunk(dict(y="auto", x="auto", i=3, j=3))
+        xr.concat((T3_l1, T3_l2, T3_l3), dim="i").transpose(*new_dims_array)
+        .chunk({new_dims[0]: "auto", new_dims[1]: "auto", "i": 3, "j": 3})
     )
-    # Eigendecomposition
+
+    # eigendecomposition
     meta = (
         np.array([], dtype="float32").reshape((0, 0, 0)),
         np.array([], dtype="complex64").reshape((0, 0, 0, 0)),
@@ -133,16 +148,18 @@ def h_a_alpha(
 
     # returns a dict
     out = _compute_h_a_alpha_parameters(l, v, flags)
+
     return xr.Dataset(
         # add dimension names, account for 2D and 3D outputs
         {
-            k: (["y", "x"], v) if v.ndim == 2 else (["y", "x", "i"], v)
+            k: (new_dims, v) if v.ndim == 2 else (new_dims + ("i",), v)
             for k, v in out.items()
         },
         attrs=dict(
             poltype="h_a_alpha", description="Results of the H/A/Alpha decomposition."
         ),
-    )
+        coords=input_data.coords,
+    ).where(~mask)
 
 
 def _compute_h_a_alpha_parameters(l, v, flags):

@@ -39,26 +39,51 @@ def boxcar(img: xarray.Dataset, dim_az: int, dim_rg: int) -> xarray.Dataset:
 
     Args:
         img (complex or real array): Input image with arbitrary number of dimensions, shape (naz, nrg, ...).
-        dim_az (int): Size in azimuth of the filter.
-        dim_rg (int): Size in range of the filter.
+        dim_az (int): Size in azimuth (or latitude) of the filter.
+        dim_rg (int): Size in range (or longitude) of the filter.
 
     Returns:
         complex or real array: Filtered image, shape (naz, nrg, ...).
 
     Note:
-        The filter is always applied along 2 dimensions (azimuth, range). Please ensure to provide a valid image.
+        The filter is always applied along 2 dimensions (azimuth, range). 
+        If the input is a geocoded image, azimuth and range become latitude and longitude.
+        Please ensure to provide a valid image.
     """
-    if "x" in img.dims and "y" in img.dims:
-        # pad the data with zeros
-        res = img.pad(dict(x=dim_rg, y=dim_az), mode="constant", constant_values=0)
-        # compute rolling mean
-        res = res.rolling(x=dim_rg, y=dim_az, center=True).mean()
-        # trim the padded borders
-        res = res.isel(x=slice(dim_rg, -dim_rg), y=slice(dim_az, -dim_az))
-        return res
-        # return img.rolling(x=dim_rg, y=dim_az, center=True).mean()
+
+    if not isinstance(img, xarray.Dataset):
+        raise TypeError("Input must be a valid PolSARPro Dataset.")
+
+    if not all(isinstance(dim_az, int), isinstance(dim_rg, int)):
+        raise TypeError("Parameters dim_az and dim_rg must be integers.")
+    
+    if dim_az<=0 or dim_rg<=0:
+        raise ValueError("Parameters dim_az and dim_rg must strictly positive.")
+
+    dims_sar = {"y", "x"}
+    dims_geo = {"lat", "lon"}
+
+    if dims_sar.issubset(img.dims):
+        dict_filter = dict(x=dim_rg, y=dim_az)
+        dict_slice = dict(x=slice(dim_rg, -dim_rg), y=slice(dim_az, -dim_az))
+    elif dims_geo.issubset(img.dims):
+        dict_filter = dict(lon=dim_rg, lat=dim_az)
+        dict_slice = dict(lon=slice(dim_rg, -dim_rg), lat=slice(dim_az, -dim_az))
     else:
-        raise ValueError("'x' and 'y' must be in the dimensions of the input data.")
+        raise ValueError("Input data must have dimensions ('x','y') or ('lat', 'lon').")
+
+    # pad the data with zeros
+    res = img.pad(dict_filter, mode="constant", constant_values=0)
+    # res = img.pad(dict(x=dim_rg, y=dim_az), mode="constant", constant_values=0)
+
+    # compute rolling mean
+    res = res.rolling(**dict_filter, center=True).mean()
+    # res = res.rolling(x=dim_rg, y=dim_az, center=True).mean()
+
+    # trim the padded borders
+    res = res.isel(**dict_slice)
+    # res = res.isel(x=slice(dim_rg, -dim_rg), y=slice(dim_az, -dim_az))
+    return res
 
 
 def S_to_C3(S: xarray.Dataset) -> xarray.Dataset:

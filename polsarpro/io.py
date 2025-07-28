@@ -96,7 +96,7 @@ def read_T3_psp(input_dir: str):
 
 
 def read_C3_psp(input_dir: str):
-    """Reads a C3 matrix in the PolSARPro format.
+    """Reads a C3 matrix in the PolSARpro format.
 
     Args:
         input_dir (str): Input directory containing the elements of the C3 matrix and the configuration file config.txt.
@@ -188,19 +188,19 @@ def read_psp_bin(file_name: str, dtype: str = "float32"):
     return np.fromfile(file_path, dtype=dtype, count=naz * nrg).reshape((naz, nrg))
 
 
-def open_netcdf_beam(file_path: str|Path) -> xarray.Dataset:
+def open_netcdf_beam(file_path: str | Path) -> xarray.Dataset:
     """Opens data in the NetCDF-BEAM format exported by SNAP.
 
     Args:
         file_path (str|Path): path of the input file.
 
     Returns:
-        xarray.Dataset: output dataset with python PolSARpro specific metadata. 
-        This can be used as an input for polarimetric routines defined in this software. 
+        xarray.Dataset: output dataset with python PolSARpro specific metadata.
+        This can be used as an input for polarimetric routines defined in this software.
     Note:
-        Only polarimetric data is allowed. Supported polarimetric types are scattering matrix 'S', 
+        Only polarimetric data is allowed. Supported polarimetric types are scattering matrix 'S',
         3x3 covariance matrix 'C3' and 3x3 coherency matrix 'T3'.
-    """    
+    """
 
     # use chunks to create dask instead of numpy arrays
     ds = xr.open_dataset(file_path, chunks={})

@@ -191,7 +191,7 @@ def read_psp_bin(file_name: str, dtype: str = "float32"):
     return np.fromfile(file_path, dtype=dtype, count=naz * nrg).reshape((naz, nrg))
 
 
-def read_netcdf_beam(file_path):
+def open_netcdf_beam(file_path):
 
     # TODO:
     # - docstrings

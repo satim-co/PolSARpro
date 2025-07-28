@@ -46,7 +46,7 @@ def boxcar(img: xarray.Dataset, dim_az: int, dim_rg: int) -> xarray.Dataset:
         complex or real array: Filtered image, shape (naz, nrg, ...).
 
     Note:
-        The filter is always applied along 2 dimensions (azimuth, range). 
+        The filter is always applied along 2 dimensions (azimuth, range).
         If the input is a geocoded image, azimuth and range become latitude and longitude.
         Please ensure to provide a valid image.
     """
@@ -54,10 +54,10 @@ def boxcar(img: xarray.Dataset, dim_az: int, dim_rg: int) -> xarray.Dataset:
     if not isinstance(img, xarray.Dataset):
         raise TypeError("Input must be a valid PolSARPro Dataset.")
 
-    if not all(isinstance(dim_az, int), isinstance(dim_rg, int)):
+    if not all((isinstance(dim_az, int), isinstance(dim_rg, int))):
         raise TypeError("Parameters dim_az and dim_rg must be integers.")
-    
-    if dim_az<=0 or dim_rg<=0:
+
+    if dim_az <= 0 or dim_rg <= 0:
         raise ValueError("Parameters dim_az and dim_rg must strictly positive.")
 
     dims_sar = {"y", "x"}
@@ -70,7 +70,7 @@ def boxcar(img: xarray.Dataset, dim_az: int, dim_rg: int) -> xarray.Dataset:
         dict_filter = dict(lon=dim_rg, lat=dim_az)
         dict_slice = dict(lon=slice(dim_rg, -dim_rg), lat=slice(dim_az, -dim_az))
     else:
-        raise ValueError("Input data must have dimensions ('x','y') or ('lat', 'lon').")
+        raise ValueError("Input data must have dimensions ('y','x') or ('lat', 'lon').")
 
     # pad the data with zeros
     res = img.pad(dict_filter, mode="constant", constant_values=0)

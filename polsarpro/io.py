@@ -196,20 +196,14 @@ def read_netcdf_beam(file_path):
     # TODO:
     # - docstrings
     # - unit test
-    # - how to handle coords (remove for non-geocoded data?)
 
     # use chunks to create dask instead of numpy arrays
     ds = xr.open_dataset(file_path, chunks={})
     meta = ds.metadata.attrs
     var_names = set(ds.data_vars)
 
-    # check if image is in the SAR geomerty or in geographic coordinates
+    # check if image is in the SAR geometry or in geographic coordinates
     is_geocoded = bool(meta["Abstracted_Metadata:is_terrain_corrected"])
-
-    # TODO: decide if recreating coords or just propagating
-    # get dimension labels
-    # dims = ('lat', 'lon') if is_geocoded else ("y", "x")
-    # coords = ds.coords if is_geocoded else None
 
     # Scattering matrix
     pol_list = ("H", "V")
@@ -242,12 +236,14 @@ def read_netcdf_beam(file_path):
     data_dict = {}
     if S_vars.issubset(var_names):
         poltype = "S"
+        description = "Scattering matrix"
         data_dict["hh"] = ds.i_HH + 1j * ds.q_HH
         data_dict["hv"] = ds.i_HV + 1j * ds.q_HV
         data_dict["vv"] = ds.i_VV + 1j * ds.q_VV
         data_dict["vh"] = ds.i_VH + 1j * ds.q_VH
     elif C3_vars.issubset(var_names):
         poltype = "C3"
+        description = "Covariance matrix (3x3)"
         data_dict["m11"] = ds.C11
         data_dict["m22"] = ds.C22
         data_dict["m33"] = ds.C33
@@ -256,6 +252,7 @@ def read_netcdf_beam(file_path):
         data_dict["m23"] = ds.C23_real + 1j * ds.C23_imag
     elif T3_vars.issubset(var_names):
         poltype = "T3"
+        description = "Coherency matrix (3x3)"
         data_dict["m11"] = ds.T11
         data_dict["m22"] = ds.T22
         data_dict["m33"] = ds.T22
@@ -267,7 +264,19 @@ def read_netcdf_beam(file_path):
             "Polarimetric type not recognized. Possible types are 'S', 'C3' and'T3' matrices."
         )
 
-    return xr.Dataset(data_dict, attrs = {"poltype": poltype})
+    # make a new dataset with PolSARpro metadata
+    ds_out = xr.Dataset(
+        data_dict, attrs={"poltype": poltype, "description": description}
+    )
+
+    # coordinates: "y" & "x" for SAR geometry, "lat" & "lon" for geocoded
+    if {"y", "x"}.issubset(ds.dims) and not is_geocoded:
+        # make sure coordinates are only pixel indices
+        return ds_out.assign_coords(
+            {"y": np.arange(ds.sizes["y"]), "x": np.arange(ds.sizes["x"])}
+        ).drop_vars(("lon", "lat"), errors="ignore")
+    else:
+        return ds_out
 
 
 # def read_demo_data(data_dir: str) -> xarray.Dataset:

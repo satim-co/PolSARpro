@@ -25,11 +25,8 @@ limitations under the License.
 import logging
 from pathlib import Path
 import numpy as np
-import rioxarray as riox
-import warnings
-from rasterio.errors import NotGeoreferencedWarning
-import xarray
 import xarray as xr
+import xarray
 
 
 log = logging.getLogger(__name__)
@@ -191,11 +188,19 @@ def read_psp_bin(file_name: str, dtype: str = "float32"):
     return np.fromfile(file_path, dtype=dtype, count=naz * nrg).reshape((naz, nrg))
 
 
-def open_netcdf_beam(file_path):
+def open_netcdf_beam(file_path: str|Path) -> xarray.Dataset:
+    """Opens data in the NetCDF-BEAM format exported by SNAP.
 
-    # TODO:
-    # - docstrings
-    # - unit test
+    Args:
+        file_path (str|Path): path of the input file.
+
+    Returns:
+        xarray.Dataset: output dataset with python PolSARpro specific metadata. 
+        This can be used as an input for polarimetric routines defined in this software. 
+    Note:
+        Only polarimetric data is allowed. Supported polarimetric types are scattering matrix 'S', 
+        3x3 covariance matrix 'C3' and 3x3 coherency matrix 'T3'.
+    """    
 
     # use chunks to create dask instead of numpy arrays
     ds = xr.open_dataset(file_path, chunks={})
@@ -279,6 +284,7 @@ def open_netcdf_beam(file_path):
         return ds_out
 
 
+# Reader below does not work due to a bug in gdal PALSAR driver (adds a line of zeros at the top)
 # def read_demo_data(data_dir: str) -> xarray.Dataset:
 #     """Reads ALOS-1 PALSAR San Francisco demo dataset.
 

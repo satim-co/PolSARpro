@@ -93,7 +93,7 @@ def h_a_alpha(
             )
 
     if not isinstance(input_data, xr.Dataset):
-        TypeError("Inputs must be of type xarray.Dataset")
+        TypeError("Input must be of type xarray.Dataset")
 
     if not "poltype" in input_data.attrs:
         ValueError("Polarimetric type `poltype` not found in input attributes.")

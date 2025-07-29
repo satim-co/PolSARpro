@@ -260,7 +260,7 @@ def open_netcdf_beam(file_path: str | Path) -> xarray.Dataset:
         description = "Coherency matrix (3x3)"
         data_dict["m11"] = ds.T11
         data_dict["m22"] = ds.T22
-        data_dict["m33"] = ds.T22
+        data_dict["m33"] = ds.T33
         data_dict["m12"] = ds.T12_real + 1j * ds.T12_imag
         data_dict["m13"] = ds.T13_real + 1j * ds.T13_imag
         data_dict["m23"] = ds.T23_real + 1j * ds.T23_imag

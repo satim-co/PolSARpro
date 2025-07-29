@@ -74,15 +74,12 @@ def boxcar(img: xarray.Dataset, dim_az: int, dim_rg: int) -> xarray.Dataset:
 
     # pad the data with zeros
     res = img.pad(dict_filter, mode="constant", constant_values=0)
-    # res = img.pad(dict(x=dim_rg, y=dim_az), mode="constant", constant_values=0)
 
     # compute rolling mean
     res = res.rolling(**dict_filter, center=True).mean()
-    # res = res.rolling(x=dim_rg, y=dim_az, center=True).mean()
 
     # trim the padded borders
     res = res.isel(**dict_slice)
-    # res = res.isel(x=slice(dim_rg, -dim_rg), y=slice(dim_az, -dim_az))
     return res
 
 
@@ -140,7 +137,6 @@ def S_to_T3(S: xarray.Dataset) -> xarray.Dataset:
     k1 = ((S.hh + S.vv) / c).astype("complex64", copy=False)
     k2 = ((S.hh - S.vv) / c).astype("complex64", copy=False)
     k3 = ((S.hv + S.vh) / c).astype("complex64", copy=False)
-    # k3 = (c * S.hv).astype("complex64", copy=False)
 
     # compute the Hermitian matrix elements
     T3_dict = {}

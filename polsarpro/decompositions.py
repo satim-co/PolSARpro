@@ -161,6 +161,7 @@ def h_a_alpha(
         coords=input_data.coords,
     ).where(~mask)
 
+# below this line, functions are not meant to be called directly
 
 def _compute_h_a_alpha_parameters(l, v, flags):
 

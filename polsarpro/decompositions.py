@@ -118,7 +118,6 @@ def h_a_alpha(
 
     eps = 1e-30
     # pre-processing step, it is recommended to filter the matrices to mitigate speckle effects
-    # in_ = boxcar2(in_, dim_az=boxcar_size[0], dim_rg=boxcar_size[1])
     in_ = boxcar(in_, dim_az=boxcar_size[0], dim_rg=boxcar_size[1])
 
     # remove NaNs to avoid errors in eigh

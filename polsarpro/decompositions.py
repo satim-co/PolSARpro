@@ -27,7 +27,6 @@ import xarray as xr
 import dask.array as da
 from polsarpro.util import boxcar, C3_to_T3, S_to_T3
 
-
 def h_a_alpha(
     input_data: xr.Dataset,
     boxcar_size: list[int, int] = [3, 3],
@@ -117,7 +116,9 @@ def h_a_alpha(
             "Input data does not have valid dimension names. ('y', 'x') or ('lat', 'lon') allowed."
         )
 
+    eps = 1e-30
     # pre-processing step, it is recommended to filter the matrices to mitigate speckle effects
+    # in_ = boxcar2(in_, dim_az=boxcar_size[0], dim_rg=boxcar_size[1])
     in_ = boxcar(in_, dim_az=boxcar_size[0], dim_rg=boxcar_size[1])
 
     # remove NaNs to avoid errors in eigh
@@ -126,9 +127,9 @@ def h_a_alpha(
 
     # form a T3 matrix array that can be used in eigh
     # concatenate columns
-    T3_l1 = xr.concat((in_.m11, in_.m12, in_.m13), dim="j")
-    T3_l2 = xr.concat((in_.m12.conj(), in_.m22, in_.m23), dim="j")
-    T3_l3 = xr.concat((in_.m13.conj(), in_.m23.conj(), in_.m33), dim="j")
+    T3_l1 = xr.concat((in_.m11+eps, in_.m12, in_.m13), dim="j")
+    T3_l2 = xr.concat((in_.m12.conj(), in_.m22+eps, in_.m23), dim="j")
+    T3_l3 = xr.concat((in_.m13.conj(), in_.m23.conj(), in_.m33+eps), dim="j")
     # concatenate lines
     new_dims_array = new_dims + ("i", "j")
     T3 = (

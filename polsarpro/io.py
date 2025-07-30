@@ -236,6 +236,28 @@ def open_netcdf_beam(file_path: str | Path) -> xarray.Dataset:
         "C23_real",
         "C23_imag",
     }
+    C4_vars = C3_vars.union(
+        {
+            "C14_real",
+            "C14_imag",
+            "C24_real",
+            "C24_imag",
+            "C34_real",
+            "C34_imag",
+            "C44",
+        }
+    )
+    T4_vars = T3_vars.union(
+        {
+            "T14_real",
+            "T14_imag",
+            "T24_real",
+            "T24_imag",
+            "T34_real",
+            "T34_imag",
+            "T44",
+        }
+    )
 
     # infers polarimetric type from dataset variable names
     data_dict = {}
@@ -246,6 +268,19 @@ def open_netcdf_beam(file_path: str | Path) -> xarray.Dataset:
         data_dict["hv"] = ds.i_HV + 1j * ds.q_HV
         data_dict["vv"] = ds.i_VV + 1j * ds.q_VV
         data_dict["vh"] = ds.i_VH + 1j * ds.q_VH
+    elif C4_vars.issubset(var_names):
+        poltype = "C4"
+        description = "Covariance matrix (4x4)"
+        data_dict["m11"] = ds.C11
+        data_dict["m22"] = ds.C22
+        data_dict["m33"] = ds.C33
+        data_dict["m44"] = ds.C44
+        data_dict["m12"] = ds.C12_real + 1j * ds.C12_imag
+        data_dict["m13"] = ds.C13_real + 1j * ds.C13_imag
+        data_dict["m14"] = ds.C14_real + 1j * ds.C14_imag
+        data_dict["m23"] = ds.C23_real + 1j * ds.C23_imag
+        data_dict["m24"] = ds.C24_real + 1j * ds.C24_imag
+        data_dict["m34"] = ds.C34_real + 1j * ds.C34_imag
     elif C3_vars.issubset(var_names):
         poltype = "C3"
         description = "Covariance matrix (3x3)"
@@ -255,6 +290,19 @@ def open_netcdf_beam(file_path: str | Path) -> xarray.Dataset:
         data_dict["m12"] = ds.C12_real + 1j * ds.C12_imag
         data_dict["m13"] = ds.C13_real + 1j * ds.C13_imag
         data_dict["m23"] = ds.C23_real + 1j * ds.C23_imag
+    elif T4_vars.issubset(var_names):
+        poltype = "T4"
+        description = "Coherency matrix (4x4)"
+        data_dict["m11"] = ds.T11
+        data_dict["m22"] = ds.T22
+        data_dict["m33"] = ds.T33
+        data_dict["m44"] = ds.T44
+        data_dict["m12"] = ds.T12_real + 1j * ds.T12_imag
+        data_dict["m13"] = ds.T13_real + 1j * ds.T13_imag
+        data_dict["m14"] = ds.T14_real + 1j * ds.T14_imag
+        data_dict["m23"] = ds.T23_real + 1j * ds.T23_imag
+        data_dict["m24"] = ds.T24_real + 1j * ds.T24_imag
+        data_dict["m34"] = ds.T34_real + 1j * ds.T34_imag
     elif T3_vars.issubset(var_names):
         poltype = "T3"
         description = "Coherency matrix (3x3)"

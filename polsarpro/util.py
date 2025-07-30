@@ -33,55 +33,6 @@ import xarray
 log = logging.getLogger(__name__)
 
 
-def boxcar(img: xarray.Dataset, dim_az: int, dim_rg: int) -> xarray.Dataset:
-    """
-    Apply a boxcar filter to an image.
-
-    Args:
-        img (complex or real array): Input image with arbitrary number of dimensions, shape (naz, nrg, ...).
-        dim_az (int): Size in azimuth (or latitude) of the filter.
-        dim_rg (int): Size in range (or longitude) of the filter.
-
-    Returns:
-        complex or real array: Filtered image, shape (naz, nrg, ...).
-
-    Note:
-        The filter is always applied along 2 dimensions (azimuth, range).
-        If the input is a geocoded image, azimuth and range become latitude and longitude.
-        Please ensure to provide a valid image.
-    """
-
-    if not isinstance(img, xarray.Dataset):
-        raise TypeError("Input must be a valid PolSARPro Dataset.")
-
-    if not all((isinstance(dim_az, int), isinstance(dim_rg, int))):
-        raise TypeError("Parameters dim_az and dim_rg must be integers.")
-
-    if dim_az <= 0 or dim_rg <= 0:
-        raise ValueError("Parameters dim_az and dim_rg must strictly positive.")
-
-    dims_sar = {"y", "x"}
-    dims_geo = {"lat", "lon"}
-
-    if dims_sar.issubset(img.dims):
-        dict_filter = dict(x=dim_rg, y=dim_az)
-        dict_slice = dict(x=slice(dim_rg, -dim_rg), y=slice(dim_az, -dim_az))
-    elif dims_geo.issubset(img.dims):
-        dict_filter = dict(lon=dim_rg, lat=dim_az)
-        dict_slice = dict(lon=slice(dim_rg, -dim_rg), lat=slice(dim_az, -dim_az))
-    else:
-        raise ValueError("Input data must have dimensions ('y','x') or ('lat', 'lon').")
-
-    # pad the data with zeros
-    res = img.pad(dict_filter, mode="constant", constant_values=0)
-
-    # compute rolling mean
-    res = res.rolling(**dict_filter, center=True).mean()
-
-    # trim the padded borders
-    res = res.isel(**dict_slice)
-    return res
-
 
 def S_to_C3(S: xarray.Dataset) -> xarray.Dataset:
     """Converts the Sinclair scattering matrix S to the lexicographic covariance matrix C3.
@@ -221,3 +172,120 @@ def vec_to_mat(vec: np.ndarray) -> np.ndarray:
     if vec.ndim != 3:
         raise ValueError("Vector valued image is expected (dimension 3)")
     return vec[:, :, None, :] * vec[:, :, :, None].conj()
+
+
+def boxcar(img: xarray.Dataset, dim_az: int, dim_rg: int) -> xarray.Dataset:
+    """
+    Apply a boxcar filter to an image.
+
+    Args:
+        img (xarray.Dataset): Input image with variables of shape (naz, nrg, ...).
+        dim_az (int): Size in azimuth of the filter.
+        dim_rg (int): Size in range of the filter.
+
+    Returns:
+        xarray.Dataset: Filtered image, shape (naz, nrg, ...).
+
+    Note:
+        The filter is always applied along 2 dimensions (azimuth, range). Please ensure to provide a valid image.
+    """
+    if type(dim_az) != int and type(dim_rg) != int:
+        raise ValueError("dimaz and dimrg must be integers")
+    if (dim_az < 1) or (dim_rg < 1):
+        raise ValueError("dimaz and dimrg must be strictly positive")
+    
+
+    process_args = dict(
+        dim_az=dim_az,
+        dim_rg=dim_rg,
+        depth=(dim_az, dim_rg),
+    )
+    dict_out = {}
+    for var in img.data_vars:
+        da_in = da.map_overlap(
+            _boxcar_core,
+            img[var].data,
+            **process_args,
+            dtype="complex64",
+        )
+        dict_out[var] = (img[var].dims, da_in)
+
+    return xr.Dataset(dict_out, coords=img.coords, attrs=img.attrs)
+
+
+def _boxcar_core(img: np.ndarray, dim_az: int, dim_rg: int) -> np.ndarray:
+    n_extra_dims = img.ndim - 2
+
+    ker_dtype = img.dtype if not np.iscomplexobj(img) else img.real.dtype
+
+    # this convolution mode reduces error between C and python implementations
+    mode = "constant"
+    if (dim_az > 1) or (dim_rg > 1):
+        # avoid nan propagation
+        msk = np.isnan(img)
+        img_ = img.copy()
+        img_[msk] = 0
+        ker = np.ones((dim_az, dim_rg), dtype=ker_dtype) / (dim_az * dim_rg)
+        ker = np.expand_dims(ker, axis=tuple(range(2, 2 + n_extra_dims)))
+        if np.iscomplexobj(img_):
+            imgout = convolve(img_.real, ker, mode=mode) + 1j * convolve(
+                img_.imag, ker, mode=mode
+            )
+            imgout[msk] = np.nan + 1j * np.nan
+        else:
+            imgout = convolve(img_, ker, mode=mode)
+            imgout[msk] = np.nan
+        return imgout
+    else:
+        return img
+
+# This is an alternative version that uses xarray's rolling mean
+# performance is not clear so I just keep it here for now
+# def boxcar(img: xarray.Dataset, dim_az: int, dim_rg: int) -> xarray.Dataset:
+#     """
+#     Apply a boxcar filter to an image.
+
+#     Args:
+#         img (complex or real array): Input image with arbitrary number of dimensions, shape (naz, nrg, ...).
+#         dim_az (int): Size in azimuth (or latitude) of the filter.
+#         dim_rg (int): Size in range (or longitude) of the filter.
+
+#     Returns:
+#         complex or real array: Filtered image, shape (naz, nrg, ...).
+
+#     Note:
+#         The filter is always applied along 2 dimensions (azimuth, range).
+#         If the input is a geocoded image, azimuth and range become latitude and longitude.
+#         Please ensure to provide a valid image.
+#     """
+
+#     if not isinstance(img, xarray.Dataset):
+#         raise TypeError("Input must be a valid PolSARPro Dataset.")
+
+#     if not all((isinstance(dim_az, int), isinstance(dim_rg, int))):
+#         raise TypeError("Parameters dim_az and dim_rg must be integers.")
+
+#     if dim_az <= 0 or dim_rg <= 0:
+#         raise ValueError("Parameters dim_az and dim_rg must strictly positive.")
+
+#     dims_sar = {"y", "x"}
+#     dims_geo = {"lat", "lon"}
+
+#     if dims_sar.issubset(img.dims):
+#         dict_filter = dict(x=dim_rg, y=dim_az)
+#         dict_slice = dict(x=slice(dim_rg, -dim_rg), y=slice(dim_az, -dim_az))
+#     elif dims_geo.issubset(img.dims):
+#         dict_filter = dict(lon=dim_rg, lat=dim_az)
+#         dict_slice = dict(lon=slice(dim_rg, -dim_rg), lat=slice(dim_az, -dim_az))
+#     else:
+#         raise ValueError("Input data must have dimensions ('y','x') or ('lat', 'lon').")
+
+#     # pad the data with zeros
+#     res = img.pad(dict_filter, mode="constant", constant_values=0)
+
+#     # compute rolling mean
+#     res = res.rolling(**dict_filter, center=True).mean()
+
+#     # trim the padded borders
+#     res = res.isel(**dict_slice)
+#     return res

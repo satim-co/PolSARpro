@@ -91,7 +91,7 @@ def read_T3_psp(input_dir: str):
                 T3_dict[f"m{r+1}{c+1}"] = (("y", "x"), data_real + 1j * data_imag)
 
     attrs = {"poltype": "T3", "description": "Coherency matrix (3x3)"}
-    T3 = xr.Dataset(T3_dict, attrs=attrs).chunk("auto")
+    T3 = xr.Dataset(T3_dict, attrs=attrs).chunk({"x": 512, "y": 512})
     return T3
 
 
@@ -154,7 +154,7 @@ def read_C3_psp(input_dir: str):
                 C3_dict[f"m{r+1}{c+1}"] = (("y", "x"), data_real + 1j * data_imag)
 
     attrs = {"poltype": "C3", "description": "Covariance matrix (3x3)"}
-    C3 = xr.Dataset(C3_dict, attrs=attrs).chunk("auto")
+    C3 = xr.Dataset(C3_dict, attrs=attrs).chunk("auto").chunk({"x": 512, "y": 512})
     return C3
 
 

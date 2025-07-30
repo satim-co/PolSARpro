@@ -33,7 +33,6 @@ import xarray
 log = logging.getLogger(__name__)
 
 
-
 def S_to_C3(S: xarray.Dataset) -> xarray.Dataset:
     """Converts the Sinclair scattering matrix S to the lexicographic covariance matrix C3.
 
@@ -70,6 +69,45 @@ def S_to_C3(S: xarray.Dataset) -> xarray.Dataset:
     return xr.Dataset(C3_dict, attrs=attrs)
 
 
+def S_to_C4(S: xarray.Dataset) -> xarray.Dataset:
+    """Converts the Sinclair scattering matrix S to the lexicographic covariance matrix C4.
+
+    Args:
+        S (xarray.Dataset): input image of scattering matrices with shape
+
+    Returns:
+        xarray.Dataset: C4 covariance matrix
+    """
+
+    if S.poltype != "S":
+        raise ValueError("Input polarimetric type must be 'S'")
+
+    # scattering vector, enforce type as in C version
+    k1 = S.hh.astype("complex64", copy=False)
+    k2 = S.hv.astype("complex64", copy=False)
+    k3 = S.vh.astype("complex64", copy=False)
+    k4 = S.vv.astype("complex64", copy=False)
+
+    # compute the Hermitian matrix elements
+    C4_dict = {}
+    # force real diagonal to save space
+    C4_dict["m11"] = (k1 * k1.conj()).real
+    C4_dict["m22"] = (k2 * k2.conj()).real
+    C4_dict["m33"] = (k3 * k3.conj()).real
+    C4_dict["m44"] = (k4 * k4.conj()).real
+
+    # upper diagonal terms
+    C4_dict["m12"] = k1 * k2.conj()
+    C4_dict["m13"] = k1 * k3.conj()
+    C4_dict["m14"] = k1 * k4.conj()
+    C4_dict["m23"] = k2 * k3.conj()
+    C4_dict["m24"] = k2 * k4.conj()
+    C4_dict["m34"] = k3 * k4.conj()
+
+    attrs = {"poltype": "C4", "description": "Covariance matrix (4x4)"}
+    return xr.Dataset(C4_dict, attrs=attrs)
+
+
 def S_to_T3(S: xarray.Dataset) -> xarray.Dataset:
     """Converts the Sinclair scattering matrix S to the Pauli coherency matrix T3.
 
@@ -104,6 +142,47 @@ def S_to_T3(S: xarray.Dataset) -> xarray.Dataset:
 
     attrs = {"poltype": "T3", "description": "Coherency matrix (3x3)"}
     return xr.Dataset(T3_dict, attrs=attrs)
+
+
+def S_to_T4(S: xarray.Dataset) -> xarray.Dataset:
+    """Converts the Sinclair scattering matrix S to the Pauli coherency matrix T4.
+
+    Args:
+        S (xarray.Dataset): input image of scattering matrices with shape
+
+    Returns:
+        xarray.Dataset: T4 coherency matrix
+    """
+
+    if S.poltype != "S":
+        raise ValueError("Input polarimetric type must be 'S'")
+
+    # scattering vector
+    c = np.sqrt(np.float32(2))
+    k1 = ((S.hh + S.vv) / c).astype("complex64", copy=False)
+    k2 = ((S.hh - S.vv) / c).astype("complex64", copy=False)
+    k3 = ((S.hv + S.vh) / c).astype("complex64", copy=False)
+    k4 = ((S.hv - S.vh) / c).astype("complex64", copy=False)
+
+    # compute the Hermitian matrix elements
+    T4_dict = {}
+
+    # force real diagonal to save space
+    T4_dict["m11"] = (k1 * k1.conj()).real
+    T4_dict["m22"] = (k2 * k2.conj()).real
+    T4_dict["m33"] = (k3 * k3.conj()).real
+    T4_dict["m44"] = (k4 * k4.conj()).real
+
+    # upper diagonal terms
+    T4_dict["m12"] = k1 * k2.conj()
+    T4_dict["m13"] = k1 * k3.conj()
+    T4_dict["m14"] = k1 * k4.conj()
+    T4_dict["m23"] = k2 * k3.conj()
+    T4_dict["m24"] = k2 * k4.conj()
+    T4_dict["m34"] = k3 * k4.conj()
+
+    attrs = {"poltype": "T4", "description": "Coherency matrix (4x4)"}
+    return xr.Dataset(T4_dict, attrs=attrs)
 
 
 def T3_to_C3(T3: xarray.Dataset) -> xarray.Dataset:
@@ -148,7 +227,7 @@ def C3_to_T3(C3: xarray.Dataset) -> xarray.Dataset:
     """
 
     if C3.poltype != "C3":
-        raise ValueError("Input polarimetric type must be 'T3'")
+        raise ValueError("Input polarimetric type must be 'C3'")
 
     T3_dict = {}
 
@@ -165,6 +244,37 @@ def C3_to_T3(C3: xarray.Dataset) -> xarray.Dataset:
 
     attrs = {"poltype": "T3", "description": "Coherency matrix (3x3)"}
     return xr.Dataset(T3_dict, attrs=attrs)
+
+
+def C4_to_T4(C4: xarray.Dataset) -> xarray.Dataset:
+    """Converts the lexicographic covariance matrix C4 to the Pauli coherency matrix T4.
+
+    Args:
+        C4 (xarray.Dataset): input image of covariance matrices
+
+    Returns:
+        xarray.Dataset: T4 coherency matrix
+    """
+
+    if C4.poltype != "C4":
+        raise ValueError("Input polarimetric type must be 'C4'")
+
+    T4_dict = {}
+
+    c = 1 / np.sqrt(np.float32(2))
+
+    # TODO finish
+    # force real diagonal to save space
+    T4_dict["m11"] = 0.5 * (C4.m11 + 2 * C4.m14.real + C4.m44)
+    T4_dict["m12"] = 0.5 * (C4.m11 - C4.m44) - 1j * (C4.m14.imag)
+    T4_dict["m13"] = 0.5 * (C4.m12 + C4.m13 + C4.m24.conj() + C4.m34.conj())
+    T4_dict["m14"] = 0.5 * (
+        (C4.m12.imag - C4.m13.imag - C4.m24.imag + C4.m34.imag)
+        + 1j * (-C4.m12.real + C4.m1313.real - C4.m24.real - C4.m34.real)
+    )
+
+    attrs = {"poltype": "T4", "description": "Coherency matrix (4x4)"}
+    return xr.Dataset(T4_dict, attrs=attrs)
 
 
 def vec_to_mat(vec: np.ndarray) -> np.ndarray:
@@ -193,7 +303,6 @@ def boxcar(img: xarray.Dataset, dim_az: int, dim_rg: int) -> xarray.Dataset:
         raise ValueError("dimaz and dimrg must be integers")
     if (dim_az < 1) or (dim_rg < 1):
         raise ValueError("dimaz and dimrg must be strictly positive")
-    
 
     process_args = dict(
         dim_az=dim_az,
@@ -238,6 +347,7 @@ def _boxcar_core(img: np.ndarray, dim_az: int, dim_rg: int) -> np.ndarray:
         return imgout
     else:
         return img
+
 
 # This is an alternative version that uses xarray's rolling mean
 # performance is not clear so I just keep it here for now

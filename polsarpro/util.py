@@ -53,20 +53,20 @@ def S_to_C3(S: xarray.Dataset) -> xarray.Dataset:
     k3 = S.vv.astype("complex64", copy=False)
 
     # compute the Hermitian matrix elements
-    C3_dict = {}
+    C3 = {}
 
     # force real diagonal to save space
-    C3_dict["m11"] = (k1 * k1.conj()).real
-    C3_dict["m22"] = (k2 * k2.conj()).real
-    C3_dict["m33"] = (k3 * k3.conj()).real
+    C3["m11"] = (k1 * k1.conj()).real
+    C3["m22"] = (k2 * k2.conj()).real
+    C3["m33"] = (k3 * k3.conj()).real
 
     # upper diagonal terms
-    C3_dict["m12"] = k1 * k2.conj()
-    C3_dict["m13"] = k1 * k3.conj()
-    C3_dict["m23"] = k2 * k3.conj()
+    C3["m12"] = k1 * k2.conj()
+    C3["m13"] = k1 * k3.conj()
+    C3["m23"] = k2 * k3.conj()
 
     attrs = {"poltype": "C3", "description": "Covariance matrix (3x3)"}
-    return xr.Dataset(C3_dict, attrs=attrs)
+    return xr.Dataset(C3, attrs=attrs)
 
 
 def S_to_C4(S: xarray.Dataset) -> xarray.Dataset:
@@ -89,23 +89,23 @@ def S_to_C4(S: xarray.Dataset) -> xarray.Dataset:
     k4 = S.vv.astype("complex64", copy=False)
 
     # compute the Hermitian matrix elements
-    C4_dict = {}
+    C4 = {}
     # force real diagonal to save space
-    C4_dict["m11"] = (k1 * k1.conj()).real
-    C4_dict["m22"] = (k2 * k2.conj()).real
-    C4_dict["m33"] = (k3 * k3.conj()).real
-    C4_dict["m44"] = (k4 * k4.conj()).real
+    C4["m11"] = (k1 * k1.conj()).real
+    C4["m22"] = (k2 * k2.conj()).real
+    C4["m33"] = (k3 * k3.conj()).real
+    C4["m44"] = (k4 * k4.conj()).real
 
     # upper diagonal terms
-    C4_dict["m12"] = k1 * k2.conj()
-    C4_dict["m13"] = k1 * k3.conj()
-    C4_dict["m14"] = k1 * k4.conj()
-    C4_dict["m23"] = k2 * k3.conj()
-    C4_dict["m24"] = k2 * k4.conj()
-    C4_dict["m34"] = k3 * k4.conj()
+    C4["m12"] = k1 * k2.conj()
+    C4["m13"] = k1 * k3.conj()
+    C4["m14"] = k1 * k4.conj()
+    C4["m23"] = k2 * k3.conj()
+    C4["m24"] = k2 * k4.conj()
+    C4["m34"] = k3 * k4.conj()
 
     attrs = {"poltype": "C4", "description": "Covariance matrix (4x4)"}
-    return xr.Dataset(C4_dict, attrs=attrs)
+    return xr.Dataset(C4, attrs=attrs)
 
 
 def S_to_T3(S: xarray.Dataset) -> xarray.Dataset:
@@ -128,20 +128,20 @@ def S_to_T3(S: xarray.Dataset) -> xarray.Dataset:
     k3 = ((S.hv + S.vh) / c).astype("complex64", copy=False)
 
     # compute the Hermitian matrix elements
-    T3_dict = {}
+    T3 = {}
 
     # force real diagonal to save space
-    T3_dict["m11"] = (k1 * k1.conj()).real
-    T3_dict["m22"] = (k2 * k2.conj()).real
-    T3_dict["m33"] = (k3 * k3.conj()).real
+    T3["m11"] = (k1 * k1.conj()).real
+    T3["m22"] = (k2 * k2.conj()).real
+    T3["m33"] = (k3 * k3.conj()).real
 
     # upper diagonal terms
-    T3_dict["m12"] = k1 * k2.conj()
-    T3_dict["m13"] = k1 * k3.conj()
-    T3_dict["m23"] = k2 * k3.conj()
+    T3["m12"] = k1 * k2.conj()
+    T3["m13"] = k1 * k3.conj()
+    T3["m23"] = k2 * k3.conj()
 
     attrs = {"poltype": "T3", "description": "Coherency matrix (3x3)"}
-    return xr.Dataset(T3_dict, attrs=attrs)
+    return xr.Dataset(T3, attrs=attrs)
 
 
 def S_to_T4(S: xarray.Dataset) -> xarray.Dataset:
@@ -165,24 +165,24 @@ def S_to_T4(S: xarray.Dataset) -> xarray.Dataset:
     k4 = ((S.hv - S.vh) / c).astype("complex64", copy=False)
 
     # compute the Hermitian matrix elements
-    T4_dict = {}
+    T4 = {}
 
     # force real diagonal to save space
-    T4_dict["m11"] = (k1 * k1.conj()).real
-    T4_dict["m22"] = (k2 * k2.conj()).real
-    T4_dict["m33"] = (k3 * k3.conj()).real
-    T4_dict["m44"] = (k4 * k4.conj()).real
+    T4["m11"] = (k1 * k1.conj()).real
+    T4["m22"] = (k2 * k2.conj()).real
+    T4["m33"] = (k3 * k3.conj()).real
+    T4["m44"] = (k4 * k4.conj()).real
 
     # upper diagonal terms
-    T4_dict["m12"] = k1 * k2.conj()
-    T4_dict["m13"] = k1 * k3.conj()
-    T4_dict["m14"] = k1 * k4.conj()
-    T4_dict["m23"] = k2 * k3.conj()
-    T4_dict["m24"] = k2 * k4.conj()
-    T4_dict["m34"] = k3 * k4.conj()
+    T4["m12"] = k1 * k2.conj()
+    T4["m13"] = k1 * k3.conj()
+    T4["m14"] = k1 * k4.conj()
+    T4["m23"] = k2 * k3.conj()
+    T4["m24"] = k2 * k4.conj()
+    T4["m34"] = k3 * k4.conj()
 
     attrs = {"poltype": "T4", "description": "Coherency matrix (4x4)"}
-    return xr.Dataset(T4_dict, attrs=attrs)
+    return xr.Dataset(T4, attrs=attrs)
 
 
 def T3_to_C3(T3: xarray.Dataset) -> xarray.Dataset:
@@ -198,22 +198,22 @@ def T3_to_C3(T3: xarray.Dataset) -> xarray.Dataset:
     if T3.poltype != "T3":
         raise ValueError("Input polarimetric type must be 'T3'")
 
-    C3_dict = {}
+    C3 = {}
 
     c = 1 / np.sqrt(np.float32(2))
 
     # force real diagonal to save space
-    C3_dict["m11"] = 0.5 * (T3.m11 + T3.m22) + T3.m12.real
-    C3_dict["m22"] = T3.m33
-    C3_dict["m33"] = 0.5 * (T3.m11 + T3.m22) - T3.m12.real
+    C3["m11"] = 0.5 * (T3.m11 + T3.m22) + T3.m12.real
+    C3["m22"] = T3.m33
+    C3["m33"] = 0.5 * (T3.m11 + T3.m22) - T3.m12.real
 
     # upper diagonal terms
-    C3_dict["m12"] = c * (T3.m13 + T3.m23)
-    C3_dict["m13"] = 0.5 * (T3.m11.real - T3.m22.real) - 1j * T3.m12.imag
-    C3_dict["m23"] = c * (T3.m13.conj() - T3.m23.conj())
+    C3["m12"] = c * (T3.m13 + T3.m23)
+    C3["m13"] = 0.5 * (T3.m11.real - T3.m22.real) - 1j * T3.m12.imag
+    C3["m23"] = c * (T3.m13.conj() - T3.m23.conj())
 
     attrs = {"poltype": "C3", "description": "Covariance matrix (3x3)"}
-    return xr.Dataset(C3_dict, attrs=attrs)
+    return xr.Dataset(C3, attrs=attrs)
 
 
 def C3_to_T3(C3: xarray.Dataset) -> xarray.Dataset:
@@ -229,21 +229,21 @@ def C3_to_T3(C3: xarray.Dataset) -> xarray.Dataset:
     if C3.poltype != "C3":
         raise ValueError("Input polarimetric type must be 'C3'")
 
-    T3_dict = {}
+    T3 = {}
 
     c = 1 / np.sqrt(np.float32(2))
 
     # force real diagonal to save space
-    T3_dict["m11"] = 0.5 * (C3.m11 + C3.m33) + C3.m13.real
-    T3_dict["m22"] = 0.5 * (C3.m11 + C3.m33) - C3.m13.real
-    T3_dict["m33"] = C3.m22
+    T3["m11"] = 0.5 * (C3.m11 + C3.m33) + C3.m13.real
+    T3["m22"] = 0.5 * (C3.m11 + C3.m33) - C3.m13.real
+    T3["m33"] = C3.m22
     # upper diagonal terms
-    T3_dict["m12"] = 0.5 * (C3.m11 - C3.m33) - 1j * C3.m13.imag
-    T3_dict["m13"] = c * (C3.m12 + C3.m23.conj())
-    T3_dict["m23"] = c * (C3.m12 - C3.m23.conj())
+    T3["m12"] = 0.5 * (C3.m11 - C3.m33) - 1j * C3.m13.imag
+    T3["m13"] = c * (C3.m12 + C3.m23.conj())
+    T3["m23"] = c * (C3.m12 - C3.m23.conj())
 
     attrs = {"poltype": "T3", "description": "Coherency matrix (3x3)"}
-    return xr.Dataset(T3_dict, attrs=attrs)
+    return xr.Dataset(T3, attrs=attrs)
 
 
 def C4_to_T4(C4: xarray.Dataset) -> xarray.Dataset:
@@ -260,8 +260,6 @@ def C4_to_T4(C4: xarray.Dataset) -> xarray.Dataset:
         raise ValueError("Input polarimetric type must be 'C4'")
 
     T4 = {}
-
-    c = 1 / np.sqrt(np.float32(2))
 
     # force real diagonal to save space
     # diagonal terms

@@ -68,7 +68,7 @@ def read_T3_psp(input_dir: str):
     naz = int(dict_cfg["Nrow"])
     nrg = int(dict_cfg["Ncol"])
 
-    T3_dict = {}
+    T3 = {}
 
     for c in range(3):
         for r in range(c + 1):
@@ -78,7 +78,7 @@ def read_T3_psp(input_dir: str):
 
                 if is_valid_mask:
                     data = np.where(valid_mask, data, np.nan)
-                T3_dict[f"m{r+1}{c+1}"] = (("y", "x"), data)
+                T3[f"m{r+1}{c+1}"] = (("y", "x"), data)
             else:
                 data_real = read_psp_bin(
                     input_path / f"{elt}_real.bin", dtype="float32"
@@ -88,11 +88,10 @@ def read_T3_psp(input_dir: str):
                 )
                 if is_valid_mask:
                     data = np.where(valid_mask, data, np.nan + 1j * np.nan)
-                T3_dict[f"m{r+1}{c+1}"] = (("y", "x"), data_real + 1j * data_imag)
+                T3[f"m{r+1}{c+1}"] = (("y", "x"), data_real + 1j * data_imag)
 
     attrs = {"poltype": "T3", "description": "Coherency matrix (3x3)"}
-    T3 = xr.Dataset(T3_dict, attrs=attrs).chunk({"x": 512, "y": 512})
-    return T3
+    return xr.Dataset(T3, attrs=attrs).chunk({"x": 512, "y": 512})
 
 
 def read_C3_psp(input_dir: str):
@@ -131,7 +130,7 @@ def read_C3_psp(input_dir: str):
     naz = int(dict_cfg["Nrow"])
     nrg = int(dict_cfg["Ncol"])
 
-    C3_dict = {}
+    C3 = {}
 
     for c in range(3):
         for r in range(c + 1):
@@ -141,7 +140,7 @@ def read_C3_psp(input_dir: str):
 
                 if is_valid_mask:
                     data = np.where(valid_mask, data, np.nan)
-                C3_dict[f"m{r+1}{c+1}"] = (("y", "x"), data)
+                C3[f"m{r+1}{c+1}"] = (("y", "x"), data)
             else:
                 data_real = read_psp_bin(
                     input_path / f"{elt}_real.bin", dtype="float32"
@@ -151,11 +150,10 @@ def read_C3_psp(input_dir: str):
                 )
                 if is_valid_mask:
                     data = np.where(valid_mask, data, np.nan + 1j * np.nan)
-                C3_dict[f"m{r+1}{c+1}"] = (("y", "x"), data_real + 1j * data_imag)
+                C3[f"m{r+1}{c+1}"] = (("y", "x"), data_real + 1j * data_imag)
 
     attrs = {"poltype": "C3", "description": "Covariance matrix (3x3)"}
-    C3 = xr.Dataset(C3_dict, attrs=attrs).chunk("auto").chunk({"x": 512, "y": 512})
-    return C3
+    return xr.Dataset(C3, attrs=attrs).chunk("auto").chunk({"x": 512, "y": 512})
 
 
 def read_psp_bin(file_name: str, dtype: str = "float32"):
@@ -172,18 +170,18 @@ def read_psp_bin(file_name: str, dtype: str = "float32"):
     pth_cfg = input_dir / "config.txt"
     if pth_cfg.exists():
         # read config and store in a dict
-        dict_cfg = {}
+        cfg = {}
         with open(pth_cfg, "r") as f:
             lines = f.readlines()
             lines = [line.replace("\n", "") for line in lines if "---" not in line]
             for i in range(0, len(lines), 2):
-                dict_cfg[lines[i]] = lines[i + 1]
+                cfg[lines[i]] = lines[i + 1]
     else:
         raise FileNotFoundError("Configuration file config.txt does not exist.")
 
     # image dimensions (azimuth, range)
-    naz = int(dict_cfg["Nrow"])
-    nrg = int(dict_cfg["Ncol"])
+    naz = int(cfg["Nrow"])
+    nrg = int(cfg["Ncol"])
 
     return np.fromfile(file_path, dtype=dtype, count=naz * nrg).reshape((naz, nrg))
 
@@ -260,58 +258,58 @@ def open_netcdf_beam(file_path: str | Path) -> xarray.Dataset:
     )
 
     # infers polarimetric type from dataset variable names
-    data_dict = {}
+    data = {}
     if S_vars.issubset(var_names):
         poltype = "S"
         description = "Scattering matrix"
-        data_dict["hh"] = ds.i_HH + 1j * ds.q_HH
-        data_dict["hv"] = ds.i_HV + 1j * ds.q_HV
-        data_dict["vv"] = ds.i_VV + 1j * ds.q_VV
-        data_dict["vh"] = ds.i_VH + 1j * ds.q_VH
+        data["hh"] = ds.i_HH + 1j * ds.q_HH
+        data["hv"] = ds.i_HV + 1j * ds.q_HV
+        data["vv"] = ds.i_VV + 1j * ds.q_VV
+        data["vh"] = ds.i_VH + 1j * ds.q_VH
     elif C4_vars.issubset(var_names):
         poltype = "C4"
         description = "Covariance matrix (4x4)"
-        data_dict["m11"] = ds.C11
-        data_dict["m22"] = ds.C22
-        data_dict["m33"] = ds.C33
-        data_dict["m44"] = ds.C44
-        data_dict["m12"] = ds.C12_real + 1j * ds.C12_imag
-        data_dict["m13"] = ds.C13_real + 1j * ds.C13_imag
-        data_dict["m14"] = ds.C14_real + 1j * ds.C14_imag
-        data_dict["m23"] = ds.C23_real + 1j * ds.C23_imag
-        data_dict["m24"] = ds.C24_real + 1j * ds.C24_imag
-        data_dict["m34"] = ds.C34_real + 1j * ds.C34_imag
+        data["m11"] = ds.C11
+        data["m22"] = ds.C22
+        data["m33"] = ds.C33
+        data["m44"] = ds.C44
+        data["m12"] = ds.C12_real + 1j * ds.C12_imag
+        data["m13"] = ds.C13_real + 1j * ds.C13_imag
+        data["m14"] = ds.C14_real + 1j * ds.C14_imag
+        data["m23"] = ds.C23_real + 1j * ds.C23_imag
+        data["m24"] = ds.C24_real + 1j * ds.C24_imag
+        data["m34"] = ds.C34_real + 1j * ds.C34_imag
     elif C3_vars.issubset(var_names):
         poltype = "C3"
         description = "Covariance matrix (3x3)"
-        data_dict["m11"] = ds.C11
-        data_dict["m22"] = ds.C22
-        data_dict["m33"] = ds.C33
-        data_dict["m12"] = ds.C12_real + 1j * ds.C12_imag
-        data_dict["m13"] = ds.C13_real + 1j * ds.C13_imag
-        data_dict["m23"] = ds.C23_real + 1j * ds.C23_imag
+        data["m11"] = ds.C11
+        data["m22"] = ds.C22
+        data["m33"] = ds.C33
+        data["m12"] = ds.C12_real + 1j * ds.C12_imag
+        data["m13"] = ds.C13_real + 1j * ds.C13_imag
+        data["m23"] = ds.C23_real + 1j * ds.C23_imag
     elif T4_vars.issubset(var_names):
         poltype = "T4"
         description = "Coherency matrix (4x4)"
-        data_dict["m11"] = ds.T11
-        data_dict["m22"] = ds.T22
-        data_dict["m33"] = ds.T33
-        data_dict["m44"] = ds.T44
-        data_dict["m12"] = ds.T12_real + 1j * ds.T12_imag
-        data_dict["m13"] = ds.T13_real + 1j * ds.T13_imag
-        data_dict["m14"] = ds.T14_real + 1j * ds.T14_imag
-        data_dict["m23"] = ds.T23_real + 1j * ds.T23_imag
-        data_dict["m24"] = ds.T24_real + 1j * ds.T24_imag
-        data_dict["m34"] = ds.T34_real + 1j * ds.T34_imag
+        data["m11"] = ds.T11
+        data["m22"] = ds.T22
+        data["m33"] = ds.T33
+        data["m44"] = ds.T44
+        data["m12"] = ds.T12_real + 1j * ds.T12_imag
+        data["m13"] = ds.T13_real + 1j * ds.T13_imag
+        data["m14"] = ds.T14_real + 1j * ds.T14_imag
+        data["m23"] = ds.T23_real + 1j * ds.T23_imag
+        data["m24"] = ds.T24_real + 1j * ds.T24_imag
+        data["m34"] = ds.T34_real + 1j * ds.T34_imag
     elif T3_vars.issubset(var_names):
         poltype = "T3"
         description = "Coherency matrix (3x3)"
-        data_dict["m11"] = ds.T11
-        data_dict["m22"] = ds.T22
-        data_dict["m33"] = ds.T33
-        data_dict["m12"] = ds.T12_real + 1j * ds.T12_imag
-        data_dict["m13"] = ds.T13_real + 1j * ds.T13_imag
-        data_dict["m23"] = ds.T23_real + 1j * ds.T23_imag
+        data["m11"] = ds.T11
+        data["m22"] = ds.T22
+        data["m33"] = ds.T33
+        data["m12"] = ds.T12_real + 1j * ds.T12_imag
+        data["m13"] = ds.T13_real + 1j * ds.T13_imag
+        data["m23"] = ds.T23_real + 1j * ds.T23_imag
     else:
         raise ValueError(
             "Polarimetric type not recognized. Possible types are 'S', 'C3' and'T3' matrices."
@@ -319,7 +317,7 @@ def open_netcdf_beam(file_path: str | Path) -> xarray.Dataset:
 
     # make a new dataset with PolSARpro metadata
     ds_out = xr.Dataset(
-        data_dict, attrs={"poltype": poltype, "description": description}
+        data, attrs={"poltype": poltype, "description": description}
     )
 
     # coordinates: "y" & "x" for SAR geometry, "lat" & "lon" for geocoded

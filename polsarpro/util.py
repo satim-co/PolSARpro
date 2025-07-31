@@ -37,7 +37,7 @@ def S_to_C3(S: xarray.Dataset) -> xarray.Dataset:
     """Converts the Sinclair scattering matrix S to the lexicographic covariance matrix C3.
 
     Args:
-        S (xarray.Dataset): input image of scattering matrices with shape
+        S (xarray.Dataset): input image of scattering matrices
 
     Returns:
         xarray.Dataset: C3 covariance matrix
@@ -73,7 +73,7 @@ def S_to_C4(S: xarray.Dataset) -> xarray.Dataset:
     """Converts the Sinclair scattering matrix S to the lexicographic covariance matrix C4.
 
     Args:
-        S (xarray.Dataset): input image of scattering matrices with shape
+        S (xarray.Dataset): input image of scattering matrices
 
     Returns:
         xarray.Dataset: C4 covariance matrix
@@ -112,7 +112,7 @@ def S_to_T3(S: xarray.Dataset) -> xarray.Dataset:
     """Converts the Sinclair scattering matrix S to the Pauli coherency matrix T3.
 
     Args:
-        S (xarray.Dataset): input image of scattering matrices with shape
+        S (xarray.Dataset): input image of scattering matrices
 
     Returns:
         xarray.Dataset: T3 covariance matrix
@@ -148,7 +148,7 @@ def S_to_T4(S: xarray.Dataset) -> xarray.Dataset:
     """Converts the Sinclair scattering matrix S to the Pauli coherency matrix T4.
 
     Args:
-        S (xarray.Dataset): input image of scattering matrices with shape
+        S (xarray.Dataset): input image of scattering matrices
 
     Returns:
         xarray.Dataset: T4 coherency matrix
@@ -365,7 +365,7 @@ def boxcar(img: xarray.Dataset, dim_az: int, dim_rg: int) -> xarray.Dataset:
         dim_rg=dim_rg,
         depth=(dim_az, dim_rg),
     )
-    dict_out = {}
+    data_out = {}
     for var in img.data_vars:
         da_in = da.map_overlap(
             _boxcar_core,
@@ -373,9 +373,9 @@ def boxcar(img: xarray.Dataset, dim_az: int, dim_rg: int) -> xarray.Dataset:
             **process_args,
             dtype="complex64",
         )
-        dict_out[var] = (img[var].dims, da_in)
+        data_out[var] = (img[var].dims, da_in)
 
-    return xr.Dataset(dict_out, coords=img.coords, attrs=img.attrs)
+    return xr.Dataset(data_out, coords=img.coords, attrs=img.attrs)
 
 
 def _boxcar_core(img: np.ndarray, dim_az: int, dim_rg: int) -> np.ndarray:

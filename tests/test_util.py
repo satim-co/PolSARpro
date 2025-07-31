@@ -137,11 +137,11 @@ def test_boxcar():
         m13=xr.DataArray(M[..., 0, 2].astype("complex64"), dims=dims),
         m23=xr.DataArray(M[..., 1, 2].astype("complex64"), dims=dims),
     )
-    Mx = xr.Dataset(M_dict)
+    Mx = xr.Dataset(M_dict, attrs={"poltype": "C3"})
     param = {"img": Mx, "dim_az": 5, "dim_rg": 3}
     M_box = boxcar(**param)
 
     # test ouput shapes and types
-    assert all(Mx[var].shape == (N, N) for var in Mx.data_vars)
-    assert all(Mx[var].dtype == "float32" for var in ["m11", "m22", "m33"])
-    assert all(Mx[var].dtype == "complex64" for var in ["m12", "m13", "m23"])
+    assert all(M_box[var].shape == (N, N) for var in Mx.data_vars)
+    assert all(M_box[var].dtype == "float32" for var in ["m11", "m22", "m33"])
+    assert all(M_box[var].dtype == "complex64" for var in ["m12", "m13", "m23"])

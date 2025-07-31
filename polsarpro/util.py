@@ -259,22 +259,39 @@ def C4_to_T4(C4: xarray.Dataset) -> xarray.Dataset:
     if C4.poltype != "C4":
         raise ValueError("Input polarimetric type must be 'C4'")
 
-    T4_dict = {}
+    T4 = {}
 
     c = 1 / np.sqrt(np.float32(2))
 
-    # TODO finish
     # force real diagonal to save space
-    T4_dict["m11"] = 0.5 * (C4.m11 + 2 * C4.m14.real + C4.m44)
-    T4_dict["m12"] = 0.5 * (C4.m11 - C4.m44) - 1j * (C4.m14.imag)
-    T4_dict["m13"] = 0.5 * (C4.m12 + C4.m13 + C4.m24.conj() + C4.m34.conj())
-    T4_dict["m14"] = 0.5 * (
-        (C4.m12.imag - C4.m13.imag - C4.m24.imag + C4.m34.imag)
-        + 1j * (-C4.m12.real + C4.m1313.real - C4.m24.real - C4.m34.real)
-    )
+    # diagonal terms
+    T4["m11"] = 0.5 * (C4.m11 + 2*C4.m14.real + C4.m44)
+    T4["m22"] = 0.5 * (C4.m11 - 2*C4.m14.real + C4.m44)
+    T4["m33"] = 0.5 * (C4.m22 + C4.m33 + 2*C4.m23.real)
+    T4["m44"] = 0.5 * (C4.m22 + C4.m33 - 2*C4.m23.real)
+
+    # m12
+    T4["m12"] = 0.5 * (C4.m11 - C4.m44) - 1j * C4.m14.imag
+
+    # m13
+    T4["m13"] = 0.5 * (C4.m12 + C4.m13 + C4.m24.conj() + C4.m34.conj())
+
+    # m14
+    T4["m14"] = 0.5 * (C4.m12.imag - C4.m13.imag - C4.m24.imag + C4.m34.imag)
+    T4["m14"] += 0.5j * (-C4.m12.real + C4.m13.real - C4.m24.real + C4.m34.real)
+
+    # m23
+    T4["m23"] = 0.5 * (C4.m12 + C4.m13 - C4.m24.conj() - C4.m34.conj())
+
+    # m24
+    T4["m24"] = 0.5 * (C4.m12.imag - C4.m13.imag + C4.m24.imag - C4.m34.imag)
+    T4["m24"] += 0.5j * (-C4.m12.real + C4.m13.real + C4.m24.real - C4.m34.real)
+
+    # m34 
+    T4["m34"] = -C4.m23.imag + 0.5j * (-C4.m22 + C4.m33)
 
     attrs = {"poltype": "T4", "description": "Coherency matrix (4x4)"}
-    return xr.Dataset(T4_dict, attrs=attrs)
+    return xr.Dataset(T4, attrs=attrs)
 
 
 def vec_to_mat(vec: np.ndarray) -> np.ndarray:

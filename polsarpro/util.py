@@ -215,6 +215,47 @@ def T3_to_C3(T3: xarray.Dataset) -> xarray.Dataset:
     attrs = {"poltype": "C3", "description": "Covariance matrix (3x3)"}
     return xr.Dataset(C3, attrs=attrs)
 
+def T4_to_C4(T4: xarray.Dataset) -> xarray.Dataset:
+    """Converts the Pauli coherency matrix T4 to the lexicographic covariance matrix C4.
+
+    Args:
+        T4 (xarray.Dataset): input image of coherency matrices
+
+    Returns:
+        xarray.Dataset: C4 covariance matrix
+    """
+
+    if T4.poltype != "T4":
+        raise ValueError("Input polarimetric type must be 'T4'")
+
+    C4 = {}
+
+    # force real diagonal to save space
+    C4["m11"] = 0.5 * (T4.m11 + 2 * T4.m12.real + T4.m22)
+    C4["m22"] = 0.5 * (T4.m33 - 2 * T4.m34.imag + T4.m44)
+    C4["m33"] = 0.5 * (T4.m33 + T4.m44 + 2 * T4.m34.imag)
+    C4["m44"] = 0.5 * (T4.m11 - 2 * T4.m12.real + T4.m22)
+
+    # upper diagonal terms
+    C4["m12"] = 0.5 * (T4.m13.real + T4.m23.real - T4.m14.imag - T4.m24.imag)
+    C4["m12"] += 0.5j * (T4.m13.imag + T4.m23.imag + T4.m14.real + T4.m24.real)
+
+    C4["m13"] = 0.5 * (T4.m13.real + T4.m23.real + T4.m14.imag + T4.m24.imag)
+    C4["m13"] += 0.5j * (T4.m13.imag + T4.m23.imag - T4.m14.real - T4.m24.real)
+
+    C4["m14"] = 0.5 * (T4.m11 - T4.m22) - 1j * T4.m12.imag
+
+    C4["m23"] = 0.5 * (T4.m33 - T4.m44) - 1j * T4.m34.real
+
+    C4["m24"] = 0.5 * (T4.m13.real - T4.m23.real - T4.m14.imag + T4.m24.imag)
+    C4["m24"] += 0.5j * (-T4.m13.imag + T4.m23.imag - T4.m14.real + T4.m24.real)
+
+    C4["m34"] = 0.5 * (T4.m13.real - T4.m23.real + T4.m14.imag - T4.m24.imag)
+    C4["m34"] += 0.5j * (-T4.m13.imag + T4.m23.imag + T4.m14.real - T4.m24.real)
+
+    attrs = {"poltype": "C4", "description": "Covariance matrix (4x4)"}
+    return xr.Dataset(C4, attrs=attrs)
+
 
 def C3_to_T3(C3: xarray.Dataset) -> xarray.Dataset:
     """Converts the lexicographic covariance matrix C3 to the Pauli coherency matrix T3.

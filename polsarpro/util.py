@@ -367,12 +367,15 @@ def boxcar(img: xarray.Dataset, dim_az: int, dim_rg: int) -> xarray.Dataset:
     )
     data_out = {}
     for var in img.data_vars:
-        da_in = da.map_overlap(
-            _boxcar_core,
-            img[var].data,
-            **process_args,
-            dtype="complex64",
-        )
+        if isinstance(img[var].data, np.ndarray):
+            da_in = _boxcar_core(img[var].data, dim_az=dim_az, dim_rg=dim_rg)
+        else:
+            da_in = da.map_overlap(
+                _boxcar_core,
+                img[var].data,
+                **process_args,
+                dtype="complex64",
+            )
         data_out[var] = (img[var].dims, da_in)
 
     return xr.Dataset(data_out, coords=img.coords, attrs=img.attrs)

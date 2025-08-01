@@ -1,5 +1,9 @@
 # PolSARPro
 
+#### Note:
+This is a temporary documentation that is describing features in a development branch.
+This documentation will become official when the branch is merged into `main`.
+
 Re-implementation of selected PolSARpro functions in Python, following the scientific recommendations of PolInSAR 2021 (Work In Progress). 
 
 ## Installation guidelines
@@ -37,5 +41,4 @@ export PYTHONPATH="${PYTHONPATH}:/mypath/to/polsarpo/source"
 - To stop the container `docker compose down`
 
 ## Quickstart
-- Start the jupyter notebook in the `notebooks/` directory to see example usage of the Freeman and H/A/Alpha decompositions.
-- The `freeman` and `h_a_alpha` functions are baseline functions we used as a reference, which only use `numpy` arrays. The `freeman_dask` and `h_a_alpha_dask` functions use dask arrays and dask features allowing to automatically process the data by chunks and in parallel.
+Read this [tutorial](https://polsarpro.readthedocs.io/en/latest/quickstart-tutorial/) or use the tutorial notebook in the `notebooks/folder`.

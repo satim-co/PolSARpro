@@ -32,40 +32,46 @@ import xarray
 
 log = logging.getLogger(__name__)
 
-def S_to_C2(S: xarray.Dataset) -> xarray.Dataset:
-    """Converts the Sinclair scattering matrix S to the lexicographic covariance matrix C3.
+def S_to_C2(S: xarray.Dataset, p1: str = "hh", p2: str = "hv") -> xarray.Dataset:
+    """Converts the Sinclair scattering matrix S to the lexicographic dual polarization covariance matrix C2.
 
     Args:
         S (xarray.Dataset): input image of scattering matrices
+        p1 (str): first polarization.
+        p2 (str): second polarization.
 
     Returns:
-        xarray.Dataset: C3 covariance matrix
+        xarray.Dataset: C2 covariance matrix
+    Note:
+        p1 and p2 must be different and belong to {'hh', 'hv', 'vv', 'vh'}
     """
 
     if S.poltype != "S":
         raise ValueError("Input polarimetric type must be 'S'")
 
+    pols = {"hh", "hv", "vv", "vh"}
+    if not {p1, p2}.issubset(pols):
+        raise ValueError(f"Polarizations need to be in {pols}")
+    
+    if p1 == p2:
+        raise ValueError(f"Polarizations must be different.")
+
     # scattering vector, enforce type as in C version
-    c = np.sqrt(np.float32(2))
-    k1 = S.hh.astype("complex64", copy=False)
-    k2 = ((S.hv + S.vh) / c).astype("complex64", copy=False)
-    k3 = S.vv.astype("complex64", copy=False)
+    k1 = S[p1].astype("complex64", copy=False)
+    k2 = S[p2].astype("complex64", copy=False)
 
     # compute the Hermitian matrix elements
-    C3 = {}
+    C2 = {}
 
     # force real diagonal to save space
-    C3["m11"] = (k1 * k1.conj()).real
-    C3["m22"] = (k2 * k2.conj()).real
-    C3["m33"] = (k3 * k3.conj()).real
+    C2["m11"] = (k1 * k1.conj()).real
+    C2["m22"] = (k2 * k2.conj()).real
 
     # upper diagonal terms
-    C3["m12"] = k1 * k2.conj()
-    C3["m13"] = k1 * k3.conj()
-    C3["m23"] = k2 * k3.conj()
+    C2["m12"] = k1 * k2.conj()
 
-    attrs = {"poltype": "C3", "description": "Covariance matrix (3x3)"}
-    return xr.Dataset(C3, attrs=attrs)
+    attrs = {"poltype": "C2", "description": f"Covariance matrix (2x2), with polarizations {p1} and {p2}"}
+    return xr.Dataset(C2, attrs=attrs)
 
 
 def S_to_C3(S: xarray.Dataset) -> xarray.Dataset:

@@ -12,8 +12,8 @@ nav:
 
 theme:
   name: material
-  logo: logo-transparent.svg
-  favicon: logo-transparent.svg
+  logo: psp_temp_logo.png
+  favicon: psp_temp_logo.png
   highlightjs: true
   hljslanguages:
     - python

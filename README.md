@@ -1,10 +1,11 @@
 # PolSARPro
 
-#### Note:
+_"Re-implementation of selected PolSARpro functions in Python, following the scientific recommendations of PolInSAR 2021 (Work In Progress)."_
+
+#### Important note:
 This is a temporary documentation that is describing features in a development branch.
 This documentation will become official when the branch is merged into `main`.
 
-Re-implementation of selected PolSARpro functions in Python, following the scientific recommendations of PolInSAR 2021 (Work In Progress). 
 
 ## Installation guidelines
 - Clone the repository and follow the instructions below 

@@ -32,6 +32,41 @@ import xarray
 
 log = logging.getLogger(__name__)
 
+def S_to_C2(S: xarray.Dataset) -> xarray.Dataset:
+    """Converts the Sinclair scattering matrix S to the lexicographic covariance matrix C3.
+
+    Args:
+        S (xarray.Dataset): input image of scattering matrices
+
+    Returns:
+        xarray.Dataset: C3 covariance matrix
+    """
+
+    if S.poltype != "S":
+        raise ValueError("Input polarimetric type must be 'S'")
+
+    # scattering vector, enforce type as in C version
+    c = np.sqrt(np.float32(2))
+    k1 = S.hh.astype("complex64", copy=False)
+    k2 = ((S.hv + S.vh) / c).astype("complex64", copy=False)
+    k3 = S.vv.astype("complex64", copy=False)
+
+    # compute the Hermitian matrix elements
+    C3 = {}
+
+    # force real diagonal to save space
+    C3["m11"] = (k1 * k1.conj()).real
+    C3["m22"] = (k2 * k2.conj()).real
+    C3["m33"] = (k3 * k3.conj()).real
+
+    # upper diagonal terms
+    C3["m12"] = k1 * k2.conj()
+    C3["m13"] = k1 * k3.conj()
+    C3["m23"] = k2 * k3.conj()
+
+    attrs = {"poltype": "C3", "description": "Covariance matrix (3x3)"}
+    return xr.Dataset(C3, attrs=attrs)
+
 
 def S_to_C3(S: xarray.Dataset) -> xarray.Dataset:
     """Converts the Sinclair scattering matrix S to the lexicographic covariance matrix C3.
@@ -166,7 +201,7 @@ def S_to_T4(S: xarray.Dataset) -> xarray.Dataset:
     k4 = (1j * (S.vh - S.hv) / c).astype("complex64", copy=False)
     # alternate version
     # k4 = (1j * (S.hv - S.vh) / c).astype("complex64", copy=False)
-    
+
     # compute the Hermitian matrix elements
     T4 = {}
 
@@ -218,6 +253,7 @@ def T3_to_C3(T3: xarray.Dataset) -> xarray.Dataset:
     attrs = {"poltype": "C3", "description": "Covariance matrix (3x3)"}
     return xr.Dataset(C3, attrs=attrs)
 
+
 def T4_to_C4(T4: xarray.Dataset) -> xarray.Dataset:
     """Converts the Pauli coherency matrix T4 to the lexicographic covariance matrix C4.
 
@@ -240,21 +276,25 @@ def T4_to_C4(T4: xarray.Dataset) -> xarray.Dataset:
     C4["m44"] = 0.5 * (T4.m11 - 2 * T4.m12.real + T4.m22)
 
     # upper diagonal terms
-    C4["m12"] = 0.5 * (T4.m13.real + T4.m23.real - T4.m14.imag - T4.m24.imag)
-    C4["m12"] += 0.5j * (T4.m13.imag + T4.m23.imag + T4.m14.real + T4.m24.real)
+    C4["m12"] = 0.5 * (
+        T4.m13.real + T4.m23.real - T4.m14.imag - T4.m24.imag
+    ) + 0.5 * 1j * (T4.m13.imag + T4.m23.imag + T4.m14.real + T4.m24.real)
 
-    C4["m13"] = 0.5 * (T4.m13.real + T4.m23.real + T4.m14.imag + T4.m24.imag)
-    C4["m13"] += 0.5j * (T4.m13.imag + T4.m23.imag - T4.m14.real - T4.m24.real)
+    C4["m13"] = 0.5 * (
+        T4.m13.real + T4.m23.real + T4.m14.imag + T4.m24.imag
+    ) + 0.5 * 1j * (T4.m13.imag + T4.m23.imag - T4.m14.real - T4.m24.real)
 
     C4["m14"] = 0.5 * (T4.m11 - T4.m22) - 1j * T4.m12.imag
 
     C4["m23"] = 0.5 * (T4.m33 - T4.m44) - 1j * T4.m34.real
 
-    C4["m24"] = 0.5 * (T4.m13.real - T4.m23.real - T4.m14.imag + T4.m24.imag)
-    C4["m24"] += 0.5j * (-T4.m13.imag + T4.m23.imag - T4.m14.real + T4.m24.real)
+    C4["m24"] = 0.5 * (
+        T4.m13.real - T4.m23.real - T4.m14.imag + T4.m24.imag
+    ) + 0.5 * 1j * (-T4.m13.imag + T4.m23.imag - T4.m14.real + T4.m24.real)
 
-    C4["m34"] = 0.5 * (T4.m13.real - T4.m23.real + T4.m14.imag - T4.m24.imag)
-    C4["m34"] += 0.5j * (-T4.m13.imag + T4.m23.imag + T4.m14.real - T4.m24.real)
+    C4["m34"] = 0.5 * (
+        T4.m13.real - T4.m23.real + T4.m14.imag - T4.m24.imag
+    ) + 0.5 * 1j * (-T4.m13.imag + T4.m23.imag + T4.m14.real - T4.m24.real)
 
     attrs = {"poltype": "C4", "description": "Covariance matrix (4x4)"}
     return xr.Dataset(C4, attrs=attrs)
@@ -307,10 +347,10 @@ def C4_to_T4(C4: xarray.Dataset) -> xarray.Dataset:
 
     # force real diagonal to save space
     # diagonal terms
-    T4["m11"] = 0.5 * (C4.m11 + 2*C4.m14.real + C4.m44)
-    T4["m22"] = 0.5 * (C4.m11 - 2*C4.m14.real + C4.m44)
-    T4["m33"] = 0.5 * (C4.m22 + C4.m33 + 2*C4.m23.real)
-    T4["m44"] = 0.5 * (C4.m22 + C4.m33 - 2*C4.m23.real)
+    T4["m11"] = 0.5 * (C4.m11 + 2 * C4.m14.real + C4.m44)
+    T4["m22"] = 0.5 * (C4.m11 - 2 * C4.m14.real + C4.m44)
+    T4["m33"] = 0.5 * (C4.m22 + C4.m33 + 2 * C4.m23.real)
+    T4["m44"] = 0.5 * (C4.m22 + C4.m33 - 2 * C4.m23.real)
 
     # m12
     T4["m12"] = 0.5 * (C4.m11 - C4.m44) - 1j * C4.m14.imag
@@ -319,17 +359,19 @@ def C4_to_T4(C4: xarray.Dataset) -> xarray.Dataset:
     T4["m13"] = 0.5 * (C4.m12 + C4.m13 + C4.m24.conj() + C4.m34.conj())
 
     # m14
-    T4["m14"] = 0.5 * (C4.m12.imag - C4.m13.imag - C4.m24.imag + C4.m34.imag)
-    T4["m14"] += 0.5j * (-C4.m12.real + C4.m13.real - C4.m24.real + C4.m34.real)
+    T4["m14"] = 0.5 * (
+        C4.m12.imag - C4.m13.imag - C4.m24.imag + C4.m34.imag
+    ) + 0.5 * 1j * (-C4.m12.real + C4.m13.real - C4.m24.real + C4.m34.real)
 
     # m23
     T4["m23"] = 0.5 * (C4.m12 + C4.m13 - C4.m24.conj() - C4.m34.conj())
 
     # m24
-    T4["m24"] = 0.5 * (C4.m12.imag - C4.m13.imag + C4.m24.imag - C4.m34.imag)
-    T4["m24"] += 0.5j * (-C4.m12.real + C4.m13.real + C4.m24.real - C4.m34.real)
+    T4["m24"] = 0.5 * (
+        C4.m12.imag - C4.m13.imag + C4.m24.imag - C4.m34.imag
+    ) + 0.5 * 1j * (-C4.m12.real + C4.m13.real + C4.m24.real - C4.m34.real)
 
-    # m34 
+    # m34
     T4["m34"] = -C4.m23.imag + 0.5j * (-C4.m22 + C4.m33)
 
     attrs = {"poltype": "T4", "description": "Coherency matrix (4x4)"}

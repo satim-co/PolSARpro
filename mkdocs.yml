@@ -1,0 +1,66 @@
+site_name: PolSARpro documentation
+repo_url: https://github.com/satim-co/PolSARpro
+repo_name: 'satim-co/PolSARpro'
+nav:
+  - Home: index.md
+  - Tutorials:
+    - Example 1: quickstart-tutorial.ipynb
+  - API reference: 
+    - Decompositions: decompositions.md
+    - Utilities: util.md
+    - Inputs/Outputs: io.md
+
+theme:
+  name: material
+  logo: logo-transparent.svg
+  favicon: logo-transparent.svg
+  highlightjs: true
+  hljslanguages:
+    - python
+  features:
+    - navigation.instant
+  font:
+    text: 'Nunito Sans'
+    code: 'Fira Code'
+  # palette:
+    # primary: blue grey
+    # accent: blue grey
+
+  # # Palette toggle for automatic mode
+  # - media: "(prefers-color-scheme)"
+  #   toggle:
+  #     icon: material/brightness-auto
+  #     name: Switch to light mode
+
+  # # Palette toggle for light mode
+  # - media: "(prefers-color-scheme: light)"
+  #   scheme: default 
+  #   toggle:
+  #     icon: material/brightness-7
+  #     name: Switch to dark mode
+
+  # # Palette toggle for dark mode
+  # - media: "(prefers-color-scheme: dark)"
+  #   scheme: slate
+  #   toggle:
+  #     icon: material/brightness-4
+  #     name: Switch to system preference
+plugins:
+  - search
+  - mkdocs-jupyter
+  - mkdocstrings:
+      handlers:
+        # See: https://mkdocstrings.github.io/python/usage/
+        python:
+          paths: [polsarpro]
+          options:
+            docstring_style: google
+            show_root_heading: true
+            heading_level: 1
+            show_source: false
+markdown_extensions:
+  - markdown_include.include:
+      base_path: .
+  - toc:
+      toc_depth: 4
+      baselevel: 2

@@ -162,7 +162,10 @@ def S_to_T4(S: xarray.Dataset) -> xarray.Dataset:
     k1 = ((S.hh + S.vv) / c).astype("complex64", copy=False)
     k2 = ((S.hh - S.vv) / c).astype("complex64", copy=False)
     k3 = ((S.hv + S.vh) / c).astype("complex64", copy=False)
-    k4 = ((S.vh - S.hv) / c).astype("complex64", copy=False)
+    k4 = (1j * (S.hv - S.vh) / c).astype("complex64", copy=False)
+    
+    # k4 = ((S.vh.imag - S.hv.imag) / c).astype("float32", copy=False)
+    # k4 += 1j * ((S.hv.real - S.vh.real) / c).astype("float32", copy=False)
 
     # compute the Hermitian matrix elements
     T4 = {}

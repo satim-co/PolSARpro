@@ -293,7 +293,7 @@ def _compute_h_a_alpha_parameters_T4(l, v, flags):
         outputs["beta"] = beta
 
     if "epsilon" in flags or "epsilons" in flags:
-        epsilons = np.atan2(np.abs(v[:, :, 3, :]), eps + np.abs(v[:, :, 3, :]))
+        epsilons = np.atan2(np.abs(v[:, :, 3, :]), eps + np.abs(v[:, :, 2, :]))
         epsilons *= 180 / np.pi
 
     if "epsilon" in flags:
@@ -321,7 +321,7 @@ def _compute_h_a_alpha_parameters_T4(l, v, flags):
         gamma = np.sum(p * gammas, axis=2)
         outputs["gamma"] = gamma
 
-    if "nhu" in flags or "nhu" in flags:
+    if "nhu" in flags or "nhus" in flags:
         nhus = np.atan2(v[:, :, 3, :].imag, eps + v[:, :, 3, :].real) - phases
         nhus = np.atan2(np.sin(nhus), eps + np.cos(nhus))
         nhus *= 180 / np.pi
@@ -377,23 +377,24 @@ def _reconstruct_matrix_from_ds(ds):
     new_dims_array = new_dims + ("i", "j")
     if ds.poltype == "T3":
         # build each line of the T3 matrix
-        T3_l1 = xr.concat((ds.m11 + eps, ds.m12, ds.m13), dim="j")
-        T3_l2 = xr.concat((ds.m12.conj(), ds.m22 + eps, ds.m23), dim="j")
-        T3_l3 = xr.concat((ds.m13.conj(), ds.m23.conj(), ds.m33 + eps), dim="j")
+        T3_l1 = xr.concat((ds.m11, ds.m12, ds.m13), dim="j")
+        T3_l2 = xr.concat((ds.m12.conj(), ds.m22, ds.m23), dim="j")
+        T3_l3 = xr.concat((ds.m13.conj(), ds.m23.conj(), ds.m33), dim="j")
 
         # Concatenate all lines into a 3x3 matrix
         return (
             xr.concat((T3_l1, T3_l2, T3_l3), dim="i")
             .transpose(*new_dims_array)
             .chunk({new_dims[0]: "auto", new_dims[1]: "auto", "i": 3, "j": 3})
+            + eps
         )
     elif ds.poltype == "T4":
         # build each line of the T4 matrix
-        T4_l1 = xr.concat((ds.m11 + eps, ds.m12, ds.m13, ds.m14), dim="j")
-        T4_l2 = xr.concat((ds.m12.conj(), ds.m22 + eps, ds.m23, ds.m24), dim="j")
-        T4_l3 = xr.concat((ds.m13.conj(), ds.m23.conj(), ds.m33 + eps, ds.m34), dim="j")
+        T4_l1 = xr.concat((ds.m11, ds.m12, ds.m13, ds.m14), dim="j")
+        T4_l2 = xr.concat((ds.m12.conj(), ds.m22, ds.m23, ds.m24), dim="j")
+        T4_l3 = xr.concat((ds.m13.conj(), ds.m23.conj(), ds.m33, ds.m34), dim="j")
         T4_l4 = xr.concat(
-            (ds.m14.conj(), ds.m24.conj(), ds.m34.conj(), ds.m44 + eps), dim="j"
+            (ds.m14.conj(), ds.m24.conj(), ds.m34.conj(), ds.m44), dim="j"
         )
 
         # concatenate all lines into a 4x4 matrix
@@ -401,6 +402,7 @@ def _reconstruct_matrix_from_ds(ds):
             xr.concat((T4_l1, T4_l2, T4_l3, T4_l4), dim="i")
             .transpose(*new_dims_array)
             .chunk({new_dims[0]: "auto", new_dims[1]: "auto", "i": 4, "j": 4})
+            + eps
         )
     else:
         raise NotImplementedError("Implemented only for T3 and T4 poltypes.")

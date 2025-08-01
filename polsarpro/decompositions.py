@@ -54,13 +54,13 @@ def h_a_alpha(
             applied before decomposition (boxcar filter). Defaults to [3, 3].
         flags (tuple[str], optional): Parameters to compute and return from the decomposition.
             Possible values include:
-            - "entropy": Scattering entropy (H)
-            - "anisotropy": Scattering anisotropy (A)
-            - "alpha": Mean alpha scattering angle (alpha)
-            - "beta", "delta", "gamma", "lambda": Other angular or eigenvalue related parameters
-            - "nhu", "epsilon" additional angles defined only for 4x4 matrices. Will be ignored if not processing 4x4 matrices.
+            - "entropy": Scattering entropy (H)  
+            - "anisotropy": Scattering anisotropy (A) 
+            - "alpha": Mean alpha scattering angle (alpha) 
+            - "beta", "delta", "gamma", "lambda": Other angular or eigenvalue related parameters 
+            - "nhu", "epsilon" additional angles defined only for 4x4 matrices. Will be ignored if not processing 4x4 matrices.  
             - "alphas", "betas", "deltas", "gammas", "lambdas": Per-eigenvalue versions of the above
-            Defaults to ("entropy", "alpha", "anisotropy").
+            Defaults to ("entropy", "alpha", "anisotropy").  
 
     Returns:
         xr.Dataset: An xarray.Dataset where data variable names correspond to the requested flags,
@@ -109,7 +109,7 @@ def h_a_alpha(
 
     if input_data.poltype == "C2":
         in_ = input_data
-    if input_data.poltype == "C3":
+    elif input_data.poltype == "C3":
         in_ = C3_to_T3(input_data)
     elif input_data.poltype == "T3":
         in_ = input_data
@@ -189,7 +189,7 @@ def _compute_h_a_alpha_parameters_C2(l, v, flags):
         outputs["entropy"] = H
 
     if "anisotropy" in flags:
-        A = (l[..., 0] - l[..., 1]) / (l[..., 0] + l[..., 1] + eps)
+        A = (p[..., 0] - p[..., 1]) / (p[..., 0] + p[..., 1] + eps)
         outputs["anisotropy"] = A
 
     if "alpha" in flags or "alphas" in flags:
@@ -241,7 +241,7 @@ def _compute_h_a_alpha_parameters_T3(l, v, flags):
         outputs["entropy"] = H
 
     if "anisotropy" in flags:
-        A = (l[..., 1] - l[..., 2]) / (l[..., 1] + l[..., 2] + eps)
+        A = (p[..., 1] - p[..., 2]) / (p[..., 1] + p[..., 2] + eps)
         outputs["anisotropy"] = A
 
     if "alpha" in flags or "alphas" in flags:
@@ -322,7 +322,7 @@ def _compute_h_a_alpha_parameters_T4(l, v, flags):
         outputs["entropy"] = H
 
     if "anisotropy" in flags:
-        A = (l[..., 1] - l[..., 2]) / (l[..., 1] + l[..., 2] + eps)
+        A = (p[..., 1] - p[..., 2]) / (p[..., 1] + p[..., 2] + eps)
         outputs["anisotropy"] = A
 
     if "alpha" in flags or "alphas" in flags:

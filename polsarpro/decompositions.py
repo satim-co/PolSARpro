@@ -65,6 +65,10 @@ def h_a_alpha(
     Returns:
         xr.Dataset: An xarray.Dataset where data variable names correspond to the requested flags,
         and values are the corresponding 2D arrays (or 3D if the flag returns multiple values per pixel).
+    Note:
+        For C2 inputs, only 'alpha', 'delta', 'anisotropy' and 'lambdas' can be computed. All other parameters will be ignored.
+    Note:
+        If the S matrix is given as an input, a 3x3 analysis will be assumed using the T3 matrix. For 4x4 and 2x2, use 'C4', 'T4' or 'C2' as an input. 
 
     References:
         Cloude, S. R., & Pottier, E. (1997). An entropy based classification scheme for land
@@ -103,6 +107,8 @@ def h_a_alpha(
     if not "poltype" in input_data.attrs:
         ValueError("Polarimetric type `poltype` not found in input attributes.")
 
+    if input_data.poltype == "C2":
+        in_ = input_data
     if input_data.poltype == "C3":
         in_ = C3_to_T3(input_data)
     elif input_data.poltype == "T3":
@@ -151,6 +157,8 @@ def h_a_alpha(
         out = _compute_h_a_alpha_parameters_T3(l, v, flags)
     elif in_.poltype in ("T4", "C4"):
         out = _compute_h_a_alpha_parameters_T4(l, v, flags)
+    elif in_.poltype in ("C2"):
+        out = _compute_h_a_alpha_parameters_C2(l, v, flags)
 
     return xr.Dataset(
         # add dimension names, account for 2D and 3D outputs
@@ -167,6 +175,58 @@ def h_a_alpha(
 
 # below this line, functions are not meant to be called directly
 
+
+def _compute_h_a_alpha_parameters_C2(l, v, flags):
+
+    eps = 1e-30
+
+    # Pseudo-probabilities (normalized eigenvalues)
+    p = np.clip(l / (eps + l.sum(axis=2)[..., None]), eps, 1)
+
+    outputs = {}
+    if "entropy" in flags:
+        H = np.sum(-p * np.log(p), axis=2) / np.float32(np.log(2))
+        outputs["entropy"] = H
+
+    if "anisotropy" in flags:
+        A = (l[..., 0] - l[..., 1]) / (l[..., 0] + l[..., 1] + eps)
+        outputs["anisotropy"] = A
+
+    if "alpha" in flags or "alphas" in flags:
+        # Alpha angles for each mechanism
+        alphas = np.arccos(np.abs(v[:, :, 0, :]))
+        # Convert to degrees
+        alphas *= 180 / np.pi
+
+    if "alpha" in flags:
+        # Mean alpha
+        alpha = np.sum(p * alphas, axis=2)
+        outputs["alpha"] = alpha
+
+    if "delta" in flags or "deltas" in flags:
+        phases = np.atan2(v[:, :, 0, :].imag, eps + v[:, :, 0, :].real)
+        deltas = np.atan2(v[:, :, 1, :].imag, eps + v[:, :, 1, :].real) - phases
+        deltas = np.atan2(np.sin(deltas), eps + np.cos(deltas))
+        deltas *= 180 / np.pi
+
+    if "delta" in flags:
+        delta = np.sum(p * deltas, axis=2)
+        outputs["delta"] = delta
+
+    # Average target eigenvalue
+    if "lambda" in flags or "lambdas" in flags:
+        # lambda is a python reserved keyword, using lambd instead
+        lambd = np.sum(p * l, axis=2)
+        outputs["lambda"] = lambd
+
+    # extras outputs: non averaged parameters (ex: alpha1, alpha2, alpha3)
+    if "alphas" in flags:
+        outputs["alphas"] = alphas
+    if "deltas" in flags:
+        outputs["deltas"] = deltas
+    if "lambdas" in flags:
+        outputs["lambdas"] = l
+    return outputs
 
 def _compute_h_a_alpha_parameters_T3(l, v, flags):
 
@@ -375,6 +435,18 @@ def _reconstruct_matrix_from_ds(ds):
         )
 
     new_dims_array = new_dims + ("i", "j")
+    if ds.poltype == "C2":
+        # build each line of the T3 matrix
+        C2_l1 = xr.concat((ds.m11, ds.m12), dim="j")
+        C2_l2 = xr.concat((ds.m12.conj(), ds.m22), dim="j")
+
+        # Concatenate all lines into a 2x2 matrix
+        return (
+            xr.concat((C2_l1, C2_l2), dim="i")
+            .transpose(*new_dims_array)
+            .chunk({new_dims[0]: "auto", new_dims[1]: "auto", "i": 2, "j": 2})
+            + eps
+        )
     if ds.poltype == "T3":
         # build each line of the T3 matrix
         T3_l1 = xr.concat((ds.m11, ds.m12, ds.m13), dim="j")

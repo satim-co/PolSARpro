@@ -1,7 +1,7 @@
 import numpy as np
 import xarray as xr
 from polsarpro.util import vec_to_mat
-from polsarpro.util import S_to_C3, S_to_C4
+from polsarpro.util import S_to_C3, S_to_C4, S_to_C2
 from polsarpro.util import S_to_T3, S_to_T4
 from polsarpro.util import T3_to_C3, T4_to_C4
 from polsarpro.util import C3_to_T3, C4_to_T4
@@ -19,6 +19,26 @@ def test_vec_to_mat():
     assert np.allclose(M.transpose((0, 1, 3, 2)), M.conj())
     assert np.allclose(M.diagonal(axis1=2, axis2=3).imag, 0)
 
+def test_S_to_C2():
+
+    N = 128
+    S = np.random.rand(N, N, 2, 2) + 1j * np.random.rand(N, N, 2, 2)
+
+    dims = ("y", "x")
+    S_dict = dict(
+        hh=xr.DataArray(S[..., 0, 0], dims=dims),
+        hv=xr.DataArray(S[..., 0, 1], dims=dims),
+        vh=xr.DataArray(S[..., 1, 0], dims=dims),
+        vv=xr.DataArray(S[..., 1, 1], dims=dims),
+    )
+    Sx = xr.Dataset(S_dict, attrs=dict(poltype="S"))
+    C2x = S_to_C2(Sx)
+
+    # test ouput shapes and types
+    assert C2x.poltype == "C2"
+    assert all(C2x[var].shape == (N, N) for var in C2x.data_vars)
+    assert all(C2x[var].dtype == "float32" for var in ["m11", "m22"])
+    assert all(C2x[var].dtype == "complex64" for var in ["m12"])
 
 def test_S_to_C3():
 

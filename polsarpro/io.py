@@ -223,6 +223,12 @@ def open_netcdf_beam(file_path: str | Path) -> xarray.Dataset:
         "T23_real",
         "T23_imag",
     }
+    C2_vars = {
+        "C11",
+        "C22",
+        "C12_real",
+        "C12_imag",
+    }
     C3_vars = {
         "C11",
         "C22",
@@ -288,6 +294,12 @@ def open_netcdf_beam(file_path: str | Path) -> xarray.Dataset:
         data["m12"] = ds.C12_real + 1j * ds.C12_imag
         data["m13"] = ds.C13_real + 1j * ds.C13_imag
         data["m23"] = ds.C23_real + 1j * ds.C23_imag
+    elif C2_vars.issubset(var_names):
+        poltype = "C2"
+        description = "Covariance matrix (2x2)"
+        data["m11"] = ds.C11
+        data["m22"] = ds.C22
+        data["m12"] = ds.C12_real + 1j * ds.C12_imag
     elif T4_vars.issubset(var_names):
         poltype = "T4"
         description = "Coherency matrix (4x4)"
@@ -312,7 +324,7 @@ def open_netcdf_beam(file_path: str | Path) -> xarray.Dataset:
         data["m23"] = ds.T23_real + 1j * ds.T23_imag
     else:
         raise ValueError(
-            "Polarimetric type not recognized. Possible types are 'S', 'C3' and'T3' matrices."
+            "Polarimetric type not recognized. Possible types are 'S', 'C2', 'C3', 'T3', 'C4', 'T4' matrices."
         )
 
     # make a new dataset with PolSARpro metadata

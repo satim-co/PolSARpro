@@ -41,5 +41,5 @@ export PYTHONPATH="${PYTHONPATH}:/mypath/to/polsarpo/source"
 - From the main directory type `docker compose up -d`
 - To stop the container `docker compose down`
 
-## Quickstart
+## Getting started
 Read this [tutorial](https://polsarpro.readthedocs.io/en/latest/quickstart-tutorial/) or use the tutorial notebook in the `notebooks/folder`.

@@ -1,9 +1,11 @@
 {
 	"folders": [
 		{
+			"name": "polsarpro-dev",
 			"path": "."
 		},
 		{
+			"name": "c_psp",
 			"path": "../home/c_psp"
 		}
 	],

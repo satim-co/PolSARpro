@@ -26,7 +26,6 @@ import logging
 import numpy as np
 from scipy.ndimage import convolve
 import dask.array as da
-from bench import timeit
 import xarray as xr
 import xarray
 import matplotlib.pyplot as plt
@@ -389,8 +388,8 @@ def C4_to_T4(C4: xarray.Dataset) -> xarray.Dataset:
     return xr.Dataset(T4, attrs=attrs)
 
 
+# this function is used only in unit tests
 def vec_to_mat(vec: np.ndarray) -> np.ndarray:
-    """Vector to matrix conversion. Input should have (naz, nrg, N) shape"""
     if vec.ndim != 3:
         raise ValueError("Vector valued image is expected (dimension 3)")
     return vec[:, :, None, :] * vec[:, :, :, None].conj()

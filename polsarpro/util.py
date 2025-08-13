@@ -29,8 +29,10 @@ import dask.array as da
 from bench import timeit
 import xarray as xr
 import xarray
+import matplotlib.pyplot as plt
 
 log = logging.getLogger(__name__)
+
 
 def S_to_C2(S: xarray.Dataset, p1: str = "hh", p2: str = "hv") -> xarray.Dataset:
     """Converts the Sinclair scattering matrix S to the lexicographic dual polarization covariance matrix C2.
@@ -52,7 +54,7 @@ def S_to_C2(S: xarray.Dataset, p1: str = "hh", p2: str = "hv") -> xarray.Dataset
     pols = {"hh", "hv", "vv", "vh"}
     if not {p1, p2}.issubset(pols):
         raise ValueError(f"Polarizations need to be in {pols}")
-    
+
     if p1 == p2:
         raise ValueError(f"Polarizations must be different.")
 
@@ -70,7 +72,10 @@ def S_to_C2(S: xarray.Dataset, p1: str = "hh", p2: str = "hv") -> xarray.Dataset
     # upper diagonal terms
     C2["m12"] = k1 * k2.conj()
 
-    attrs = {"poltype": "C2", "description": f"Covariance matrix (2x2), with polarizations {p1} and {p2}"}
+    attrs = {
+        "poltype": "C2",
+        "description": f"Covariance matrix (2x2), with polarizations {p1} and {p2}",
+    }
     return xr.Dataset(C2, attrs=attrs)
 
 
@@ -406,6 +411,10 @@ def boxcar(img: xarray.Dataset, dim_az: int, dim_rg: int) -> xarray.Dataset:
     Note:
         The filter is always applied along 2 dimensions (azimuth, range). Please ensure to provide a valid image.
     """
+
+    if not isinstance(img, xarray.Dataset):
+        raise TypeError("Function only valid for xarray / PolSARpro datasets.")
+
     if type(dim_az) != int and type(dim_rg) != int:
         raise ValueError("dimaz and dimrg must be integers")
     if (dim_az < 1) or (dim_rg < 1):
@@ -418,8 +427,10 @@ def boxcar(img: xarray.Dataset, dim_az: int, dim_rg: int) -> xarray.Dataset:
     )
     data_out = {}
     for var in img.data_vars:
+        # if data is not chunked, apply directly
         if isinstance(img[var].data, np.ndarray):
             da_in = _boxcar_core(img[var].data, dim_az=dim_az, dim_rg=dim_rg)
+        # for dask chunked arrays, apply blockwise parallel processing
         else:
             da_in = da.map_overlap(
                 _boxcar_core,
@@ -432,6 +443,7 @@ def boxcar(img: xarray.Dataset, dim_az: int, dim_rg: int) -> xarray.Dataset:
     return xr.Dataset(data_out, coords=img.coords, attrs=img.attrs)
 
 
+# this should not be used directly
 def _boxcar_core(img: np.ndarray, dim_az: int, dim_rg: int) -> np.ndarray:
     n_extra_dims = img.ndim - 2
 
@@ -509,3 +521,79 @@ def _boxcar_core(img: np.ndarray, dim_az: int, dim_rg: int) -> np.ndarray:
 #     # trim the padded borders
 #     res = res.isel(**dict_slice)
 #     return res
+
+
+def plot_h_alpha_plane(ds, bins=500, min_pts=5):
+    """Plot H-Alpha 2D histogram.
+
+    Args:
+        ds (xr.Dataset): Dataset containing 'entropy' and 'alpha' variables.
+        bins (int): Number of bins along each dimension.
+        min_pts (int): If the number of points in one bin is less than this value, display is omitted.
+    """
+
+    if not ds.poltype == "h_a_alpha":
+        raise ValueError("Input must be a valid PolSARpro H/A/Alpha result.")
+    
+    if not {"entropy", "alpha"}.issubset(ds.data_vars):
+        raise ValueError("Entropy or Alpha is missing from the input data.")
+
+    def curve1(n_points):
+
+        m = np.linspace(1e-30, 1, n_points)
+        l1 = np.ones(n_points)
+        l2 = m
+        l3 = m
+        l = np.vstack([l1, l2, l3])
+
+        p = l / l.sum(0)
+        H = np.sum(-p * np.log(p), 0) / np.float32(np.log(3))
+        alpha = p[1] + p[2]
+
+        return H, alpha
+
+    def curve2(n_points):
+        m = np.linspace(1e-30, 1, n_points)
+        l1 = np.zeros_like(m)
+        l2 = np.ones_like(m)
+        l3 = np.zeros_like(m)
+        # l1[m < 0.5] = 0
+        l1[m >= 0.5] = 2 * m[m >= 0.5] - 1
+
+        # l3[m < 0.5] = 2 * m[m<0.5]
+        l3[m >= 0.5] = 1
+
+        l = np.vstack([l1, l2, l3])
+
+        p = l / l.sum(0)
+        H = np.sum(-p * np.log(p + 1e-30), 0) / np.float32(np.log(3))
+        alpha = p[1] + p[2]
+
+        return H[m >= 0.5], alpha[m >= 0.5]
+
+    x1, y1 = curve1(bins)
+    x2, y2 = curve2(bins)
+
+    # Flatten and remove NaNs
+    entropy = ds.entropy.values.ravel()
+    alpha = ds.alpha.values.ravel()
+    mask = ~np.isnan(entropy) & ~np.isnan(alpha)
+    entropy = entropy[mask].clip(0, 1)
+    alpha = alpha[mask].clip(0, 90)
+
+    fig, ax = plt.subplots(figsize=(8, 6))
+
+    # 2D histogram
+    h = ax.hist2d(entropy, alpha, bins=bins, range=((0, 1), (0, 90)), cmap="jet", cmin=min_pts)
+    plt.colorbar(h[3], ax=ax, label="Number of points")
+
+    # Overlay curves
+    ax.plot(x1, 90*y1, color="black", linewidth=1)
+    ax.plot(x2, 90*y2, color="black", linewidth=1)
+
+    # Labels and title
+    ax.set_xlabel("Entropy (H)")
+    ax.set_ylabel("Alpha (°)")
+    ax.set_title("H-Alpha plane")
+
+    return ax, fig

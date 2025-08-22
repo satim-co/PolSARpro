@@ -121,6 +121,7 @@ def validate_dataset(
 ) -> str:
     """
     Validate a PolSAR dataset against standard conventions.
+    Used in processing functions to ensure the validity of inputs.
 
     Args:
         ds: Dataset to validate.

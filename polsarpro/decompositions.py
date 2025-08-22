@@ -52,27 +52,38 @@ def h_a_alpha(
             a 3x3 matrix (or 2x2 in the case of Sinclair) per pixel, typically with shape
             (..., 3, 3) or (..., 2, 2) depending on `input_poltype`.
         input_poltype (str, optional): The polarimetric basis of the input data. Supported types are:
+
             - "S": Sinclair scattering matrix
+
             - "C3": Lexicographic covariance matrix
+            
             - "T3": Pauli coherency matrix
+            
             - "C4" and "T4": 4x4 versions of the above
+        
         boxcar_size (list[int, int], optional): Size of the spatial averaging window to be
             applied before decomposition (boxcar filter). Defaults to [3, 3].
         flags (tuple[str], optional): Parameters to compute and return from the decomposition.
             Possible values include:
+
             - "entropy": Scattering entropy (H)  
+
             - "anisotropy": Scattering anisotropy (A) 
+            
             - "alpha": Mean alpha scattering angle (alpha) 
+            
             - "beta", "delta", "gamma", "lambda": Other angular or eigenvalue related parameters 
+            
             - "nhu", "epsilon" additional angles defined only for 4x4 matrices. Will be ignored if not processing 4x4 matrices.  
+            
             - "alphas", "betas", "deltas", "gammas", "lambdas": Per-eigenvalue versions of the above
             Defaults to ("entropy", "alpha", "anisotropy").  
 
     Returns:
         xr.Dataset: An xarray.Dataset where data variable names correspond to the requested flags, and values are the corresponding 2D arrays (or 3D if the flag returns multiple values per pixel).
-    Note:
+    Notes:
         For C2 inputs, only 'alpha', 'delta', 'anisotropy' and 'lambdas' can be computed. All other parameters will be ignored.
-    Note:
+
         If the S matrix is given as an input, a 3x3 analysis will be assumed using the T3 matrix. For 4x4 and 2x2, use 'C4', 'T4' or 'C2' as an input. 
 
     References:

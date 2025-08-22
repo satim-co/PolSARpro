@@ -48,7 +48,7 @@ def h_a_alpha(
     eigenvalue-based parameters can also be computed by specifying corresponding flags.
 
     Args:
-        input_data (xr.Dataset): The input polarimetric SAR data array. Supported types are:
+        input_data (xr.Dataset): Input polarimetric SAR dataset. Supported types are:
 
             - "S": Sinclair scattering matrix
 
@@ -82,7 +82,7 @@ def h_a_alpha(
         xr.Dataset: An xarray.Dataset where data variable names correspond to the requested flags, and values are the corresponding 2D arrays (or 3D if the flag returns multiple values per pixel).
 
     Notes:
-        For C2 inputs, only 'alpha', 'delta', 'anisotropy' and 'lambdas' can be computed. All other parameters will be ignored.
+        For C2 inputs, only 'alpha(s)', 'delta(s)', 'anisotropy' and 'lambda(s)' can be computed. Other passed flags will be ignored.
 
         If the S matrix is given as an input, a 3x3 analysis will be assumed using the T3 matrix. For 4x4 and 2x2, use 'C4', 'T4' or 'C2' as an input. 
 

@@ -28,6 +28,7 @@ import numpy as np
 import xarray as xr
 import dask.array as da
 from polsarpro.util import boxcar, C3_to_T3, S_to_T3, C4_to_T4
+from polsarpro.auxil import validate_dataset
 
 
 def h_a_alpha(
@@ -101,12 +102,13 @@ def h_a_alpha(
             raise ValueError(
                 f"Flag '{flag}' not recognized. Possible values are {possible_flags}."
             )
+    allowed_poltypes = ("S", "C2", "C3", "C4", "T3", "T4")
+    validate_dataset(input_data, allowed_poltypes=allowed_poltypes)
+    # if not isinstance(input_data, xr.Dataset):
+    #     TypeError("Input must be of type xarray.Dataset")
 
-    if not isinstance(input_data, xr.Dataset):
-        TypeError("Input must be of type xarray.Dataset")
-
-    if not "poltype" in input_data.attrs:
-        ValueError("Polarimetric type `poltype` not found in input attributes.")
+    # if not "poltype" in input_data.attrs:
+    #     ValueError("Polarimetric type `poltype` not found in input attributes.")
 
     if input_data.poltype == "C2":
         in_ = input_data

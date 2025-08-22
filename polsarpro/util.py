@@ -31,6 +31,7 @@ import dask.array as da
 import xarray as xr
 import xarray
 import matplotlib.pyplot as plt
+from polsarpro.auxil import validate_dataset
 
 log = logging.getLogger(__name__)
 
@@ -49,8 +50,9 @@ def S_to_C2(S: xarray.Dataset, p1: str = "hh", p2: str = "hv") -> xarray.Dataset
         p1 and p2 must be different and belong to {'hh', 'hv', 'vv', 'vh'}
     """
 
-    if S.poltype != "S":
-        raise ValueError("Input polarimetric type must be 'S'")
+    validate_dataset(S, allowed_poltypes="S")
+    # if S.poltype != "S":
+        # raise ValueError("Input polarimetric type must be 'S'")
 
     pols = {"hh", "hv", "vv", "vh"}
     if not {p1, p2}.issubset(pols):
@@ -89,9 +91,9 @@ def S_to_C3(S: xarray.Dataset) -> xarray.Dataset:
     Returns:
         xarray.Dataset: C3 covariance matrix
     """
-
-    if S.poltype != "S":
-        raise ValueError("Input polarimetric type must be 'S'")
+    validate_dataset(S, allowed_poltypes="S")
+    # if S.poltype != "S":
+    #     raise ValueError("Input polarimetric type must be 'S'")
 
     # scattering vector, enforce type as in C version
     c = np.sqrt(np.float32(2))
@@ -125,9 +127,9 @@ def S_to_C4(S: xarray.Dataset) -> xarray.Dataset:
     Returns:
         xarray.Dataset: C4 covariance matrix
     """
-
-    if S.poltype != "S":
-        raise ValueError("Input polarimetric type must be 'S'")
+    validate_dataset(S, allowed_poltypes="S")
+    # if S.poltype != "S":
+    #     raise ValueError("Input polarimetric type must be 'S'")
 
     # scattering vector, enforce type as in C version
     k1 = S.hh.astype("complex64", copy=False)
@@ -164,9 +166,9 @@ def S_to_T3(S: xarray.Dataset) -> xarray.Dataset:
     Returns:
         xarray.Dataset: T3 covariance matrix
     """
-
-    if S.poltype != "S":
-        raise ValueError("Input polarimetric type must be 'S'")
+    validate_dataset(S, allowed_poltypes="S")
+    # if S.poltype != "S":
+    #     raise ValueError("Input polarimetric type must be 'S'")
 
     # scattering vector
     c = np.sqrt(np.float32(2))
@@ -200,9 +202,9 @@ def S_to_T4(S: xarray.Dataset) -> xarray.Dataset:
     Returns:
         xarray.Dataset: T4 coherency matrix
     """
-
-    if S.poltype != "S":
-        raise ValueError("Input polarimetric type must be 'S'")
+    validate_dataset(S, allowed_poltypes="S")
+    # if S.poltype != "S":
+    #     raise ValueError("Input polarimetric type must be 'S'")
 
     # scattering vector
     c = np.sqrt(np.float32(2))
@@ -245,8 +247,9 @@ def T3_to_C3(T3: xarray.Dataset) -> xarray.Dataset:
         xarray.Dataset: C3 covariance matrix
     """
 
-    if T3.poltype != "T3":
-        raise ValueError("Input polarimetric type must be 'T3'")
+    validate_dataset(T3, allowed_poltypes="T3")
+    # if T3.poltype != "T3":
+        # raise ValueError("Input polarimetric type must be 'T3'")
 
     C3 = {}
 
@@ -275,9 +278,9 @@ def T4_to_C4(T4: xarray.Dataset) -> xarray.Dataset:
     Returns:
         xarray.Dataset: C4 covariance matrix
     """
-
-    if T4.poltype != "T4":
-        raise ValueError("Input polarimetric type must be 'T4'")
+    validate_dataset(T4, allowed_poltypes="T4")
+    # if T4.poltype != "T4":
+    #     raise ValueError("Input polarimetric type must be 'T4'")
 
     C4 = {}
 
@@ -321,7 +324,7 @@ def C3_to_T3(C3: xarray.Dataset) -> xarray.Dataset:
     Returns:
         xarray.Dataset: T3 coherency matrix
     """
-
+    validate_dataset(C3, allowed_poltypes="C3")
     if C3.poltype != "C3":
         raise ValueError("Input polarimetric type must be 'C3'")
 
@@ -351,9 +354,9 @@ def C4_to_T4(C4: xarray.Dataset) -> xarray.Dataset:
     Returns:
         xarray.Dataset: T4 coherency matrix
     """
-
-    if C4.poltype != "C4":
-        raise ValueError("Input polarimetric type must be 'C4'")
+    validate_dataset(C4, allowed_poltypes="C4")
+    # if C4.poltype != "C4":
+    #     raise ValueError("Input polarimetric type must be 'C4'")
 
     T4 = {}
 
@@ -412,9 +415,10 @@ def boxcar(img: xarray.Dataset, dim_az: int, dim_rg: int) -> xarray.Dataset:
     Note:
         The filter is always applied along 2 dimensions (azimuth, range). Please ensure to provide a valid image.
     """
+    validate_dataset(img)
 
-    if not isinstance(img, xarray.Dataset):
-        raise TypeError("Function only valid for xarray / PolSARpro datasets.")
+    # if not isinstance(img, xarray.Dataset):
+        # raise TypeError("Function only valid for xarray / PolSARpro datasets.")
 
     if type(dim_az) != int and type(dim_rg) != int:
         raise ValueError("dimaz and dimrg must be integers")

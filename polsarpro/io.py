@@ -200,6 +200,7 @@ def open_netcdf_beam(file_path: str | Path) -> xarray.Dataset:
     Returns:
         xarray.Dataset: output dataset with python PolSARpro specific metadata.
         This can be used as an input for polarimetric routines defined in this software.
+
     Note:
         Only polarimetric data is allowed. Supported polarimetric types are scattering matrix 'S',
         3x3 covariance matrix 'C3' and 3x3 coherency matrix 'T3'.

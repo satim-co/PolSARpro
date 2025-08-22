@@ -81,6 +81,7 @@ def h_a_alpha(
 
     Returns:
         xr.Dataset: An xarray.Dataset where data variable names correspond to the requested flags, and values are the corresponding 2D arrays (or 3D if the flag returns multiple values per pixel).
+
     Notes:
         For C2 inputs, only 'alpha', 'delta', 'anisotropy' and 'lambdas' can be computed. All other parameters will be ignored.
 

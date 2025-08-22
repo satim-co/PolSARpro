@@ -21,23 +21,86 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 
+-----
+
 Description: module containing auxiliary helper functions
 """
 
 import xarray as xr
+import numpy as np
 from typing import Sequence
 
 # Standardized required variables for each poltype
-POLTYPE_VARS: dict[str, tuple[str, ...]] = {
-    "S": ("hh", "hv", "vh", "vv"),
-    "C2": ("m11", "m12", "m22"),
-    "C3": ("m11", "m12", "m13", "m22", "m23", "m33"),
-    "C4": ("m11", "m12", "m13", "m14", "m22", "m23", "m24",
-           "m33", "m34", "m44"),
-    "T3": ("m11", "m12", "m13", "m22", "m23", "m33"),
-    "T4": ("m11", "m12", "m13", "m14", "m22", "m23", "m24",
-           "m33", "m34", "m44"),
+POLTYPES = {
+    "S": {
+        "description": "Scattering matrix",
+        "vars": {
+            "hh": {"dtype": "complex64"},
+            "hv": {"dtype": "complex64"},
+            "vh": {"dtype": "complex64"},
+            "vv": {"dtype": "complex64"},
+        },
+        # for some data, (e.g. H/A/Alpha) variables may not be required by default
+        "optional_vars": None,
+    },
+    "C3": {
+        "description": "Covariance matrix (3x3)",
+        "vars": {
+            "m11": {"dtype": "float32"},
+            "m12": {"dtype": "complex64"},
+            "m22": {"dtype": "float32"},
+            "m13": {"dtype": "complex64"},
+            "m23": {"dtype": "complex64"},
+            "m33": {"dtype": "float32"},
+        },
+        "optional_vars": None,
+    },
+    "C4": {
+        "description": "Covariance matrix (4x4)",
+        "vars": {
+            "m11": {"dtype": "float32"},
+            "m12": {"dtype": "complex64"},
+            "m13": {"dtype": "complex64"},
+            "m14": {"dtype": "complex64"},
+            "m22": {"dtype": "float32"},
+            "m23": {"dtype": "complex64"},
+            "m24": {"dtype": "complex64"},
+            "m33": {"dtype": "float32"},
+            "m34": {"dtype": "complex64"},
+            "m44": {"dtype": "float32"},
+        },
+        "optional_vars": None,
+    },
+    "T3": {
+        "description": "Coherency matrix (3x3)",
+        "vars": {
+            "m11": {"dtype": "float32"},
+            "m12": {"dtype": "complex64"},
+            "m22": {"dtype": "float32"},
+            "m13": {"dtype": "complex64"},
+            "m23": {"dtype": "complex64"},
+            "m33": {"dtype": "float32"},
+        },
+        "optional_vars": None,
+    },
+    "T4": {
+        "description": "Coherency matrix (4x4)",
+        "vars": {
+            "m11": {"dtype": "float32"},
+            "m12": {"dtype": "complex64"},
+            "m13": {"dtype": "complex64"},
+            "m14": {"dtype": "complex64"},
+            "m22": {"dtype": "float32"},
+            "m23": {"dtype": "complex64"},
+            "m24": {"dtype": "complex64"},
+            "m33": {"dtype": "float32"},
+            "m34": {"dtype": "complex64"},
+            "m44": {"dtype": "float32"},
+        },
+        "optional_vars": None,
+    },
 }
+
 
 # Allowed 2D dimension conventions
 ALLOWED_DIMS: tuple[tuple[str, str], ...] = (
@@ -51,6 +114,7 @@ def validate_dataset(
     allowed_poltypes: str | Sequence[str] | None = None,
     check_dims: bool = True,
     check_vars: bool = True,
+    check_dtypes: bool = True,
 ) -> str:
     """
     Validate a PolSAR dataset against standard conventions.
@@ -61,6 +125,7 @@ def validate_dataset(
             (e.g. ("S", "T3")). If None, accept any known poltype.
         check_dims: If True, ensure that dims match one of ALLOWED_DIMS.
         check_vars: If True, ensure that expected variables are present.
+        check_dtypes: If True, ensure that variable dtypes are correct.
 
     Returns:
         The detected poltype string.
@@ -68,25 +133,29 @@ def validate_dataset(
     Raises:
         ValueError: If any check fails.
     """
-    # --- Check poltype ---
+    # Check poltype is in attrs
     if "poltype" not in ds.attrs:
         raise ValueError("Missing required 'poltype' in dataset attributes.")
 
-    poltype = str(ds.attrs["poltype"]).upper()
-    if poltype not in POLTYPE_VARS:
+    # Check poltype is a valid name
+    poltype = str(ds.attrs["poltype"])  # .upper()
+    if poltype not in POLTYPES:
         raise ValueError(
-            f"Unsupported poltype '{poltype}'. Must be one of {list(POLTYPE_VARS)}."
+            f"Unsupported poltype '{poltype}'. Must be one of {list(POLTYPES)}."
         )
 
+    # Check poltype is in the input list
     if allowed_poltypes is not None:
         if isinstance(allowed_poltypes, str):
-            allowed = (allowed_poltypes.upper(),)
+            allowed = (allowed_poltypes,)
         else:
-            allowed = tuple(p.upper() for p in allowed_poltypes)
+            allowed = tuple(p for p in allowed_poltypes)
         if poltype not in allowed:
-            raise ValueError(f"poltype='{poltype}' not allowed. Must be one of {allowed}.")
+            raise ValueError(
+                f"poltype='{poltype}' not allowed. Must be one of {allowed}."
+            )
 
-    # --- Check dims ---
+    # Check dimensions are valid (2-D coordinates)
     if check_dims:
         ds_dims = tuple(ds.dims)
         if ds_dims not in ALLOWED_DIMS:
@@ -95,23 +164,38 @@ def validate_dataset(
                 f"{[list(d) for d in ALLOWED_DIMS]}."
             )
 
-    # --- Check vars ---
+    # Check variable names and shapes
+    specs = POLTYPES[poltype]
     if check_vars:
-        required_vars = POLTYPE_VARS[poltype]
-        missing = [v for v in required_vars if v not in ds.data_vars]
-        if missing:
-            raise ValueError(
-                f"Dataset poltype={poltype} is missing required variables: {missing}"
-            )
+        if not ds.data_vars:
+            raise ValueError("No variable found in Dataset.")
 
-        # Ensure all variables have the same 2D shape
-        shapes = {ds[v].shape for v in required_vars}
+        allowed_vars = specs["vars"]
+        # Is this variable allowed?
+        for v in ds.data_vars:
+            if v not in allowed_vars:
+                raise ValueError(f"Unexpected variable '{v}' for poltype '{poltype}'.")
+
+        # Is this variable missing?
+        for v in allowed_vars:
+            optional_vars = specs.get("optional_vars") or []
+            if (v not in ds.data_vars) and (v not in optional_vars):
+                raise ValueError(f"Dataset is missing required variable: {v}")
+
+        # Ensure all variables have the same shape -- use a set (no duplicates)
+        shapes = {ds[v].shape for v in allowed_vars if v in ds.data_vars}
         if len(shapes) != 1:
             raise ValueError(f"Inconsistent variable shapes found: {shapes}")
 
-        shape = next(iter(shapes))
-        if len(shape) != 2:
-            raise ValueError(f"Expected 2D variables, but found shape {shape}")
+        # Ensure all variables have at least a 2D shape
+        shape = list(shapes)[0] # shapes is a single element set
+        if len(shape) < 2:
+            raise ValueError(f"Expected >= 2D variables, but found shape {shape}")
 
-    return poltype
-
+    if check_dtypes:
+        for v in ds.data_vars:
+            expected_dtype = np.dtype(specs["vars"][v]["dtype"])
+            if ds[v].dtype != expected_dtype:
+                raise ValueError(
+                    f"Variable '{v}': expected {expected_dtype}, but found {ds[v].dtype}."
+                )

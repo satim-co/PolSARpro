@@ -48,10 +48,7 @@ def h_a_alpha(
     eigenvalue-based parameters can also be computed by specifying corresponding flags.
 
     Args:
-        input_data (xr.Dataset): The input polarimetric SAR data array. Expected to represent
-            a 3x3 matrix (or 2x2 in the case of Sinclair) per pixel, typically with shape
-            (..., 3, 3) or (..., 2, 2) depending on `input_poltype`.
-        input_poltype (str, optional): The polarimetric basis of the input data. Supported types are:
+        input_data (xr.Dataset): The input polarimetric SAR data array. Supported types are:
 
             - "S": Sinclair scattering matrix
 
@@ -60,6 +57,8 @@ def h_a_alpha(
             - "T3": Pauli coherency matrix
             
             - "C4" and "T4": 4x4 versions of the above
+
+            - "C2": Dual-polarimetric covariance
         
         boxcar_size (list[int, int], optional): Size of the spatial averaging window to be
             applied before decomposition (boxcar filter). Defaults to [3, 3].

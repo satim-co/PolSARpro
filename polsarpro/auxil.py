@@ -106,6 +106,9 @@ POLTYPES = {
 ALLOWED_DIMS: tuple[tuple[str, str], ...] = (
     ("y", "x"),
     ("lat", "lon"),
+    # some H/A/Alpha outputs
+    ("y", "x", "i"),
+    ("lat", "lon", "i"),
 )
 
 
@@ -133,6 +136,10 @@ def validate_dataset(
     Raises:
         ValueError: If any check fails.
     """
+
+    if not isinstance(ds, xr.Dataset):
+        raise TypeError("Input must be an xarray.Dataset.")
+
     # Check poltype is in attrs
     if "poltype" not in ds.attrs:
         raise ValueError("Missing required 'poltype' in dataset attributes.")
@@ -155,7 +162,7 @@ def validate_dataset(
                 f"poltype='{poltype}' not allowed. Must be one of {allowed}."
             )
 
-    # Check dimensions are valid (2-D coordinates)
+    # Check dimensions are valid (2D or 3D coordinates)
     if check_dims:
         ds_dims = tuple(ds.dims)
         if ds_dims not in ALLOWED_DIMS:
@@ -180,22 +187,17 @@ def validate_dataset(
         for v in allowed_vars:
             optional_vars = specs.get("optional_vars") or []
             if (v not in ds.data_vars) and (v not in optional_vars):
-                raise ValueError(f"Dataset is missing required variable: {v}")
+                raise ValueError(f"Dataset is missing required variable: '{v}'")
 
-        # Ensure all variables have the same shape -- use a set (no duplicates)
-        shapes = {ds[v].shape for v in allowed_vars if v in ds.data_vars}
-        if len(shapes) != 1:
-            raise ValueError(f"Inconsistent variable shapes found: {shapes}")
-
-        # Ensure all variables have at least a 2D shape
-        shape = list(shapes)[0] # shapes is a single element set
-        if len(shape) < 2:
-            raise ValueError(f"Expected >= 2D variables, but found shape {shape}")
+        shapes = [ds[v].shape for v in allowed_vars if v in ds.data_vars]
+        for shape in shapes:
+            if len(shape) < 2:
+                raise ValueError(f"Expected >= 2D variables, but found shape {shape}")
 
     if check_dtypes:
         for v in ds.data_vars:
             expected_dtype = np.dtype(specs["vars"][v]["dtype"])
             if ds[v].dtype != expected_dtype:
                 raise ValueError(
-                    f"Variable '{v}': expected {expected_dtype}, but found {ds[v].dtype}."
+                    f"Variable '{v}': expected {expected_dtype} dtype, but found {ds[v].dtype}."
                 )

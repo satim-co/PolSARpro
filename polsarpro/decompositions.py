@@ -24,6 +24,7 @@ limitations under the License.
 -----
 
 Description: module containing polarimetric decomposition functions
+
 """
 
 import numpy as np

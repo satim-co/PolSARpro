@@ -192,7 +192,7 @@ def read_psp_bin(file_name: str, dtype: str = "float32"):
 
 
 def open_netcdf_beam(file_path: str | Path) -> xarray.Dataset:
-    """Opens data in the NetCDF-BEAM format exported by SNAP and create a valid python PolSARpro Dataset.
+    """Open data in the NetCDF-BEAM format exported by SNAP and create a valid python PolSARpro Dataset.
 
     Args:
         file_path (str|Path): path of the input file.

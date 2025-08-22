@@ -22,7 +22,7 @@ def test_vec_to_mat():
 def test_S_to_C2():
 
     N = 128
-    S = np.random.rand(N, N, 2, 2) + 1j * np.random.rand(N, N, 2, 2)
+    S = (np.random.rand(N, N, 2, 2) + 1j * np.random.rand(N, N, 2, 2)).astype("complex64")
 
     dims = ("y", "x")
     S_dict = dict(
@@ -43,7 +43,7 @@ def test_S_to_C2():
 def test_S_to_C3():
 
     N = 128
-    S = np.random.rand(N, N, 2, 2) + 1j * np.random.rand(N, N, 2, 2)
+    S = (np.random.rand(N, N, 2, 2) + 1j * np.random.rand(N, N, 2, 2)).astype("complex64")
 
     dims = ("y", "x")
     S_dict = dict(
@@ -64,7 +64,7 @@ def test_S_to_C3():
 def test_S_to_C4():
 
     N = 128
-    S = np.random.rand(N, N, 2, 2) + 1j * np.random.rand(N, N, 2, 2)
+    S = (np.random.rand(N, N, 2, 2) + 1j * np.random.rand(N, N, 2, 2)).astype("complex64")
 
     dims = ("y", "x")
     S_dict = dict(
@@ -86,7 +86,7 @@ def test_S_to_C4():
 def test_S_to_T3():
 
     N = 128
-    S = np.random.rand(N, N, 2, 2) + 1j * np.random.rand(N, N, 2, 2)
+    S = (np.random.rand(N, N, 2, 2) + 1j * np.random.rand(N, N, 2, 2)).astype("complex64")
 
     # Xarray version
     dims = ("y", "x")
@@ -108,8 +108,7 @@ def test_S_to_T3():
 def test_S_to_T4():
 
     N = 128
-    S = np.random.rand(N, N, 2, 2) + 1j * np.random.rand(N, N, 2, 2)
-
+    S = (np.random.rand(N, N, 2, 2) + 1j * np.random.rand(N, N, 2, 2)).astype("complex64")
     # Xarray version
     dims = ("y", "x")
     S_dict = dict(

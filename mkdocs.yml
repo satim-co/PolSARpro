@@ -4,7 +4,8 @@ repo_name: 'satim-co/PolSARpro'
 nav:
   - Home: index.md
   - Tutorials:
-    - Example 1: quickstart-tutorial.ipynb
+    - quickstart: quickstart-tutorial.ipynb
+    - h-a-alpha: h-a-alpha-tutorial.ipynb
   - API reference: 
     - Decompositions: decompositions.md
     - Utilities: util.md

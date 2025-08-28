@@ -10,8 +10,9 @@ nav:
     - Decompositions: decompositions.md
     - Utilities: util.md
     - Inputs/Outputs: io.md
-  - Theory:
-    - H/A/Alpha decomposition: h_a_alpha_for_docs.html
+  - Theory: theory.md
+  # - Theory:
+    # - H/A/Alpha decomposition: h_a_alpha_for_docs.html
 
 theme:
   name: material

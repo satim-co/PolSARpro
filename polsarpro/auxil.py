@@ -44,6 +44,15 @@ POLTYPES = {
         # for some data, (e.g. H/A/Alpha) variables may not be required by default
         "optional_vars": None,
     },
+    "C2": {
+        "description": "Covariance matrix (2x2)",
+        "vars": {
+            "m11": {"dtype": "float32"},
+            "m12": {"dtype": "complex64"},
+            "m22": {"dtype": "float32"},
+        },
+        "optional_vars": None,
+    },
     "C3": {
         "description": "Covariance matrix (3x3)",
         "vars": {

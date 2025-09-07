@@ -128,7 +128,7 @@ def validate_dataset(
     check_dims: bool = True,
     check_vars: bool = True,
     check_dtypes: bool = True,
-) -> str:
+):
     """
     Validate a PolSAR dataset against standard conventions.
     Used in processing functions to ensure the validity of inputs.
@@ -140,9 +140,6 @@ def validate_dataset(
         check_dims: If True, ensure that dims match one of ALLOWED_DIMS.
         check_vars: If True, ensure that expected variables are present.
         check_dtypes: If True, ensure that variable dtypes are correct.
-
-    Returns:
-        The detected poltype string.
 
     Raises:
         ValueError: If any check fails.

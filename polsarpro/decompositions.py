@@ -23,7 +23,7 @@ limitations under the License.
 
 -----
 
-Description: module containing polarimetric decomposition functions
+# Description: module containing polarimetric decomposition functions
 
 """
 

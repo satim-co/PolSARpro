@@ -23,7 +23,7 @@ limitations under the License.
 
 -----
 
-Description: module containing read / write functions
+# Description: module containing read / write functions
 
 """
 

@@ -23,7 +23,7 @@ limitations under the License.
 
 -----
 
-Description: module containing auxiliary helper functions
+# Description: module containing auxiliary helper functions
 
 """
 

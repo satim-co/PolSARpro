@@ -23,7 +23,7 @@ limitations under the License.
 
 -----
 
-Description: module containing various utility functions
+# Description: module containing various utility functions
 
 """
 

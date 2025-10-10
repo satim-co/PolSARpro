@@ -2,7 +2,7 @@ from collections import OrderedDict
 import re
 
 def parse_psp_parameter_string(input_string):
-    """Convenience function to make cli parameters from strings copied from parameter files."""
+    """Convenience development function to make cli parameters from strings copied from parameter files."""
     ordered_dict = OrderedDict()
     
     for line in input_string.strip().split("\n"):

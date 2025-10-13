@@ -133,16 +133,18 @@ def h_a_alpha(
         in_ = S_to_T3(input_data)
     else:
         raise ValueError(f"Invalid polarimetric type: {input_data.poltype}")
+    
 
+    new_dims = tuple(input_data.dims)
     # check dimensions
-    if {"y", "x"}.issubset(input_data.dims):
-        new_dims = ("y", "x")
-    elif {"lat", "lon"}.issubset(input_data.dims):
-        new_dims = ("lat", "lon")
-    else:
-        ValueError(
-            "Input data does not have valid dimension names. ('y', 'x') or ('lat', 'lon') allowed."
-        )
+    # if {"y", "x"}.issubset(input_data.dims):
+    #     new_dims = ("y", "x")
+    # elif {"lat", "lon"}.issubset(input_data.dims):
+    #     new_dims = ("lat", "lon")
+    # else:
+    #     ValueError(
+    #         "Input data does not have valid dimension names. ('y', 'x') or ('lat', 'lon') allowed."
+    #     )
 
     eps = 1e-30
     # pre-processing step, it is recommended to filter the matrices to mitigate speckle effects
@@ -521,15 +523,22 @@ def freeman(
         in_ = T3_to_C3(in_)
     elif poltype == "S":
         in_ = S_to_C3(in_)
-    else:
-        raise ValueError(f"Invalid polarimetric type: {poltype}")
 
     # pre-processing step, it is recommended to filter the matrices to mitigate speckle effects
     in_ = boxcar(in_, boxcar_size[0], boxcar_size[1])
 
-    # TODO: dataset output with parameter names (volume, odd, double?)
-    return _compute_freeman_components(in_)
-
+    out =  _compute_freeman_components(in_)
+    return xr.Dataset(
+        # add dimension names
+        {
+            k: (tuple(input_data.dims), v) 
+            for k, v in out.items()
+        },
+        attrs=dict(
+            poltype="freeman", description="Results of the Freeman-Durden decomposition."
+        ),
+        coords=input_data.coords,
+    )
 
 def _compute_freeman_components(C3):
 
@@ -606,4 +615,4 @@ def _compute_freeman_components(C3):
     Pd = da.where(Pd <= min_span, min_span, da.where(Pd > max_span, max_span, Pd))
     Pv = da.where(Pv <= min_span, min_span, da.where(Pv > max_span, max_span, Pv))
 
-    return Ps, Pd, Pv
+    return {"odd": Ps, "double": Pd, "volume": Pv}

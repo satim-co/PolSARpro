@@ -41,7 +41,7 @@ from polsarpro.util import (
     _C3_to_T3_core,
 )
 from polsarpro.util import span
-from bench import timeit
+# from bench import timeit
 import dask.array as da
 from dask.diagnostics import ProgressBar
 

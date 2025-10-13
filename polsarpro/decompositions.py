@@ -30,7 +30,7 @@ limitations under the License.
 import numpy as np
 import xarray as xr
 import dask.array as da
-from polsarpro.util import boxcar, C3_to_T3, S_to_T3, C4_to_T4
+from polsarpro.util import boxcar, C3_to_T3, S_to_C3, S_to_T3, C4_to_T4, T3_to_C3
 from polsarpro.auxil import validate_dataset
 
 
@@ -53,30 +53,30 @@ def h_a_alpha(
             - "S": Sinclair scattering matrix
 
             - "C3": Lexicographic covariance matrix
-            
+
             - "T3": Pauli coherency matrix
-            
+
             - "C4" and "T4": 4x4 versions of the above
 
             - "C2": Dual-polarimetric covariance
-        
+
         boxcar_size (list[int, int], optional): Size of the spatial averaging window to be
             applied before decomposition (boxcar filter). Defaults to [3, 3].
         flags (tuple[str], optional): Parameters to compute and return from the decomposition.
             Possible values include:
 
-            - "entropy": Scattering entropy (H)  
+            - "entropy": Scattering entropy (H)
 
-            - "anisotropy": Scattering anisotropy (A) 
-            
-            - "alpha": Mean alpha scattering angle (alpha) 
-            
-            - "beta", "delta", "gamma", "lambda": Other angular or eigenvalue related parameters 
-            
-            - "nhu", "epsilon" additional angles defined only for 4x4 matrices. Will be ignored if not processing 4x4 matrices.  
-            
+            - "anisotropy": Scattering anisotropy (A)
+
+            - "alpha": Mean alpha scattering angle (alpha)
+
+            - "beta", "delta", "gamma", "lambda": Other angular or eigenvalue related parameters
+
+            - "nhu", "epsilon" additional angles defined only for 4x4 matrices. Will be ignored if not processing 4x4 matrices.
+
             - "alphas", "betas", "deltas", "gammas", "lambdas": Per-eigenvalue versions of the above
-            Defaults to ("entropy", "alpha", "anisotropy").  
+            Defaults to ("entropy", "alpha", "anisotropy").
 
     Returns:
         xr.Dataset: An xarray.Dataset where data variable names correspond to the requested flags, and values are the corresponding 2D arrays (or 3D if the flag returns multiple values per pixel).
@@ -84,7 +84,7 @@ def h_a_alpha(
     Notes:
         For C2 inputs, only 'alpha(s)', 'delta(s)', 'anisotropy', 'entropy' and 'lambda(s)' can be computed. Other passed flags will be ignored.
 
-        If the S matrix is given as an input, a 3x3 analysis will be assumed using the T3 matrix. For 4x4 and 2x2, use 'C4', 'T4' or 'C2' as an input. 
+        If the S matrix is given as an input, a 3x3 analysis will be assumed using the T3 matrix. For 4x4 and 2x2, use 'C4', 'T4' or 'C2' as an input.
 
     References:
         Cloude, S. R., & Pottier, E. (1997). An entropy based classification scheme for land
@@ -244,6 +244,7 @@ def _compute_h_a_alpha_parameters_C2(l, v, flags):
     if "lambdas" in flags:
         outputs["lambdas"] = l
     return outputs
+
 
 def _compute_h_a_alpha_parameters_T3(l, v, flags):
 
@@ -495,3 +496,129 @@ def _reconstruct_matrix_from_ds(ds):
         )
     else:
         raise NotImplementedError("Implemented only for C2, T3 and T4 poltypes.")
+
+
+def freeman(
+    input_data: np.ndarray,
+    input_poltype: str = "C3",
+    boxcar_size: list[int, int] = [3, 3],
+) -> list[np.ndarray, np.ndarray, np.ndarray]:
+    """Applies the Freeman-Durden decomposition. This decomposition is based on physical modeling
+      of the covariance matrix and returns 3 components Ps, Pd and Pv which are the powers of resp.
+      surface, double bounce and volume backscattering.
+
+    Args:
+        input_data (np.ndarray): Input array, may be a covariance, coherency or Sinclair matrix.
+        input_poltype (str, optional): Polarimetric input type (covariance "C3", coherency "T3" or Sinclair "S"). Defaults to "C3".
+        boxcar_size (list[int, int], optional):  Boxcar dimensions along azimuth and range. Defaults to [3, 3].
+
+    Returns:
+        list[np.ndarray, np.ndarray, np.ndarray]: Ps, Pd and Pv components.
+    """
+
+    if np.isrealobj(input_data):
+        raise ValueError("Inputs must be complex-valued.")
+
+    if input_data.ndim != 4:
+        raise ValueError("A matrix-valued image is expected (dimension 4)")
+
+    # check matrix shapes
+    expected_shape = (3, 3) if input_poltype in ("C3", "T3") else (2, 2)
+    if input_data.shape[-2:] != expected_shape:
+        raise ValueError(
+            f"Unexpected matrix shape {in_.shape[-2:]} for polarimetric type {input_poltype}. "
+            f"Expected shape: {expected_shape}"
+        )
+
+    in_ = input_data.astype("complex64", copy=False)
+    if input_poltype == "C3":
+        pass
+    elif input_poltype == "T3":
+        in_ = T3_to_C3(in_)
+    elif input_poltype == "S":
+        in_ = S_to_C3(in_)
+    else:
+        raise ValueError(f"Invalid polarimetric type: {input_poltype}")
+
+    # pre-processing step, it is recommended to filter the matrices to mitigate speckle effects
+    in_ = boxcar(in_, boxcar_size[0], boxcar_size[1])
+
+    return _compute_freeman_components(in_)
+
+
+def _compute_freeman_components(C3):
+
+    eps = 1e-30
+
+    # Extract real and imaginary parts
+    # c11 = C3[..., 0, 0].real.copy()
+    # c13r = C3[..., 0, 2].real.copy()
+    # c13i = C3[..., 0, 2].imag.copy()
+    # c22 = C3[..., 1, 1].real.copy()
+    # c33 = C3[..., 2, 2].real.copy()
+
+    c11 = C3.m11.copy()
+    c13r = C3.m12.real.copy()
+    c13i = C3.m12.imag.copy()
+    c22 = C3.m22.real.copy()
+    c33 = C3.m33.real.copy()
+
+    fv = 1.5 * c22
+    c11 -= fv
+    c33 -= fv
+    c13r -= fv / 3
+
+    # Volume scattering condition
+    cnd1 = (c11 <= eps) | (c33 <= eps)
+    fv = da.where(cnd1, 3 * (c11 + c22 + c33 + 2 * fv) / 8, fv)
+
+    # Compute c13 power
+    pow_c13 = c13r**2 + c13i**2
+
+    # Data conditioning for non-realizable term
+    cnd2 = ~cnd1 & (pow_c13 > c11 * c33)
+    arg_sqrt = da.maximum(c11 * c33 / da.maximum(pow_c13, eps), 0)
+    scale_factor = da.where(cnd2, da.sqrt(arg_sqrt), 1)
+    c13r *= scale_factor
+    c13i *= scale_factor
+
+    # Recompute after conditioning
+    pow_c13 = c13r**2 + c13i**2
+
+    # Odd bounce dominates
+    cnd3 = ~cnd1 & (c13r >= 0)
+    alpha = da.where(cnd3, da.float32(-1), da.float32(eps))
+    arg_div = c11 + c33 + 2 * c13r
+    arg_div = np.where(arg_div == 0, eps, arg_div)
+    fd = da.where(cnd3, (c11 * c33 - pow_c13) / arg_div, eps)
+    fs = da.where(cnd3, c33 - fd, eps)
+    arg_sqrt = da.maximum((fd + c13r) ** 2 + c13i**2, eps)
+    arg_div = np.where(fs == 0, eps, fs)
+    beta = da.where(cnd3, da.sqrt(arg_sqrt) / arg_div, eps)
+
+    # Even bounce dominates
+    cnd4 = ~cnd1 & (c13r < 0)
+    beta = da.where(cnd4, 1, beta)
+    arg_div = c11 + c33 - 2 * c13r
+    arg_div = np.where(arg_div == 0, eps, arg_div)
+    fs = da.where(cnd4, (c11 * c33 - pow_c13) / arg_div, fs)
+    fd = da.where(cnd4, c33 - fs, fd)
+    arg_sqrt = da.maximum((fs - c13r) ** 2 + c13i**2, eps)
+    arg_div = np.where(fd == 0, eps, fd)
+    alpha = da.where(cnd4, da.sqrt(arg_sqrt) / arg_div, alpha)
+
+    # Compute Freeman components
+    Ps = fs * (1 + beta**2)
+    Pd = fd * (1 + alpha**2)
+    Pv = 8 * fv / 3
+
+    # sp = span(C3)
+    sp = c11 + c22 + c33
+    min_span, max_span = da.nanmin(sp), da.nanmax(sp)
+    min_span = max(min_span, eps)
+
+    Ps = da.where(Ps <= min_span, min_span, da.where(Ps > max_span, max_span, Ps))
+    Pd = da.where(Pd <= min_span, min_span, da.where(Pd > max_span, max_span, Pd))
+    Pv = da.where(Pv <= min_span, min_span, da.where(Pv > max_span, max_span, Pv))
+
+    return Ps, Pd, Pv

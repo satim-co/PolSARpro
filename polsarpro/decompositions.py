@@ -511,23 +511,22 @@ def freeman(
         xr.Dataset: Ps, Pd and Pv components.
     """
 
-    # TODO: replace by data validation
-
     allowed_poltypes = ("S", "C3", "T3")
     poltype = validate_dataset(input_data, allowed_poltypes=allowed_poltypes)
 
-    in_ = input_data.astype("complex64", copy=False)
+    # in_ = input_data.astype("complex64", copy=False)
     if poltype == "C3":
-        pass
+        in_ = input_data
     elif poltype == "T3":
-        in_ = T3_to_C3(in_)
+        in_ = T3_to_C3(input_data)
     elif poltype == "S":
-        in_ = S_to_C3(in_)
+        in_ = S_to_C3(input_data)
 
     # pre-processing step, it is recommended to filter the matrices to mitigate speckle effects
     in_ = boxcar(in_, boxcar_size[0], boxcar_size[1])
 
     out =  _compute_freeman_components(in_)
+    # return out
     return xr.Dataset(
         # add dimension names
         {
@@ -551,11 +550,11 @@ def _compute_freeman_components(C3):
     # c22 = C3[..., 1, 1].real.copy()
     # c33 = C3[..., 2, 2].real.copy()
 
-    c11 = C3.m11.copy()
-    c13r = C3.m12.real.copy()
-    c13i = C3.m12.imag.copy()
-    c22 = C3.m22.real.copy()
-    c33 = C3.m33.real.copy()
+    c11 = C3.m11.data.copy()
+    c13r = C3.m13.data.real.copy()
+    c13i = C3.m13.data.imag.copy()
+    c22 = C3.m22.data.copy()
+    c33 = C3.m33.data.copy()
 
     fv = 1.5 * c22
     c11 -= fv
@@ -583,22 +582,22 @@ def _compute_freeman_components(C3):
     cnd3 = ~cnd1 & (c13r >= 0)
     alpha = da.where(cnd3, da.float32(-1), da.float32(eps))
     arg_div = c11 + c33 + 2 * c13r
-    arg_div = np.where(arg_div == 0, eps, arg_div)
+    arg_div = da.where(arg_div == 0, eps, arg_div)
     fd = da.where(cnd3, (c11 * c33 - pow_c13) / arg_div, eps)
     fs = da.where(cnd3, c33 - fd, eps)
     arg_sqrt = da.maximum((fd + c13r) ** 2 + c13i**2, eps)
-    arg_div = np.where(fs == 0, eps, fs)
+    arg_div = da.where(fs == 0, eps, fs)
     beta = da.where(cnd3, da.sqrt(arg_sqrt) / arg_div, eps)
 
     # Even bounce dominates
     cnd4 = ~cnd1 & (c13r < 0)
     beta = da.where(cnd4, 1, beta)
     arg_div = c11 + c33 - 2 * c13r
-    arg_div = np.where(arg_div == 0, eps, arg_div)
+    arg_div = da.where(arg_div == 0, eps, arg_div)
     fs = da.where(cnd4, (c11 * c33 - pow_c13) / arg_div, fs)
     fd = da.where(cnd4, c33 - fs, fd)
     arg_sqrt = da.maximum((fs - c13r) ** 2 + c13i**2, eps)
-    arg_div = np.where(fd == 0, eps, fd)
+    arg_div = da.where(fd == 0, eps, fd)
     alpha = da.where(cnd4, da.sqrt(arg_sqrt) / arg_div, alpha)
 
     # Compute Freeman components
@@ -609,7 +608,8 @@ def _compute_freeman_components(C3):
     # sp = span(C3)
     sp = c11 + c22 + c33
     min_span, max_span = da.nanmin(sp), da.nanmax(sp)
-    min_span = max(min_span, eps)
+    min_span = da.maximum(min_span, eps)
+    # min_span = max(min_span, eps)
 
     Ps = da.where(Ps <= min_span, min_span, da.where(Ps > max_span, max_span, Ps))
     Pd = da.where(Pd <= min_span, min_span, da.where(Pd > max_span, max_span, Pd))

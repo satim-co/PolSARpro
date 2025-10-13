@@ -117,24 +117,19 @@ def h_a_alpha(
                 f"Flag '{flag}' not recognized. Possible values are {possible_flags}."
             )
     allowed_poltypes = ("S", "C2", "C3", "C4", "T3", "T4")
-    validate_dataset(input_data, allowed_poltypes=allowed_poltypes)
-    # if not isinstance(input_data, xr.Dataset):
-    #     TypeError("Input must be of type xarray.Dataset")
+    poltype = validate_dataset(input_data, allowed_poltypes=allowed_poltypes)
 
-    # if not "poltype" in input_data.attrs:
-    #     ValueError("Polarimetric type `poltype` not found in input attributes.")
-
-    if input_data.poltype == "C2":
+    if poltype == "C2":
         in_ = input_data
-    elif input_data.poltype == "C3":
+    elif poltype == "C3":
         in_ = C3_to_T3(input_data)
-    elif input_data.poltype == "T3":
+    elif poltype == "T3":
         in_ = input_data
-    elif input_data.poltype == "C4":
+    elif poltype == "C4":
         in_ = C4_to_T4(input_data)
-    elif input_data.poltype == "T4":
+    elif poltype == "T4":
         in_ = input_data
-    elif input_data.poltype == "S":
+    elif poltype == "S":
         in_ = S_to_T3(input_data)
     else:
         raise ValueError(f"Invalid polarimetric type: {input_data.poltype}")
@@ -499,50 +494,40 @@ def _reconstruct_matrix_from_ds(ds):
 
 
 def freeman(
-    input_data: np.ndarray,
-    input_poltype: str = "C3",
+    input_data: xr.Dataset,
     boxcar_size: list[int, int] = [3, 3],
-) -> list[np.ndarray, np.ndarray, np.ndarray]:
+) -> xr.Dataset:
     """Applies the Freeman-Durden decomposition. This decomposition is based on physical modeling
       of the covariance matrix and returns 3 components Ps, Pd and Pv which are the powers of resp.
       surface, double bounce and volume backscattering.
 
     Args:
-        input_data (np.ndarray): Input array, may be a covariance, coherency or Sinclair matrix.
-        input_poltype (str, optional): Polarimetric input type (covariance "C3", coherency "T3" or Sinclair "S"). Defaults to "C3".
+        input_data (xr.Dataset): Input image, may be a covariance (C3), coherency (T3) or Sinclair (S) matrix.
         boxcar_size (list[int, int], optional):  Boxcar dimensions along azimuth and range. Defaults to [3, 3].
 
     Returns:
-        list[np.ndarray, np.ndarray, np.ndarray]: Ps, Pd and Pv components.
+        xr.Dataset: Ps, Pd and Pv components.
     """
 
-    if np.isrealobj(input_data):
-        raise ValueError("Inputs must be complex-valued.")
+    # TODO: replace by data validation
 
-    if input_data.ndim != 4:
-        raise ValueError("A matrix-valued image is expected (dimension 4)")
-
-    # check matrix shapes
-    expected_shape = (3, 3) if input_poltype in ("C3", "T3") else (2, 2)
-    if input_data.shape[-2:] != expected_shape:
-        raise ValueError(
-            f"Unexpected matrix shape {in_.shape[-2:]} for polarimetric type {input_poltype}. "
-            f"Expected shape: {expected_shape}"
-        )
+    allowed_poltypes = ("S", "C3", "T3")
+    poltype = validate_dataset(input_data, allowed_poltypes=allowed_poltypes)
 
     in_ = input_data.astype("complex64", copy=False)
-    if input_poltype == "C3":
+    if poltype == "C3":
         pass
-    elif input_poltype == "T3":
+    elif poltype == "T3":
         in_ = T3_to_C3(in_)
-    elif input_poltype == "S":
+    elif poltype == "S":
         in_ = S_to_C3(in_)
     else:
-        raise ValueError(f"Invalid polarimetric type: {input_poltype}")
+        raise ValueError(f"Invalid polarimetric type: {poltype}")
 
     # pre-processing step, it is recommended to filter the matrices to mitigate speckle effects
     in_ = boxcar(in_, boxcar_size[0], boxcar_size[1])
 
+    # TODO: dataset output with parameter names (volume, odd, double?)
     return _compute_freeman_components(in_)
 
 

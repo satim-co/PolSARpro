@@ -424,7 +424,7 @@ def boxcar(img: xarray.Dataset, dim_az: int, dim_rg: int) -> xarray.Dataset:
                 _boxcar_core,
                 img[var].data,
                 **process_args,
-                dtype="complex64",
+                dtype=img[var].dtype,
             )
         data_out[var] = (img[var].dims, da_in)
 
@@ -443,6 +443,7 @@ def _boxcar_core(img: np.ndarray, dim_az: int, dim_rg: int) -> np.ndarray:
         # avoid nan propagation
         msk = np.isnan(img)
         img_ = img.copy()
+
         img_[msk] = 0
         ker = np.ones((dim_az, dim_rg), dtype=ker_dtype) / (dim_az * dim_rg)
         ker = np.expand_dims(ker, axis=tuple(range(2, 2 + n_extra_dims)))

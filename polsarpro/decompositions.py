@@ -34,6 +34,48 @@ from polsarpro.util import boxcar, C3_to_T3, S_to_C3, S_to_T3, C4_to_T4, T3_to_C
 from polsarpro.auxil import validate_dataset
 
 
+def freeman(
+    input_data: xr.Dataset,
+    boxcar_size: list[int, int] = [3, 3],
+) -> xr.Dataset:
+    """Applies the Freeman-Durden decomposition. This decomposition is based on physical modeling
+      of the covariance matrix and returns 3 components Ps, Pd and Pv which are the powers of resp.
+      surface, double bounce and volume backscattering.
+
+    Args:
+        input_data (xr.Dataset): Input image, may be a covariance (C3), coherency (T3) or Sinclair (S) matrix.
+        boxcar_size (list[int, int], optional):  Boxcar dimensions along azimuth and range. Defaults to [3, 3].
+
+    Returns:
+        xr.Dataset: Ps, Pd and Pv components.
+    """
+
+    allowed_poltypes = ("S", "C3", "T3")
+    poltype = validate_dataset(input_data, allowed_poltypes=allowed_poltypes)
+
+    # in_ = input_data.astype("complex64", copy=False)
+    if poltype == "C3":
+        in_ = input_data
+    elif poltype == "T3":
+        in_ = T3_to_C3(input_data)
+    elif poltype == "S":
+        in_ = S_to_C3(input_data)
+
+    # pre-processing step, it is recommended to filter the matrices to mitigate speckle effects
+    in_ = boxcar(in_, boxcar_size[0], boxcar_size[1])
+
+    out = _compute_freeman_components(in_)
+    return xr.Dataset(
+        # add dimension names
+        {k: (tuple(input_data.dims), v) for k, v in out.items()},
+        attrs=dict(
+            poltype="freeman",
+            description="Results of the Freeman-Durden decomposition.",
+        ),
+        coords=input_data.coords,
+    )
+
+
 def h_a_alpha(
     input_data: xr.Dataset,
     boxcar_size: list[int, int] = [3, 3],
@@ -133,18 +175,8 @@ def h_a_alpha(
         in_ = S_to_T3(input_data)
     else:
         raise ValueError(f"Invalid polarimetric type: {input_data.poltype}")
-    
 
     new_dims = tuple(input_data.dims)
-    # check dimensions
-    # if {"y", "x"}.issubset(input_data.dims):
-    #     new_dims = ("y", "x")
-    # elif {"lat", "lon"}.issubset(input_data.dims):
-    #     new_dims = ("lat", "lon")
-    # else:
-    #     ValueError(
-    #         "Input data does not have valid dimension names. ('y', 'x') or ('lat', 'lon') allowed."
-    #     )
 
     eps = 1e-30
     # pre-processing step, it is recommended to filter the matrices to mitigate speckle effects
@@ -494,50 +526,6 @@ def _reconstruct_matrix_from_ds(ds):
     else:
         raise NotImplementedError("Implemented only for C2, T3 and T4 poltypes.")
 
-
-def freeman(
-    input_data: xr.Dataset,
-    boxcar_size: list[int, int] = [3, 3],
-) -> xr.Dataset:
-    """Applies the Freeman-Durden decomposition. This decomposition is based on physical modeling
-      of the covariance matrix and returns 3 components Ps, Pd and Pv which are the powers of resp.
-      surface, double bounce and volume backscattering.
-
-    Args:
-        input_data (xr.Dataset): Input image, may be a covariance (C3), coherency (T3) or Sinclair (S) matrix.
-        boxcar_size (list[int, int], optional):  Boxcar dimensions along azimuth and range. Defaults to [3, 3].
-
-    Returns:
-        xr.Dataset: Ps, Pd and Pv components.
-    """
-
-    allowed_poltypes = ("S", "C3", "T3")
-    poltype = validate_dataset(input_data, allowed_poltypes=allowed_poltypes)
-
-    # in_ = input_data.astype("complex64", copy=False)
-    if poltype == "C3":
-        in_ = input_data
-    elif poltype == "T3":
-        in_ = T3_to_C3(input_data)
-    elif poltype == "S":
-        in_ = S_to_C3(input_data)
-
-    # pre-processing step, it is recommended to filter the matrices to mitigate speckle effects
-    in_ = boxcar(in_, boxcar_size[0], boxcar_size[1])
-
-    out =  _compute_freeman_components(in_)
-    # return out
-    return xr.Dataset(
-        # add dimension names
-        {
-            k: (tuple(input_data.dims), v) 
-            for k, v in out.items()
-        },
-        attrs=dict(
-            poltype="freeman", description="Results of the Freeman-Durden decomposition."
-        ),
-        coords=input_data.coords,
-    )
 
 def _compute_freeman_components(C3):
 

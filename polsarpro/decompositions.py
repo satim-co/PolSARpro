@@ -543,13 +543,7 @@ def _compute_freeman_components(C3):
 
     eps = 1e-30
 
-    # Extract real and imaginary parts
-    # c11 = C3[..., 0, 0].real.copy()
-    # c13r = C3[..., 0, 2].real.copy()
-    # c13i = C3[..., 0, 2].imag.copy()
-    # c22 = C3[..., 1, 1].real.copy()
-    # c33 = C3[..., 2, 2].real.copy()
-
+    # Make copies to avoid modifying original data
     c11 = C3.m11.data.copy()
     c13r = C3.m13.data.real.copy()
     c13i = C3.m13.data.imag.copy()
@@ -605,14 +599,12 @@ def _compute_freeman_components(C3):
     Pd = fd * (1 + alpha**2)
     Pv = 8 * fv / 3
 
-    # sp = span(C3)
-    sp = c11 + c22 + c33
+    # Compute span on __original__ covariance, not modified one
+    sp = C3.m11 + C3.m22 + C3.m33
     min_span, max_span = da.nanmin(sp), da.nanmax(sp)
     min_span = da.maximum(min_span, eps)
-    # min_span = max(min_span, eps)
 
     Ps = da.where(Ps <= min_span, min_span, da.where(Ps > max_span, max_span, Ps))
     Pd = da.where(Pd <= min_span, min_span, da.where(Pd > max_span, max_span, Pd))
     Pv = da.where(Pv <= min_span, min_span, da.where(Pv > max_span, max_span, Pv))
-
     return {"odd": Ps, "double": Pd, "volume": Pv}

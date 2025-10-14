@@ -26,7 +26,7 @@ import logging
 import numpy as np
 from scipy.ndimage import convolve
 import dask.array as da
-from bench import timeit
+# from bench import timeit
 import xarray as xr
 import xarray
 

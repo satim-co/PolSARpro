@@ -588,7 +588,7 @@ def _compute_freeman_components(C3):
     Pv = 8 * fv / 3
 
     # Compute span on __original__ covariance, not modified one
-    sp = C3.m11 + C3.m22 + C3.m33
+    sp = C3.m11.data + C3.m22.data + C3.m33.data
     min_span, max_span = da.nanmin(sp), da.nanmax(sp)
     min_span = da.maximum(min_span, eps)
 

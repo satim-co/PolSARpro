@@ -6,6 +6,7 @@ nav:
   - Tutorials:
     - quickstart: quickstart-tutorial.ipynb
     - h-a-alpha: h-a-alpha-tutorial.ipynb
+    - freeman: freeman-tutorial.ipynb
   - API reference: 
     - Decompositions: decompositions.md
     - Utilities: util.md

@@ -218,6 +218,47 @@ def h_a_alpha(
         coords=input_data.coords,
     ).where(~mask)
 
+def yamaguchi3(
+    input_data: xr.Dataset,
+    boxcar_size: list[int, int] = [3, 3],
+) -> xr.Dataset:
+    """Applies the Yamaguchi 3 component decomposition. This decomposition is based on physical modeling
+      of the covariance matrix and returns 3 components Ps, Pd and Pv which are the powers of resp.
+      surface, double bounce and volume backscattering.
+
+    Args:
+        input_data (xr.Dataset): Input image, may be a covariance (C3), coherency (T3) or Sinclair (S) matrix.
+        boxcar_size (list[int, int], optional):  Boxcar dimensions along azimuth and range. Defaults to [3, 3].
+
+    Returns:
+        xr.Dataset: Ps, Pd and Pv components.
+    """
+
+    allowed_poltypes = ("S", "C3", "T3")
+    poltype = validate_dataset(input_data, allowed_poltypes=allowed_poltypes)
+
+    # in_ = input_data.astype("complex64", copy=False)
+    if poltype == "C3":
+        in_ = input_data
+    elif poltype == "T3":
+        in_ = T3_to_C3(input_data)
+    elif poltype == "S":
+        in_ = S_to_C3(input_data)
+
+    # pre-processing step, it is recommended to filter the matrices to mitigate speckle effects
+    in_ = boxcar(in_, boxcar_size[0], boxcar_size[1])
+
+    out = _compute_yamaguchi3_components(in_)
+    return xr.Dataset(
+        # add dimension names
+        {k: (tuple(input_data.dims), v) for k, v in out.items()},
+        attrs=dict(
+            poltype="yamaguchi3",
+            description="Results of the Yamaguchi 3 component decomposition.",
+        ),
+        coords=input_data.coords,
+    )
+
 
 # TODO: update docstrings
 def yamaguchi4(

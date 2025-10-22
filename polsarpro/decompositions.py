@@ -219,6 +219,51 @@ def h_a_alpha(
     ).where(~mask)
 
 
+# TODO: docstrings
+def yamaguchi4(
+    input_data: xr.Dataset,
+    boxcar_size: list[int, int] = [3, 3],
+) -> xr.Dataset:
+    """Applies the Freeman-Durden decomposition. This decomposition is based on physical modeling
+      of the covariance matrix and returns 3 components Ps, Pd and Pv which are the powers of resp.
+      surface, double bounce and volume backscattering.
+
+    Args:
+        input_data (xr.Dataset): Input image, may be a covariance (C3), coherency (T3) or Sinclair (S) matrix.
+        boxcar_size (list[int, int], optional):  Boxcar dimensions along azimuth and range. Defaults to [3, 3].
+
+    Returns:
+        xr.Dataset: Ps, Pd and Pv components.
+    """
+
+    allowed_poltypes = ("S", "C3", "T3")
+    poltype = validate_dataset(input_data, allowed_poltypes=allowed_poltypes)
+
+    # in_ = input_data.astype("complex64", copy=False)
+    if poltype == "C3":
+        in_ = C3_to_T3(input_data)
+    elif poltype == "T3":
+        in_ = input_data
+    elif poltype == "S":
+        in_ = S_to_T3(input_data)
+
+    # pre-processing step, it is recommended to filter the matrices to mitigate speckle effects
+    in_ = boxcar(in_, boxcar_size[0], boxcar_size[1])
+
+    out = _compute_freeman_components(in_)
+    return xr.Dataset(
+        # add dimension names
+        {k: (tuple(input_data.dims), v) for k, v in out.items()},
+        attrs=dict(
+            poltype="yamaguchi4",
+            description="Results of the Yamaguchi 4 component decomposition.",
+        ),
+        coords=input_data.coords,
+    )
+
+
+
+
 # below this line, functions are not meant to be called directly
 
 
@@ -596,3 +641,9 @@ def _compute_freeman_components(C3):
     Pd = da.where(Pd <= min_span, min_span, da.where(Pd > max_span, max_span, Pd))
     Pv = da.where(Pv <= min_span, min_span, da.where(Pv > max_span, max_span, Pv))
     return {"odd": Ps, "double": Pd, "volume": Pv}
+
+def _compute_yamaguchi4_components(T3):
+
+    eps = 1e-30
+
+    return 0 

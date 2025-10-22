@@ -219,10 +219,11 @@ def h_a_alpha(
     ).where(~mask)
 
 
-# TODO: docstrings
+# TODO: update docstrings
 def yamaguchi4(
     input_data: xr.Dataset,
     boxcar_size: list[int, int] = [3, 3],
+    mode: str = "y40",
 ) -> xr.Dataset:
     """Applies the Freeman-Durden decomposition. This decomposition is based on physical modeling
       of the covariance matrix and returns 3 components Ps, Pd and Pv which are the powers of resp.
@@ -250,7 +251,7 @@ def yamaguchi4(
     # pre-processing step, it is recommended to filter the matrices to mitigate speckle effects
     in_ = boxcar(in_, boxcar_size[0], boxcar_size[1])
 
-    out = _compute_freeman_components(in_)
+    out = _compute_yamaguchi4_components(in_, mode=mode)
     return xr.Dataset(
         # add dimension names
         {k: (tuple(input_data.dims), v) for k, v in out.items()},
@@ -260,8 +261,6 @@ def yamaguchi4(
         ),
         coords=input_data.coords,
     )
-
-
 
 
 # below this line, functions are not meant to be called directly
@@ -642,8 +641,167 @@ def _compute_freeman_components(C3):
     Pv = da.where(Pv <= min_span, min_span, da.where(Pv > max_span, max_span, Pv))
     return {"odd": Ps, "double": Pd, "volume": Pv}
 
-def _compute_yamaguchi4_components(T3):
+
+def _compute_yamaguchi3_components(C3):
 
     eps = 1e-30
 
-    return 0 
+    # Make copies to avoid modifying original data
+    c11 = C3.m11.data.copy()
+    c13r = C3.m13.data.real.copy()
+    c13i = C3.m13.data.imag.copy()
+    c22 = C3.m22.data.copy()
+    c33 = C3.m33.data.copy()
+
+    # Freeman-Yamaguchi algorithm
+    ratio = 10.0 * da.log10(c33 / c11)
+    msk_l = ratio <= -2
+    msk_h = ratio > 2
+    msk_m = (ratio > -2) & (ratio <= 2)
+
+    fv = da.where(msk_m, 2 * c22, 15 * c22 / 8)
+    c13r = da.where(msk_m, c13r - fv / 8, c13r - 2 * fv / 15)
+
+    c11 = da.where(msk_l, c11 - 8 * fv / 15, c11)
+    c33 = da.where(msk_l, c33 - 3 * fv / 15, c33)
+
+    c11 = da.where(msk_h, c11 - 3 * fv / 15, c11)
+    c33 = da.where(msk_h, c33 - 8 * fv / 15, c33)
+
+    c11 = da.where(msk_m, c11 - 3 * fv / 8, c11)
+    c33 = da.where(msk_m, c33 - 3 * fv / 8, c33)
+
+    # Volume scattering condition
+    cnd1 = (c11 <= eps) | (c33 <= eps)
+    fv = da.where(cnd1 & msk_m, c11 + 3 * fv / 8 + c22 / 2 + c33 + 3 * fv / 8, fv)
+    fv = da.where(cnd1 & msk_l, c11 + 8 * fv / 15 + c22 / 2 + c33 + 3 * fv / 15, fv)
+    fv = da.where(cnd1 & msk_h, c11 + 3 * fv / 15 + c22 / 2 + c33 + 8 * fv / 15, fv)
+
+    # Compute c13 power
+    pow_c13 = c13r**2 + c13i**2
+
+    # Data conditioning for non-realizable term
+    cnd2 = ~cnd1 & (pow_c13 > c11 * c33)
+    arg_sqrt = da.maximum(c11 * c33 / da.maximum(pow_c13, eps), 0)
+    scale_factor = da.where(cnd2, da.sqrt(arg_sqrt), 1)
+    c13r *= scale_factor
+    c13i *= scale_factor
+
+    # Recompute after conditioning
+    pow_c13 = c13r**2 + c13i**2
+
+    # Odd bounce dominates
+    cnd3 = ~cnd1 & (c13r >= 0)
+    alpha = da.where(
+        cnd3, da.float32(-1) + 1j * da.float32(0), da.float32(eps) + 1j * da.float32(0)
+    )
+    arg_div = c11 + c33 + 2 * c13r
+    arg_div = da.where(arg_div == 0, eps, arg_div)
+    fd = da.where(cnd3, (c11 * c33 - pow_c13) / arg_div, eps)
+    fs = da.where(cnd3, c33 - fd, eps)
+    arg_div = da.where(fs == 0, eps, fs)
+    beta = da.where(cnd3, (fd + c13r + 1j * c13i) / arg_div, eps)
+
+    # Even bounce dominates
+    cnd4 = ~cnd1 & (c13r < 0)
+    beta = da.where(cnd4, 1 + 1j * 0, beta)
+    arg_div = c11 + c33 - 2 * c13r
+    arg_div = da.where(arg_div == 0, eps, arg_div)
+    fs = da.where(cnd4, (c11 * c33 - pow_c13) / arg_div, fs)
+    fd = da.where(cnd4, c33 - fs, fd)
+    arg_div = da.where(fd == 0, eps, fd)
+    alpha = da.where(cnd4, (c13r - fs + 1j*c13i) / arg_div, alpha)
+
+    # Compute Freeman components
+    Ps = fs * (1 + beta.real**2 + beta.imag**2)
+    Pd = fd * (1 + alpha.real**2 + alpha.imag**2)
+    Pv = fv
+
+    # Compute span on __original__ covariance, not modified one
+    sp = C3.m11.data + C3.m22.data + C3.m33.data
+    min_span, max_span = da.nanmin(sp), da.nanmax(sp)
+    min_span = da.maximum(min_span, eps)
+
+    Ps = da.where(Ps <= min_span, min_span, da.where(Ps > max_span, max_span, Ps))
+    Pd = da.where(Pd <= min_span, min_span, da.where(Pd > max_span, max_span, Pd))
+    Pv = da.where(Pv <= min_span, min_span, da.where(Pv > max_span, max_span, Pv))
+    return {"odd": Ps, "double": Pd, "volume": Pv}
+
+
+def _compute_yamaguchi4_components(T3, mode="y4o"):
+
+    eps = 1e-30
+
+    span = T3.m11.data + T3.m22.data + T3.m33.data
+    sp_min = span.min()
+    sp_min = da.where(sp_min > eps, sp_min, eps)
+    sp_max = span.max()
+
+    T11 = T3.m11.data.copy()
+    T22 = T3.m22.data.copy()
+    T33 = T3.m33.data.copy()
+
+    T12 = T3.m12.data.copy()
+    T13 = T3.m13.data.copy()
+    T23 = T3.m23.data.copy()
+
+    if mode in ["y4r", "s4r"]:
+        teta = 0.5 * da.atan(2 * T23.real / (T22 - T33))
+        T11, T22, T33, T12, T13, T23 = _unitary_rotation(T11, T22, T33, T12, T13, T23)
+    else:
+        teta = da.zeros_like(T11)
+
+    Pc = 2 * da.abs(T23.imag)
+
+    # Surface scattering
+    hv_type = da.ones_like(T11, dtype="uint8")
+
+    if mode == "s4r":
+        C1 = T11 - T22 + (7 / 8) * T33 + Pc / 16
+        hv_type = da.where(C1 > 0, 1, 2)
+
+    # Surface scattering
+    ratio = 10(da.log10((T11 + T22 - 2 * T12.real) / (T11 + T22 + 2 * T12.real)))
+    cnd = (hv_type == 1) & (ratio > -2) & (ratio <= 2)
+    Pv = da.where(cnd, 2 * (2 * T33 - Pc), (15 / 8) * (2 * T33 - Pc))
+
+    # Double bounce scattering
+    Pv = da.where(hv_type == 2, (15 / 16) * (2 * T33 - Pc), Pv)
+
+    TP = T11 + T22 + T33
+
+    # placeholder to remember names
+    # out = {"odd": [], "double": [], "volume": [], "helix":[]}
+    return 0
+
+
+def _unitary_rotation(T11, T22, T33, T12, T13, T23, theta):
+
+    cos_t = np.cos(theta)
+    sin_t = np.sin(theta)
+
+    # Decompose into real/imag
+    T12_re, T12_im = da.real(T12), da.imag(T12)
+    T13_re, T13_im = da.real(T13), da.imag(T13)
+    T23_re, T23_im = da.real(T23), da.imag(T23)
+
+    # --- Rotation ---
+    T12_re_new = T12_re * cos_t + T13_re * sin_t
+    T12_im_new = T12_im * cos_t + T13_im * sin_t
+    T13_re_new = -T12_re * sin_t + T13_re * cos_t
+    T13_im_new = -T12_im * sin_t + T13_im * cos_t
+
+    T22_new = T22 * cos_t**2 + 2.0 * T23_re * cos_t * sin_t + T33 * sin_t**2
+    T23_re_new = (
+        -T22 * cos_t * sin_t + T23_re * (cos_t**2 - sin_t**2) + T33 * cos_t * sin_t
+    )
+    T23_im_new = T23_im * (cos_t**2 + sin_t**2)
+    T33_new = T22 * sin_t**2 + T33 * cos_t**2 - 2.0 * T23_re * cos_t * sin_t
+
+    # Recombine
+    T12_new = T12_re_new + 1j * T12_im_new
+    T13_new = T13_re_new + 1j * T13_im_new
+    T23_new = T23_re_new + 1j * T23_im_new
+
+    # T11 stays the same
+    return T11, T22_new, T33_new, T12_new, T13_new, T23_new

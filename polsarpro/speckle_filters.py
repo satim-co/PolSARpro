@@ -30,10 +30,154 @@ limitations under the License.
 import numpy as np
 import xarray as xr
 import dask.array as da
-from scipy.ndimage import convolve
-
+from polsarpro.util import boxcar, S_to_C3
 from polsarpro.auxil import validate_dataset
+from scipy.ndimage import convolve
 from polsarpro.util import _boxcar_core
+
+
+def PWF(
+    input_data: xr.Dataset,
+    boxcar_size: list[int, int] = [3, 3],
+) -> xr.Dataset:
+    """
+    Speckle reduction using Polarimetric Whitening Filter.
+
+    Args:
+        input_data (xr.Dataset): Input polarimetric SAR dataset. Supported types are:
+
+            - "S": Sinclair scattering matrix
+
+            - "C3": Lexicographic covariance matrix
+
+            - "T3": Pauli coherency matrix
+
+            - "C4" and "T4": 4x4 versions of the above
+
+            - "C2": Dual-polarimetric covariance
+
+        boxcar_size (list[int, int], optional): Size of the spatial averaging window to be
+            applied before decomposition (boxcar filter). Defaults to [3, 3].
+
+    Returns:
+        xr.Dataset: Result of the filtering.
+
+    Notes:
+        If the S matrix is given as an input, a 3x3 analysis will be assumed using the C3 matrix.
+    """
+
+    allowed_poltypes = ("S", "C2", "C3", "C4", "T3", "T4")
+    poltype = validate_dataset(input_data, allowed_poltypes=allowed_poltypes)
+
+    if poltype in ["C2", "C3", "T3", "C4", "T4"]:
+        in_ = input_data
+    elif poltype == "S":
+        in_ = S_to_C3(input_data)
+    else:
+        raise ValueError(f"Invalid polarimetric type: {input_data.poltype}")
+
+    new_dims = tuple(input_data.dims)
+
+    eps = 1e-30
+    # pre-processing step, it is recommended to filter the matrices to mitigate speckle effects
+    box_out = boxcar(in_, dim_az=boxcar_size[0], dim_rg=boxcar_size[1])
+
+    # remove NaNs to avoid errors in eigh
+    mask = box_out.to_array().isnull().any("variable")
+    box_out = box_out.fillna(eps)
+
+    M_box = _reconstruct_matrix_from_ds(box_out).data
+    M = _reconstruct_matrix_from_ds(in_).data
+    # eigendecomposition
+    meta = (
+        np.array([], dtype="complex64").reshape((0, 0, 0, 0)),
+    )
+    M_inv = da.apply_gufunc(np.linalg.inv, "(i,j)->(i,j)", M_box, meta=meta)
+    prod = np.matmul(M_inv, M)
+    trace = np.trace(prod, axis1=2, axis2=3).real
+
+    out = {"pwf": trace}
+    # return trace
+
+    return xr.Dataset(
+        # add dimension names, account for 2D and 3D outputs
+        {
+            k: (new_dims, v) if v.ndim == 2 else (new_dims + ("i",), v)
+            for k, v in out.items()
+        },
+        attrs=dict(
+            poltype="pwf",
+            description="Results of the PWF (Polarimetric Whitening Filter) speckle reduction method.",
+        ),
+        coords=input_data.coords,
+    ).where(~mask)
+
+
+# below this line, functions are not meant to be called directly
+
+
+# this is a convenience function to give eigh the right data format
+def _reconstruct_matrix_from_ds(ds):
+
+    eps = 1e-30
+
+    if {"y", "x"}.issubset(ds.dims):
+        new_dims = ("y", "x")
+    elif {"lat", "lon"}.issubset(ds.dims):
+        new_dims = ("lat", "lon")
+    else:
+        ValueError(
+            "Input data does not have valid dimension names. ('y', 'x') or ('lat', 'lon') allowed."
+        )
+
+    new_dims_array = new_dims + ("i", "j")
+    if ds.poltype == "C2":
+        # build each line of the T3 matrix
+        M2_l1 = xr.concat((ds.m11, ds.m12), dim="j")
+        M2_l2 = xr.concat((ds.m12.conj(), ds.m22), dim="j")
+
+        # Concatenate all lines into a 2x2 matrix
+        return (
+            xr.concat((M2_l1, M2_l2), dim="i")
+            .transpose(*new_dims_array)
+            .chunk({new_dims[0]: "auto", new_dims[1]: "auto", "i": 2, "j": 2})
+            + eps
+        )
+    if ds.poltype in ["T3", "C3"]:
+        # build each line of the T3 matrix
+        M3_l1 = xr.concat((ds.m11, ds.m12, ds.m13), dim="j")
+        M3_l2 = xr.concat((ds.m12.conj(), ds.m22, ds.m23), dim="j")
+        M3_l3 = xr.concat((ds.m13.conj(), ds.m23.conj(), ds.m33), dim="j")
+
+        # Concatenate all lines into a 3x3 matrix
+        return (
+            xr.concat((M3_l1, M3_l2, M3_l3), dim="i")
+            .transpose(*new_dims_array)
+            .chunk({new_dims[0]: "auto", new_dims[1]: "auto", "i": 3, "j": 3})
+            + eps
+        )
+    elif ds.poltype in ["T4", "C4"]:
+        # build each line of the T4 matrix
+        M4_l1 = xr.concat((ds.m11, ds.m12, ds.m13, ds.m14), dim="j")
+        M4_l2 = xr.concat((ds.m12.conj(), ds.m22, ds.m23, ds.m24), dim="j")
+        M4_l3 = xr.concat((ds.m13.conj(), ds.m23.conj(), ds.m33, ds.m34), dim="j")
+        M4_l4 = xr.concat(
+            (ds.m14.conj(), ds.m24.conj(), ds.m34.conj(), ds.m44), dim="j"
+        )
+
+        # concatenate all lines into a 4x4 matrix
+        return (
+            xr.concat((M4_l1, M4_l2, M4_l3, M4_l4), dim="i")
+            .transpose(*new_dims_array)
+            .chunk({new_dims[0]: "auto", new_dims[1]: "auto", "i": 4, "j": 4})
+            + eps
+        )
+    else:
+        raise NotImplementedError(
+            "Implemented only for C2, C3, T3 and C4 and T4 poltypes."
+        )
+
+
 
 
 def refined_lee(

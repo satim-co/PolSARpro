@@ -218,6 +218,7 @@ def h_a_alpha(
         coords=input_data.coords,
     ).where(~mask)
 
+
 def yamaguchi3(
     input_data: xr.Dataset,
     boxcar_size: list[int, int] = [3, 3],
@@ -292,7 +293,8 @@ def yamaguchi4(
     # pre-processing step, it is recommended to filter the matrices to mitigate speckle effects
     in_ = boxcar(in_, boxcar_size[0], boxcar_size[1])
 
-    out = _compute_yamaguchi4_components(in_, mode=mode)
+    out = _compute_yamaguchi4_components_old(in_, mode=mode)
+    # out = _compute_yamaguchi4_components(in_, mode=mode)
     return xr.Dataset(
         # add dimension names
         {k: (tuple(input_data.dims), v) for k, v in out.items()},
@@ -751,7 +753,7 @@ def _compute_yamaguchi3_components(C3):
     fs = da.where(cnd4, (c11 * c33 - pow_c13) / arg_div, fs)
     fd = da.where(cnd4, c33 - fs, fd)
     arg_div = da.where(fd == 0, eps, fd)
-    alpha = da.where(cnd4, (c13r - fs + 1j*c13i) / arg_div, alpha)
+    alpha = da.where(cnd4, (c13r - fs + 1j * c13i) / arg_div, alpha)
 
     # Compute Freeman components
     Ps = fs * (1 + beta.real**2 + beta.imag**2)
@@ -769,7 +771,7 @@ def _compute_yamaguchi3_components(C3):
     return {"odd": Ps, "double": Pd, "volume": Pv}
 
 
-def _compute_yamaguchi4_components(T3, mode="y4o"):
+def _compute_yamaguchi4_components_old(T3, mode="y4o"):
 
     eps = 1e-30
 
@@ -784,9 +786,8 @@ def _compute_yamaguchi4_components(T3, mode="y4o"):
         # T11, T22, T33, T12, T13, T23 = _unitary_rotation(T11, T22, T33, T12, T13, T23, theta)
         T3_new = _unitary_rotation(T3, theta)
     else:
-        theta = da.zeros_like(T3.m11.data)
+        # theta = da.zeros_like(T3.m11.data)
         T3_new = T3.copy(deep=True)
-
 
     T11 = T3_new.m11.data
     T22 = T3_new.m22.data
@@ -826,21 +827,23 @@ def _compute_yamaguchi4_components(T3, mode="y4o"):
     # -----------------------------------------------------------
     # Volume scattering (HV_type == 1)
     # -----------------------------------------------------------
-    S1 = T11.real - Pv / 2.
+    S1 = T11.real - Pv / 2.0
     D1 = TP - Pv - Pc - S1
 
     # Adjust C according to ratio thresholds (real part only)
-    C1 = C + (Pv / 6.) * ((ratio > 2.).astype(Pv.dtype) - (ratio <= -2.).astype(Pv.dtype))
+    C1 = C + (Pv / 6.0) * (
+        (ratio > 2.0).astype(Pv.dtype) - (ratio <= -2.0).astype(Pv.dtype)
+    )
 
-    # (Pv + Pc) > TP 
+    # (Pv + Pc) > TP
     cond_pc = (Pv + Pc) > TP
-    CO = 2. * T11.real + Pc - TP
+    CO = 2.0 * T11.real + Pc - TP
 
-    Ps1_else = da.where(CO > 0., S1 + amp_sq / S1, S1 - amp_sq / D1)
-    Pd1_else = da.where(CO > 0., D1 - amp_sq / S1, D1 + amp_sq / D1)
+    Ps1_else = da.where(CO > 0.0, S1 + amp_sq / S1, S1 - amp_sq / D1)
+    Pd1_else = da.where(CO > 0.0, D1 - amp_sq / S1, D1 + amp_sq / D1)
 
-    Ps1 = da.where(cond_pc, 0., Ps1_else)
-    Pd1 = da.where(cond_pc, 0., Pd1_else)
+    Ps1 = da.where(cond_pc, 0.0, Ps1_else)
+    Pd1 = da.where(cond_pc, 0.0, Pd1_else)
     Pv1 = da.where(cond_pc, TP - Pc, Pv)
 
     # Handle Ps/Pd negativity
@@ -848,14 +851,14 @@ def _compute_yamaguchi4_components(T3, mode="y4o"):
     cond_Pd_neg = Pd1 < 0
 
     Ps1 = da.where(
-        cond_Ps_neg & cond_Pd_neg, 0.,
-        da.where(cond_Ps_neg, 0.,
-                da.where(cond_Pd_neg, TP - Pv1 - Pc, Ps1))
+        cond_Ps_neg & cond_Pd_neg,
+        0.0,
+        da.where(cond_Ps_neg, 0.0, da.where(cond_Pd_neg, TP - Pv1 - Pc, Ps1)),
     )
     Pd1 = da.where(
-        cond_Ps_neg & cond_Pd_neg, 0.,
-        da.where(cond_Ps_neg, TP - Pv1 - Pc,
-                da.where(cond_Pd_neg, 0., Pd1))
+        cond_Ps_neg & cond_Pd_neg,
+        0.0,
+        da.where(cond_Ps_neg, TP - Pv1 - Pc, da.where(cond_Pd_neg, 0.0, Pd1)),
     )
     Pv1 = da.where(cond_Ps_neg & cond_Pd_neg, TP - Pc, Pv1)
 
@@ -872,14 +875,14 @@ def _compute_yamaguchi4_components(T3, mode="y4o"):
     cond_Pd_neg = Pd2 < 0
 
     Ps2 = da.where(
-        cond_Ps_neg & cond_Pd_neg, 0.,
-        da.where(cond_Ps_neg, 0.,
-                da.where(cond_Pd_neg, TP - Pv - Pc, Ps2))
+        cond_Ps_neg & cond_Pd_neg,
+        0.0,
+        da.where(cond_Ps_neg, 0.0, da.where(cond_Pd_neg, TP - Pv - Pc, Ps2)),
     )
     Pd2 = da.where(
-        cond_Ps_neg & cond_Pd_neg, 0.,
-        da.where(cond_Ps_neg, TP - Pv - Pc,
-                da.where(cond_Pd_neg, 0., Pd2))
+        cond_Ps_neg & cond_Pd_neg,
+        0.0,
+        da.where(cond_Ps_neg, TP - Pv - Pc, da.where(cond_Pd_neg, 0.0, Pd2)),
     )
     Pv2 = da.where(cond_Ps_neg & cond_Pd_neg, TP - Pc, Pv)
 
@@ -899,11 +902,120 @@ def _compute_yamaguchi4_components(T3, mode="y4o"):
     # -----------------------------------------------------------
     out_3comp = _compute_yamaguchi3_components(T3_to_C3(T3_new))
     mask_v = Pv >= 0
-    Ps = da.where(mask_v, Ps, out_3comp["odd"]) 
-    Pd = da.where(mask_v, Pd, out_3comp["double"]) 
-    Pv = da.where(mask_v, Pv, out_3comp["volume"]) 
-    Pc = da.where(mask_v, Pc, 0) 
+    Ps = da.where(mask_v, Ps, out_3comp["odd"])
+    Pd = da.where(mask_v, Pd, out_3comp["double"])
+    Pv = da.where(mask_v, Pv, out_3comp["volume"])
+    Pc = da.where(mask_v, Pc, 0)
     # placeholder to remember names
+    out = {"odd": Ps, "double": Pd, "volume": Pv, "helix": Pc}
+    return out
+
+
+def _compute_yamaguchi4_components(T3, mode="y4o"):
+
+    eps = 1e-30
+
+    span = T3.m11.data + T3.m22.data + T3.m33.data
+    min_span = span.min()
+    min_span = da.where(min_span > eps, min_span, eps)
+    max_span = span.max()
+
+    # Apply unitary rotation for corresponding modes
+    if mode in ["y4r", "s4r"]:
+        theta = 0.5 * da.atan(2 * T3.m23.data.real / (T3.m22.data - T3.m33.data))
+        T3_new = _unitary_rotation(T3, theta)
+    else:
+        T3_new = T3.copy(deep=True)
+
+    T11 = T3_new.m11.data
+    T22 = T3_new.m22.data
+    T33 = T3_new.m33.data
+
+    T12 = T3_new.m12.data
+    T13 = T3_new.m13.data
+    T23 = T3_new.m23.data
+
+    Pc = 2 * da.abs(T23.imag)
+
+    # Surface scattering
+    hv_type = da.ones_like(T11, dtype="uint8")
+
+    if mode == "s4r":
+        C1 = T11 - T22 + (7 / 8) * T33 + Pc / 16
+        hv_type = da.where(C1 > 0, 1, 2)
+
+    # Surface scattering
+    ratio = 10 * da.log10((T11 + T22 - 2 * T12.real) / (T11 + T22 + 2 * T12.real))
+    cnd = (hv_type == 1) & (ratio > -2) & (ratio <= 2)
+    Pv = da.where(cnd, 2 * (2 * T33 - Pc), (15 / 8) * (2 * T33 - Pc))
+
+    # Double bounce scattering
+    Pv = da.where(hv_type == 2, (15 / 16) * (2 * T33 - Pc), Pv)
+
+    TP = T11 + T22 + T33
+
+    # 4 component algorithm
+    cnd_hv = hv_type == 1
+    S = da.where(cnd_hv, T11 - Pv / 2, 0.0)
+    D = da.where(cnd_hv, TP - Pv - Pc - S, 0.0)
+    Cre = da.where(cnd_hv, T12.real + T13.real, 0.0)
+    Cim = da.where(cnd_hv, T12.imag + T13.imag, 0.0)
+    Cre = da.where((ratio < -2) & cnd_hv, Cre - Pv / 6, Cre)
+    Cre = da.where((ratio > 2) & cnd_hv, Cre + Pv / 6, Cre)
+
+    Ps = da.zeros_like(TP)
+    Pd = da.zeros_like(TP)
+    Pv = da.zeros_like(TP)
+    cnd_tp = (Pv + Pc) > TP
+    Pv = da.where(cnd_hv & cnd_tp, TP - Pc, Pv)
+    cnd_c0 = (2 * T11 + Pc - TP) > 0
+    Ps = da.where(cnd_hv & ~cnd_tp & cnd_c0, S + (Cre**2 + Cim**2) / S, Ps)
+    Pd = da.where(cnd_hv & ~cnd_tp & cnd_c0, D - (Cre**2 + Cim**2) / S, Pd)
+
+    Pd = da.where(cnd_hv & ~cnd_tp & ~cnd_c0, D + (Cre**2 + Cim**2) / D, Pd)
+    Ps = da.where(cnd_hv & ~cnd_tp & ~cnd_c0, S - (Cre**2 + Cim**2) / D, Ps)
+
+    cnd_ps = Ps < 0
+    cnd_pd = Pd < 0
+    Ps = da.where(cnd_hv & cnd_ps & cnd_pd, 0, Ps)
+    Pd = da.where(cnd_hv & cnd_ps & cnd_pd, 0, Pd)
+    Pv = da.where(cnd_hv & cnd_ps & cnd_pd, TP - Pc, Pv)
+    Ps = da.where(cnd_hv & cnd_ps & ~cnd_pd, 0, Ps)
+    Pd = da.where(cnd_hv & cnd_ps & ~cnd_pd, TP - Pv - Pc, Pd)
+    Pd = da.where(cnd_hv & ~cnd_ps & cnd_pd, 0, Pd)
+    Ps = da.where(cnd_hv & ~cnd_ps & cnd_pd, TP - Pv - Pc, Ps)
+
+    # Double bounce scattering
+    cnd_hv = hv_type == 2
+    S = da.where(cnd_hv, T11, S)
+    D = da.where(cnd_hv, TP - Pv - Pc - S, D)
+    Cre = da.where(cnd_hv, T12.real + T13.real, Cre)
+    Cim = da.where(cnd_hv, T12.imag + T13.imag, Cim)
+    Pd = da.where(cnd_hv, D + (Cre**2 + Cim**2) / D, Pd)
+    Ps = da.where(cnd_hv, S - (Cre**2 + Cim**2) / D, Ps)
+
+    cnd_ps = Ps < 0
+    cnd_pd = Pd < 0
+    Ps = da.where(cnd_hv & cnd_ps & cnd_pd, 0, Ps)
+    Pd = da.where(cnd_hv & cnd_ps & cnd_pd, 0, Pd)
+    Pv = da.where(cnd_hv & cnd_ps & cnd_pd, TP - Pc, Pv)
+    Ps = da.where(cnd_hv & cnd_ps & ~cnd_pd, 0, Ps)
+    Pd = da.where(cnd_hv & cnd_ps & ~cnd_pd, TP - Pv - Pc, Pd)
+    Pd = da.where(cnd_hv & ~cnd_ps & cnd_pd, 0, Pd)
+    Ps = da.where(cnd_hv & ~cnd_ps & cnd_pd, TP - Pv - Pc, Ps)
+
+    Ps = da.where(Ps <= min_span, min_span, da.where(Ps > max_span, max_span, Ps))
+    Pd = da.where(Pd <= min_span, min_span, da.where(Pd > max_span, max_span, Pd))
+    Pv = da.where(Pv <= min_span, min_span, da.where(Pv > max_span, max_span, Pv))
+    Pc = da.where(Pc <= min_span, min_span, da.where(Pc > max_span, max_span, Pc))
+
+    # If Pv < 0 use three components and set Pc to 0
+    out_3comp = _compute_yamaguchi3_components(T3_to_C3(T3_new))
+    mask_v = Pv >= 0
+    Ps = da.where(mask_v, Ps, out_3comp["odd"])
+    Pd = da.where(mask_v, Pd, out_3comp["double"])
+    Pv = da.where(mask_v, Pv, out_3comp["volume"])
+    Pc = da.where(mask_v, Pc, 0)
     out = {"odd": Ps, "double": Pd, "volume": Pv, "helix": Pc}
     return out
 
@@ -941,7 +1053,7 @@ def _unitary_rotation(T3, theta):
     T33_new = T22 * sin_t**2 + T33 * cos_t**2 - 2.0 * T23_re * cos_t * sin_t
 
     # Recombine
-    T3_out["m11"] = T11_new 
+    T3_out["m11"] = T11_new
     T3_out["m22"] = T22_new
     T3_out["m33"] = T33_new
     T3_out["m12"] = T12_re_new + 1j * T12_im_new

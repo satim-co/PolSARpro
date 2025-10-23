@@ -784,7 +784,7 @@ def _compute_yamaguchi4_components(T3, mode="y4o"):
         # T11, T22, T33, T12, T13, T23 = _unitary_rotation(T11, T22, T33, T12, T13, T23, theta)
         T3_new = _unitary_rotation(T3, theta)
     else:
-        theta = da.zeros_like(T11)
+        theta = da.zeros_like(T3.m11.data)
         T3_new = T3.copy(deep=True)
 
 
@@ -806,7 +806,7 @@ def _compute_yamaguchi4_components(T3, mode="y4o"):
         hv_type = da.where(C1 > 0, 1, 2)
 
     # Surface scattering
-    ratio = 10(da.log10((T11 + T22 - 2 * T12.real) / (T11 + T22 + 2 * T12.real)))
+    ratio = 10 * da.log10((T11 + T22 - 2 * T12.real) / (T11 + T22 + 2 * T12.real))
     cnd = (hv_type == 1) & (ratio > -2) & (ratio <= 2)
     Pv = da.where(cnd, 2 * (2 * T33 - Pc), (15 / 8) * (2 * T33 - Pc))
 

@@ -264,7 +264,7 @@ def yamaguchi3(
 def yamaguchi4(
     input_data: xr.Dataset,
     boxcar_size: list[int, int] = [3, 3],
-    mode: str = "y40",
+    mode: str = "y4o",
 ) -> xr.Dataset:
     """Applies the Freeman-Durden decomposition. This decomposition is based on physical modeling
       of the covariance matrix and returns 3 components Ps, Pd and Pv which are the powers of resp.

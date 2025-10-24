@@ -934,7 +934,7 @@ def _compute_yamaguchi4_components(T3, mode="y4o"):
 
     # Apply unitary rotation for corresponding modes
     if mode in ["y4r", "s4r"]:
-        theta = 0.5 * da.arctan(2 * T3.m23.data.real / (T3.m22.data - T3.m33.data))
+        theta = 0.5 * da.arctan(2 * T3.m23.data.real / (T3.m22.data - T3.m33.data + eps))
         T3_new = _unitary_rotation(T3, theta)
     else:
         T3_new = T3.copy(deep=True)
@@ -957,10 +957,10 @@ def _compute_yamaguchi4_components(T3, mode="y4o"):
         hv_type = da.where(C1 > 0, 1, 2)
 
     # Surface scattering
-    ratio = 10 * da.log10((T11 + T22 - 2 * T12.real) / (T11 + T22 + 2 * T12.real))
+    ratio = 10 * da.log10((T11 + T22 - 2 * T12.real) / (T11 + T22 + 2 * T12.real + eps))
     cnd = hv_type == 1
     cnd_ratio = (ratio > -2) & (ratio <= 2)
-    Pv = da.where(cnd, da.where(cnd_ratio, 2, 15 / 8) * (2 * T33 - Pc), 0)
+    Pv = da.where(cnd, da.where(cnd_ratio, 2, 15 / 8) * (2 * T33 - Pc), eps)
 
     # Double bounce scattering
     Pv = da.where(hv_type == 2, (15 / 16) * (2 * T33 - Pc), Pv)
@@ -974,8 +974,8 @@ def _compute_yamaguchi4_components(T3, mode="y4o"):
 
     # Surface scattering
     cnd_hv = hv_type == 1
-    S = da.where(cnd_hv, T11 - Pv / 2, 0.0)
-    D = da.where(cnd_hv, TP - Pv - Pc - S, 0.0)
+    S = da.where(cnd_hv, T11 - Pv / 2, eps)
+    D = da.where(cnd_hv, TP - Pv - Pc - S, eps)
     C = da.where(cnd_hv & (ratio <= -2), C - Pv / 6, C)
     C = da.where(cnd_hv & (ratio > 2), C + Pv / 6, C)
     C_pow = C.real**2 + C.imag**2
@@ -984,8 +984,8 @@ def _compute_yamaguchi4_components(T3, mode="y4o"):
     Pv = da.where(cnd_hv & cnd_tp, TP - Pc, Pv)
     cnd_c0 = (2 * T11 + Pc - TP) > 0
 
-    Ps = da.where(cnd_hv & ~cnd_tp, da.where(cnd_c0, S + C_pow / S, S - C_pow / D), 0.0)
-    Pd = da.where(cnd_hv & ~cnd_tp, da.where(cnd_c0, D - C_pow / S, D + C_pow / D), 0.0)
+    Ps = da.where(cnd_hv & ~cnd_tp, da.where(cnd_c0, S + C_pow / S, S - C_pow / D), eps)
+    Pd = da.where(cnd_hv & ~cnd_tp, da.where(cnd_c0, D - C_pow / S, D + C_pow / D), eps)
 
     # Double bounce scattering
     cnd_hv = hv_type == 2
@@ -1029,8 +1029,6 @@ def _compute_yamaguchi4_components(T3, mode="y4o"):
         "double": Pd,
         "volume": Pv,
         "helix": Pc,
-        # "mask_v": mask_v,
-        # "mask_hv": cnd_hv,
     }
     return out
 

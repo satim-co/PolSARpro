@@ -982,32 +982,25 @@ def _compute_yamaguchi4_components(T3, mode="y4o"):
     Ps = da.where(cnd_hv & ~cnd_tp, da.where(cnd_c0, S + C_pow / S, S - C_pow / D), 0.0)
     Pd = da.where(cnd_hv & ~cnd_tp, da.where(cnd_c0, D - C_pow / S, D + C_pow / D), 0.0)
 
-    cnd_ps = Ps < 0
-    cnd_pd = Pd < 0
+    # cnd_ps = Ps < 0
+    # cnd_pd = Pd < 0
 
-    # Combined condition masks
-    both_neg = cnd_hv & cnd_ps & cnd_pd
-    ps_neg = cnd_hv & cnd_ps & ~cnd_pd
-    pd_neg = cnd_hv & ~cnd_ps & cnd_pd
+    # # Combined condition masks
+    # both_neg = cnd_hv & cnd_ps & cnd_pd
+    # ps_neg = cnd_hv & cnd_ps & ~cnd_pd
+    # pd_neg = cnd_hv & ~cnd_ps & cnd_pd
 
-    # Apply corrections
-    Ps = da.where(both_neg, 0, Ps)
-    Pd = da.where(both_neg, 0, Pd)
-    Pv = da.where(both_neg, TP - Pc, Pv)
+    # # Apply corrections
+    # Ps = da.where(both_neg, 0, Ps)
+    # Pd = da.where(both_neg, 0, Pd)
+    # Pv = da.where(both_neg, TP - Pc, Pv)
 
-    Ps = da.where(ps_neg, 0, Ps)
-    Pd = da.where(ps_neg, TP - Pv - Pc, Pd)
+    # Ps = da.where(ps_neg, 0, Ps)
+    # Pd = da.where(ps_neg, TP - Pv - Pc, Pd)
 
-    Pd = da.where(pd_neg, 0, Pd)
-    Ps = da.where(pd_neg, TP - Pv - Pc, Ps)
+    # Pd = da.where(pd_neg, 0, Pd)
+    # Ps = da.where(pd_neg, TP - Pv - Pc, Ps)
 
-    # Ps = da.where(cnd_hv & cnd_ps & cnd_pd, 0, Ps)
-    # Pd = da.where(cnd_hv & cnd_ps & cnd_pd, 0, Pd)
-    # Pv = da.where(cnd_hv & cnd_ps & cnd_pd, TP - Pc, Pv)
-    # Ps = da.where(cnd_hv & cnd_ps & ~cnd_pd, 0, Ps)
-    # Pd = da.where(cnd_hv & cnd_ps & ~cnd_pd, TP - Pv - Pc, Pd)
-    # Pd = da.where(cnd_hv & ~cnd_ps & cnd_pd, 0, Pd)
-    # Ps = da.where(cnd_hv & ~cnd_ps & cnd_pd, TP - Pv - Pc, Ps)
 
     # Double bounce scattering
     cnd_hv = hv_type == 2
@@ -1018,13 +1011,26 @@ def _compute_yamaguchi4_components(T3, mode="y4o"):
 
     cnd_ps = Ps < 0
     cnd_pd = Pd < 0
-    Ps = da.where(cnd_hv & cnd_ps & cnd_pd, 0, Ps)
-    Pd = da.where(cnd_hv & cnd_ps & cnd_pd, 0, Pd)
-    Pv = da.where(cnd_hv & cnd_ps & cnd_pd, TP - Pc, Pv)
-    Ps = da.where(cnd_hv & cnd_ps & ~cnd_pd, 0, Ps)
-    Pd = da.where(cnd_hv & cnd_ps & ~cnd_pd, TP - Pv - Pc, Pd)
-    Pd = da.where(cnd_hv & ~cnd_ps & cnd_pd, 0, Pd)
-    Ps = da.where(cnd_hv & ~cnd_ps & cnd_pd, TP - Pv - Pc, Ps)
+
+    # both_neg = cnd_hv & cnd_ps & cnd_pd
+    # ps_neg = cnd_hv & cnd_ps & ~cnd_pd
+    # pd_neg = cnd_hv & ~cnd_ps & cnd_pd
+
+    # Corrections apply for both surface and double
+    both_neg = cnd_ps & cnd_pd
+    ps_neg = cnd_ps & ~cnd_pd
+    pd_neg = ~cnd_ps & cnd_pd
+
+    Ps = da.where(both_neg, 0, Ps)
+    Pd = da.where(both_neg, 0, Pd)
+    Pv = da.where(both_neg, TP - Pc, Pv)
+
+    Ps = da.where(ps_neg, 0, Ps)
+    Pd = da.where(ps_neg, TP - Pv - Pc, Pd)
+
+    Pd = da.where(pd_neg, 0, Pd)
+    Ps = da.where(pd_neg, TP - Pv - Pc, Ps)
+
 
     Ps = da.where(Ps <= min_span, min_span, da.where(Ps > max_span, max_span, Ps))
     Pd = da.where(Pd <= min_span, min_span, da.where(Pd > max_span, max_span, Pd))

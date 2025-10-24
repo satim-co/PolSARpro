@@ -281,6 +281,9 @@ def yamaguchi4(
 
     allowed_poltypes = ("S", "C3", "T3")
     poltype = validate_dataset(input_data, allowed_poltypes=allowed_poltypes)
+    allowed_modes = ["y4o", "y4r", "s4r"]
+    if not mode in allowed_modes:
+        raise ValueError(f"Invalid mode {mode}. Possible values are {allowed_modes}")
 
     # in_ = input_data.astype("complex64", copy=False)
     if poltype == "C3":
@@ -295,6 +298,7 @@ def yamaguchi4(
 
     # out = _compute_yamaguchi4_components_old(in_, mode=mode)
     out = _compute_yamaguchi4_components(in_, mode=mode)
+    poltype_out = f"yamaguchi4_{mode.lower()}"
     return xr.Dataset(
         # add dimension names
         {k: (tuple(input_data.dims), v) for k, v in out.items()},
@@ -789,6 +793,7 @@ def _compute_yamaguchi4_components_old(T3, mode="y4o"):
         # theta = da.zeros_like(T3.m11.data)
         T3_new = T3.copy(deep=True)
 
+
     T11 = T3_new.m11.data
     T22 = T3_new.m22.data
     T33 = T3_new.m33.data
@@ -929,7 +934,7 @@ def _compute_yamaguchi4_components(T3, mode="y4o"):
 
     # Apply unitary rotation for corresponding modes
     if mode in ["y4r", "s4r"]:
-        theta = 0.5 * da.atan(2 * T3.m23.data.real / (T3.m22.data - T3.m33.data))
+        theta = 0.5 * da.arctan(2 * T3.m23.data.real / (T3.m22.data - T3.m33.data))
         T3_new = _unitary_rotation(T3, theta)
     else:
         T3_new = T3.copy(deep=True)
@@ -982,26 +987,6 @@ def _compute_yamaguchi4_components(T3, mode="y4o"):
     Ps = da.where(cnd_hv & ~cnd_tp, da.where(cnd_c0, S + C_pow / S, S - C_pow / D), 0.0)
     Pd = da.where(cnd_hv & ~cnd_tp, da.where(cnd_c0, D - C_pow / S, D + C_pow / D), 0.0)
 
-    # cnd_ps = Ps < 0
-    # cnd_pd = Pd < 0
-
-    # # Combined condition masks
-    # both_neg = cnd_hv & cnd_ps & cnd_pd
-    # ps_neg = cnd_hv & cnd_ps & ~cnd_pd
-    # pd_neg = cnd_hv & ~cnd_ps & cnd_pd
-
-    # # Apply corrections
-    # Ps = da.where(both_neg, 0, Ps)
-    # Pd = da.where(both_neg, 0, Pd)
-    # Pv = da.where(both_neg, TP - Pc, Pv)
-
-    # Ps = da.where(ps_neg, 0, Ps)
-    # Pd = da.where(ps_neg, TP - Pv - Pc, Pd)
-
-    # Pd = da.where(pd_neg, 0, Pd)
-    # Ps = da.where(pd_neg, TP - Pv - Pc, Ps)
-
-
     # Double bounce scattering
     cnd_hv = hv_type == 2
     S = da.where(cnd_hv, T11, S)
@@ -1011,10 +996,6 @@ def _compute_yamaguchi4_components(T3, mode="y4o"):
 
     cnd_ps = Ps < 0
     cnd_pd = Pd < 0
-
-    # both_neg = cnd_hv & cnd_ps & cnd_pd
-    # ps_neg = cnd_hv & cnd_ps & ~cnd_pd
-    # pd_neg = cnd_hv & ~cnd_ps & cnd_pd
 
     # Corrections apply for both surface and double
     both_neg = cnd_ps & cnd_pd
@@ -1030,7 +1011,6 @@ def _compute_yamaguchi4_components(T3, mode="y4o"):
 
     Pd = da.where(pd_neg, 0, Pd)
     Ps = da.where(pd_neg, TP - Pv - Pc, Ps)
-
 
     Ps = da.where(Ps <= min_span, min_span, da.where(Ps > max_span, max_span, Ps))
     Pd = da.where(Pd <= min_span, min_span, da.where(Pd > max_span, max_span, Pd))
@@ -1049,18 +1029,15 @@ def _compute_yamaguchi4_components(T3, mode="y4o"):
         "double": Pd,
         "volume": Pv,
         "helix": Pc,
-        "mask_v": mask_v,
-        "mask_hv": cnd_hv,
+        # "mask_v": mask_v,
+        # "mask_hv": cnd_hv,
     }
     return out
 
 
-# def _unitary_rotation(T11, T22, T33, T12, T13, T23, theta):
 def _unitary_rotation(T3, theta):
 
     T3_out = {}
-
-    c = 1 / np.sqrt(np.float32(2))
 
     cos_t = np.cos(theta)
     sin_t = np.sin(theta)
@@ -1096,5 +1073,4 @@ def _unitary_rotation(T3, theta):
     T3_out["m23"] = T23_re_new + 1j * T23_im_new
 
     attrs = {"poltype": "T3", "description": "Coherency matrix (3x3)"}
-    return xr.Dataset(T3, attrs=attrs)
-    # return T11, T22_new, T33_new, T12_new, T13_new, T23_new
+    return xr.Dataset({k: (tuple(T3.dims), v) for k, v in T3_out.items()}, attrs=attrs)

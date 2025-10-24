@@ -293,8 +293,8 @@ def yamaguchi4(
     # pre-processing step, it is recommended to filter the matrices to mitigate speckle effects
     in_ = boxcar(in_, boxcar_size[0], boxcar_size[1])
 
-    out = _compute_yamaguchi4_components_old(in_, mode=mode)
-    # out = _compute_yamaguchi4_components(in_, mode=mode)
+    # out = _compute_yamaguchi4_components_old(in_, mode=mode)
+    out = _compute_yamaguchi4_components(in_, mode=mode)
     return xr.Dataset(
         # add dimension names
         {k: (tuple(input_data.dims), v) for k, v in out.items()},
@@ -808,8 +808,15 @@ def _compute_yamaguchi4_components_old(T3, mode="y4o"):
 
     # Surface scattering
     ratio = 10 * da.log10((T11 + T22 - 2 * T12.real) / (T11 + T22 + 2 * T12.real))
-    cnd = (hv_type == 1) & (ratio > -2) & (ratio <= 2)
-    Pv = da.where(cnd, 2 * (2 * T33 - Pc), (15 / 8) * (2 * T33 - Pc))
+    cnd = hv_type == 1
+    cnd_ratio = (ratio > -2) & (ratio <= 2)
+    Pv = da.where(cnd & cnd_ratio, 2 * (2 * T33 - Pc), 0)
+    Pv = da.where(cnd & ~cnd_ratio, (15 / 8) * (2 * T33 - Pc), Pv)
+
+    # Surface scattering
+    # ratio = 10 * da.log10((T11 + T22 - 2 * T12.real) / (T11 + T22 + 2 * T12.real))
+    # cnd = (hv_type == 1) & (ratio > -2) & (ratio <= 2)
+    # Pv = da.where(cnd, 2 * (2 * T33 - Pc), (15 / 8) * (2 * T33 - Pc))
 
     # Double bounce scattering
     Pv = da.where(hv_type == 2, (15 / 16) * (2 * T33 - Pc), Pv)
@@ -946,8 +953,13 @@ def _compute_yamaguchi4_components(T3, mode="y4o"):
 
     # Surface scattering
     ratio = 10 * da.log10((T11 + T22 - 2 * T12.real) / (T11 + T22 + 2 * T12.real))
-    cnd = (hv_type == 1) & (ratio > -2) & (ratio <= 2)
-    Pv = da.where(cnd, 2 * (2 * T33 - Pc), (15 / 8) * (2 * T33 - Pc))
+    cnd = hv_type == 1
+    cnd_ratio = (ratio > -2) & (ratio <= 2)
+    Pv = da.where(
+        cnd,
+        da.where(cnd_ratio, 2 * (2 * T33 - Pc), (15 / 8) * (2 * T33 - Pc)),
+        0,
+    )
 
     # Double bounce scattering
     Pv = da.where(hv_type == 2, (15 / 16) * (2 * T33 - Pc), Pv)
@@ -958,22 +970,19 @@ def _compute_yamaguchi4_components(T3, mode="y4o"):
     cnd_hv = hv_type == 1
     S = da.where(cnd_hv, T11 - Pv / 2, 0.0)
     D = da.where(cnd_hv, TP - Pv - Pc - S, 0.0)
-    Cre = da.where(cnd_hv, T12.real + T13.real, 0.0)
-    Cim = da.where(cnd_hv, T12.imag + T13.imag, 0.0)
-    Cre = da.where((ratio < -2) & cnd_hv, Cre - Pv / 6, Cre)
-    Cre = da.where((ratio > 2) & cnd_hv, Cre + Pv / 6, Cre)
+    # C = da.where(cnd_hv, T12 + T13, 0.0)
+    C = T12 + T13
+    C = da.where(cnd_hv & (ratio <= -2), C - Pv / 6, C)
+    C = da.where(cnd_hv & (ratio > 2), C + Pv / 6, C)
 
-    Ps = da.zeros_like(TP)
-    Pd = da.zeros_like(TP)
-    Pv = da.zeros_like(TP)
     cnd_tp = (Pv + Pc) > TP
     Pv = da.where(cnd_hv & cnd_tp, TP - Pc, Pv)
     cnd_c0 = (2 * T11 + Pc - TP) > 0
-    Ps = da.where(cnd_hv & ~cnd_tp & cnd_c0, S + (Cre**2 + Cim**2) / S, Ps)
-    Pd = da.where(cnd_hv & ~cnd_tp & cnd_c0, D - (Cre**2 + Cim**2) / S, Pd)
+    Ps = da.where(cnd_hv & ~cnd_tp & cnd_c0, S + (C.real**2 + C.imag**2) / S, 0.0)
+    Pd = da.where(cnd_hv & ~cnd_tp & cnd_c0, D - (C.real**2 + C.imag**2) / S, 0.0)
 
-    Pd = da.where(cnd_hv & ~cnd_tp & ~cnd_c0, D + (Cre**2 + Cim**2) / D, Pd)
-    Ps = da.where(cnd_hv & ~cnd_tp & ~cnd_c0, S - (Cre**2 + Cim**2) / D, Ps)
+    Pd = da.where(cnd_hv & ~cnd_tp & ~cnd_c0, D + (C.real**2 + C.imag**2) / D, Pd)
+    Ps = da.where(cnd_hv & ~cnd_tp & ~cnd_c0, S - (C.real**2 + C.imag**2) / D, Ps)
 
     cnd_ps = Ps < 0
     cnd_pd = Pd < 0
@@ -989,10 +998,9 @@ def _compute_yamaguchi4_components(T3, mode="y4o"):
     cnd_hv = hv_type == 2
     S = da.where(cnd_hv, T11, S)
     D = da.where(cnd_hv, TP - Pv - Pc - S, D)
-    Cre = da.where(cnd_hv, T12.real + T13.real, Cre)
-    Cim = da.where(cnd_hv, T12.imag + T13.imag, Cim)
-    Pd = da.where(cnd_hv, D + (Cre**2 + Cim**2) / D, Pd)
-    Ps = da.where(cnd_hv, S - (Cre**2 + Cim**2) / D, Ps)
+    # C = da.where(cnd_hv, T12 + T13, C)
+    Pd = da.where(cnd_hv, D + (C.real**2 + C.imag**2) / D, Pd)
+    Ps = da.where(cnd_hv, S - (C.real**2 + C.imag**2) / D, Ps)
 
     cnd_ps = Ps < 0
     cnd_pd = Pd < 0
@@ -1016,7 +1024,14 @@ def _compute_yamaguchi4_components(T3, mode="y4o"):
     Pd = da.where(mask_v, Pd, out_3comp["double"])
     Pv = da.where(mask_v, Pv, out_3comp["volume"])
     Pc = da.where(mask_v, Pc, 0)
-    out = {"odd": Ps, "double": Pd, "volume": Pv, "helix": Pc}
+    out = {
+        "odd": Ps,
+        "double": Pd,
+        "volume": Pv,
+        "helix": Pc,
+        "mask_v": mask_v,
+        "mask_hv": cnd_hv,
+    }
     return out
 
 

@@ -955,11 +955,7 @@ def _compute_yamaguchi4_components(T3, mode="y4o"):
     ratio = 10 * da.log10((T11 + T22 - 2 * T12.real) / (T11 + T22 + 2 * T12.real))
     cnd = hv_type == 1
     cnd_ratio = (ratio > -2) & (ratio <= 2)
-    Pv = da.where(
-        cnd,
-        da.where(cnd_ratio, 2 * (2 * T33 - Pc), (15 / 8) * (2 * T33 - Pc)),
-        0,
-    )
+    Pv = da.where(cnd, da.where(cnd_ratio, 2, 15 / 8) * (2 * T33 - Pc), 0)
 
     # Double bounce scattering
     Pv = da.where(hv_type == 2, (15 / 16) * (2 * T33 - Pc), Pv)
@@ -967,40 +963,58 @@ def _compute_yamaguchi4_components(T3, mode="y4o"):
     TP = T11 + T22 + T33
 
     # 4 component algorithm
+
+    # Expression used in both surface and double cases
+    C = T12 + T13
+
+    # Surface scattering
     cnd_hv = hv_type == 1
     S = da.where(cnd_hv, T11 - Pv / 2, 0.0)
     D = da.where(cnd_hv, TP - Pv - Pc - S, 0.0)
-    # C = da.where(cnd_hv, T12 + T13, 0.0)
-    C = T12 + T13
     C = da.where(cnd_hv & (ratio <= -2), C - Pv / 6, C)
     C = da.where(cnd_hv & (ratio > 2), C + Pv / 6, C)
+    C_pow = C.real**2 + C.imag**2
 
     cnd_tp = (Pv + Pc) > TP
     Pv = da.where(cnd_hv & cnd_tp, TP - Pc, Pv)
     cnd_c0 = (2 * T11 + Pc - TP) > 0
-    Ps = da.where(cnd_hv & ~cnd_tp & cnd_c0, S + (C.real**2 + C.imag**2) / S, 0.0)
-    Pd = da.where(cnd_hv & ~cnd_tp & cnd_c0, D - (C.real**2 + C.imag**2) / S, 0.0)
 
-    Pd = da.where(cnd_hv & ~cnd_tp & ~cnd_c0, D + (C.real**2 + C.imag**2) / D, Pd)
-    Ps = da.where(cnd_hv & ~cnd_tp & ~cnd_c0, S - (C.real**2 + C.imag**2) / D, Ps)
+    Ps = da.where(cnd_hv & ~cnd_tp, da.where(cnd_c0, S + C_pow / S, S - C_pow / D), 0.0)
+    Pd = da.where(cnd_hv & ~cnd_tp, da.where(cnd_c0, D - C_pow / S, D + C_pow / D), 0.0)
 
     cnd_ps = Ps < 0
     cnd_pd = Pd < 0
-    Ps = da.where(cnd_hv & cnd_ps & cnd_pd, 0, Ps)
-    Pd = da.where(cnd_hv & cnd_ps & cnd_pd, 0, Pd)
-    Pv = da.where(cnd_hv & cnd_ps & cnd_pd, TP - Pc, Pv)
-    Ps = da.where(cnd_hv & cnd_ps & ~cnd_pd, 0, Ps)
-    Pd = da.where(cnd_hv & cnd_ps & ~cnd_pd, TP - Pv - Pc, Pd)
-    Pd = da.where(cnd_hv & ~cnd_ps & cnd_pd, 0, Pd)
-    Ps = da.where(cnd_hv & ~cnd_ps & cnd_pd, TP - Pv - Pc, Ps)
+
+    # Combined condition masks
+    both_neg = cnd_hv & cnd_ps & cnd_pd
+    ps_neg = cnd_hv & cnd_ps & ~cnd_pd
+    pd_neg = cnd_hv & ~cnd_ps & cnd_pd
+
+    # Apply corrections
+    Ps = da.where(both_neg, 0, Ps)
+    Pd = da.where(both_neg, 0, Pd)
+    Pv = da.where(both_neg, TP - Pc, Pv)
+
+    Ps = da.where(ps_neg, 0, Ps)
+    Pd = da.where(ps_neg, TP - Pv - Pc, Pd)
+
+    Pd = da.where(pd_neg, 0, Pd)
+    Ps = da.where(pd_neg, TP - Pv - Pc, Ps)
+
+    # Ps = da.where(cnd_hv & cnd_ps & cnd_pd, 0, Ps)
+    # Pd = da.where(cnd_hv & cnd_ps & cnd_pd, 0, Pd)
+    # Pv = da.where(cnd_hv & cnd_ps & cnd_pd, TP - Pc, Pv)
+    # Ps = da.where(cnd_hv & cnd_ps & ~cnd_pd, 0, Ps)
+    # Pd = da.where(cnd_hv & cnd_ps & ~cnd_pd, TP - Pv - Pc, Pd)
+    # Pd = da.where(cnd_hv & ~cnd_ps & cnd_pd, 0, Pd)
+    # Ps = da.where(cnd_hv & ~cnd_ps & cnd_pd, TP - Pv - Pc, Ps)
 
     # Double bounce scattering
     cnd_hv = hv_type == 2
     S = da.where(cnd_hv, T11, S)
     D = da.where(cnd_hv, TP - Pv - Pc - S, D)
-    # C = da.where(cnd_hv, T12 + T13, C)
-    Pd = da.where(cnd_hv, D + (C.real**2 + C.imag**2) / D, Pd)
-    Ps = da.where(cnd_hv, S - (C.real**2 + C.imag**2) / D, Ps)
+    Pd = da.where(cnd_hv, D + C_pow / D, Pd)
+    Ps = da.where(cnd_hv, S - C_pow / D, Ps)
 
     cnd_ps = Ps < 0
     cnd_pd = Pd < 0

@@ -4,6 +4,7 @@ import pytest
 from polsarpro.decompositions import h_a_alpha, freeman
 from polsarpro.util import vec_to_mat
 
+
 @pytest.fixture(scope="function")
 def synthetic_poldata(request):
     """Generate only the requested synthetic polarimetric datasets.
@@ -31,7 +32,9 @@ def synthetic_poldata(request):
 
     # Generate only what's needed
     if "S" in requested:
-        S = (np.random.randn(N, N, 2, 2) + 1j * np.random.randn(N, N, 2, 2)).astype("complex64")
+        S = (np.random.randn(N, N, 2, 2) + 1j * np.random.randn(N, N, 2, 2)).astype(
+            "complex64"
+        )
         S_dict = dict(
             hh=xr.DataArray(S[..., 0, 0], dims=dims),
             hv=xr.DataArray(S[..., 0, 1], dims=dims),
@@ -71,11 +74,12 @@ def synthetic_poldata(request):
 
     return result
 
+
 @pytest.mark.parametrize("synthetic_poldata", ["S", "C3", "T3"], indirect=True)
 def test_h_a_alpha(synthetic_poldata):
-    input_data = synthetic_poldata 
+    input_data = synthetic_poldata
 
-    for name, ds in input_data.items():
+    for _, ds in input_data.items():
         res = h_a_alpha(
             input_data=ds,
             boxcar_size=[5, 5],
@@ -93,58 +97,20 @@ def test_h_a_alpha(synthetic_poldata):
         )
 
 
-
-
+@pytest.mark.parametrize("synthetic_poldata", ["S", "C3", "T3"], indirect=True)
 @pytest.mark.filterwarnings("ignore:invalid")
-def test_freeman():
-    N = 128
-    D = 3
-    v = np.random.randn(N, N, D) + 1j * np.random.randn(N, N, D)
-    vp = np.random.randn(N, N, D) + 1j * np.random.randn(N, N, D)
-    S = (np.random.randn(N, N, 2, 2) + 1j * np.random.randn(N, N, 2, 2)).astype(
-        "complex64"
-    )
+def test_freeman(synthetic_poldata):
 
-    # fake input matrices
-    C3 = vec_to_mat(v).astype("complex64")
-    T3 = vec_to_mat(vp).astype("complex64")
+    input_data = synthetic_poldata
 
-    dims = ("y", "x")
-    S_dict = dict(
-        hh=xr.DataArray(S[..., 0, 0], dims=dims),
-        hv=xr.DataArray(S[..., 0, 1], dims=dims),
-        vh=xr.DataArray(S[..., 1, 0], dims=dims),
-        vv=xr.DataArray(S[..., 1, 1], dims=dims),
-    )
-    C3_dict = dict(
-        m11=xr.DataArray(C3[..., 0, 0].real, dims=dims),
-        m22=xr.DataArray(C3[..., 1, 1].real, dims=dims),
-        m33=xr.DataArray(C3[..., 2, 2].real, dims=dims),
-        m12=xr.DataArray(C3[..., 0, 1], dims=dims),
-        m13=xr.DataArray(C3[..., 0, 2], dims=dims),
-        m23=xr.DataArray(C3[..., 1, 2], dims=dims),
-    )
-    T3_dict = dict(
-        m11=xr.DataArray(T3[..., 0, 0].real, dims=dims),
-        m22=xr.DataArray(T3[..., 1, 1].real, dims=dims),
-        m33=xr.DataArray(T3[..., 2, 2].real, dims=dims),
-        m12=xr.DataArray(T3[..., 0, 1], dims=dims),
-        m13=xr.DataArray(T3[..., 0, 2], dims=dims),
-        m23=xr.DataArray(T3[..., 1, 2], dims=dims),
-    )
-    for in_dict, poltype in zip([S_dict, C3_dict, T3_dict], ["S", "C3", "T3"]):
+    for _, ds in input_data.items():
         # Freeman uses dask specific functions and cannot be run on numpy arrays
-        input_data = xr.Dataset(in_dict, attrs=dict(poltype=poltype)).chunk("auto")
+        ds = ds.chunk("auto")
         res = freeman(
-            input_data=input_data,
+            input_data=ds,
             boxcar_size=[5, 5],
         )
-        var = "hh" if "hh" in input_data.data_vars else "m11"
-        shp = input_data[var].shape
+        var = "hh" if "hh" in ds.data_vars else "m11"
+        shp = ds[var].shape
         assert all((res[it].shape == shp for it in ["odd", "double", "volume"]))
-        assert all(
-            (
-                res[it].dtype == "float32"
-                for it in ["odd", "double", "volume"]
-            )
-        )
+        assert all((res[it].dtype == "float32" for it in ["odd", "double", "volume"]))

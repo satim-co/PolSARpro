@@ -48,6 +48,9 @@ def freeman(
 
     Returns:
         xr.Dataset: Ps, Pd and Pv components.
+    
+    References:
+        Freeman A. and Durden S., “A Three-Component Scattering Model for Polarimetric SAR Data”, IEEE Trans. Geosci. Remote Sens., vol. 36, no. 3, May 1998.
     """
 
     allowed_poltypes = ("S", "C3", "T3")
@@ -224,7 +227,7 @@ def yamaguchi3(
     boxcar_size: list[int, int] = [3, 3],
 ) -> xr.Dataset:
     """Applies the Yamaguchi 3 component decomposition. This decomposition is based on physical modeling
-      of the covariance matrix and returns 3 components Ps, Pd and Pv which are the powers of resp.
+      of the covariance matrix and returns 3 components "odd", "surface" and "volume" which are the powers of resp.
       surface, double bounce and volume backscattering.
 
     Args:
@@ -232,7 +235,11 @@ def yamaguchi3(
         boxcar_size (list[int, int], optional):  Boxcar dimensions along azimuth and range. Defaults to [3, 3].
 
     Returns:
-        xr.Dataset: Ps, Pd and Pv components.
+        xr.Dataset: odd, surface and volume scattering components.
+    
+    References:
+        Yamaguchi Y., Moriyama T., Ishido M. and Yamada H., “Four-Component Scattering Model for Polarimetric SAR Image Decomposition”, IEEE Trans. Geos. Remote Sens., vol. 43, no. 8, August 2005.
+
     """
 
     allowed_poltypes = ("S", "C3", "T3")
@@ -261,22 +268,24 @@ def yamaguchi3(
     )
 
 
-# TODO: update docstrings
 def yamaguchi4(
     input_data: xr.Dataset,
     boxcar_size: list[int, int] = [3, 3],
     mode: str = "y4o",
 ) -> xr.Dataset:
-    """Applies the Freeman-Durden decomposition. This decomposition is based on physical modeling
-      of the covariance matrix and returns 3 components Ps, Pd and Pv which are the powers of resp.
-      surface, double bounce and volume backscattering.
+    """Applies the Yamaguchi 4 component decomposition. This decomposition is based on physical modeling
+      of the covariance matrix and returns 4 components "odd", "surface", "volume" and "helix" which are the powers of resp. surface, double bounce, volume and helix backscattering.
 
     Args:
         input_data (xr.Dataset): Input image, may be a covariance (C3), coherency (T3) or Sinclair (S) matrix.
         boxcar_size (list[int, int], optional):  Boxcar dimensions along azimuth and range. Defaults to [3, 3].
+        mode (str, optional):  One of the following modes "y4o" (original), "y4r" (with rotation) or "s4r" (). Defaults to "y4o".
 
     Returns:
-        xr.Dataset: Ps, Pd and Pv components.
+        xr.Dataset: odd, surface, volume and helix scattering components.
+    
+    References:
+        Yamaguchi Y., Moriyama T., Ishido M. and Yamada H., “Four-Component Scattering Model for Polarimetric SAR Image Decomposition”, IEEE Trans. Geos. Remote Sens., vol. 43, no. 8, August 2005.
     """
 
     allowed_poltypes = ("S", "C3", "T3")
@@ -775,154 +784,6 @@ def _compute_yamaguchi3_components(C3):
     return {"odd": Ps, "double": Pd, "volume": Pv}
 
 
-def _compute_yamaguchi4_components_old(T3, mode="y4o"):
-
-    eps = 1e-30
-
-    span = T3.m11.data + T3.m22.data + T3.m33.data
-    min_span = span.min()
-    min_span = da.where(min_span > eps, min_span, eps)
-    max_span = span.max()
-
-    # Apply unitary rotation for corresponding modes
-    if mode in ["y4r", "s4r"]:
-        theta = 0.5 * da.atan(2 * T3.m23.data.real / (T3.m22.data - T3.m33.data))
-        # T11, T22, T33, T12, T13, T23 = _unitary_rotation(T11, T22, T33, T12, T13, T23, theta)
-        T3_new = _unitary_rotation(T3, theta)
-    else:
-        # theta = da.zeros_like(T3.m11.data)
-        T3_new = T3.copy(deep=True)
-
-
-    T11 = T3_new.m11.data
-    T22 = T3_new.m22.data
-    T33 = T3_new.m33.data
-
-    T12 = T3_new.m12.data
-    T13 = T3_new.m13.data
-    T23 = T3_new.m23.data
-
-    Pc = 2 * da.abs(T23.imag)
-
-    # Surface scattering
-    hv_type = da.ones_like(T11, dtype="uint8")
-
-    if mode == "s4r":
-        C1 = T11 - T22 + (7 / 8) * T33 + Pc / 16
-        hv_type = da.where(C1 > 0, 1, 2)
-
-    # Surface scattering
-    ratio = 10 * da.log10((T11 + T22 - 2 * T12.real) / (T11 + T22 + 2 * T12.real))
-    cnd = hv_type == 1
-    cnd_ratio = (ratio > -2) & (ratio <= 2)
-    Pv = da.where(cnd & cnd_ratio, 2 * (2 * T33 - Pc), 0)
-    Pv = da.where(cnd & ~cnd_ratio, (15 / 8) * (2 * T33 - Pc), Pv)
-
-    # Surface scattering
-    # ratio = 10 * da.log10((T11 + T22 - 2 * T12.real) / (T11 + T22 + 2 * T12.real))
-    # cnd = (hv_type == 1) & (ratio > -2) & (ratio <= 2)
-    # Pv = da.where(cnd, 2 * (2 * T33 - Pc), (15 / 8) * (2 * T33 - Pc))
-
-    # Double bounce scattering
-    Pv = da.where(hv_type == 2, (15 / 16) * (2 * T33 - Pc), Pv)
-
-    TP = T11 + T22 + T33
-
-    # 4 component algorithm
-
-    C = T12 + T13
-    amp_sq = (C * C.conj()).real  # |C|² (real-valued)
-
-    # mask: True → volume scattering, False → double-bounce
-    mask1 = hv_type == 1
-
-    # -----------------------------------------------------------
-    # Volume scattering (HV_type == 1)
-    # -----------------------------------------------------------
-    S1 = T11.real - Pv / 2.0
-    D1 = TP - Pv - Pc - S1
-
-    # Adjust C according to ratio thresholds (real part only)
-    C1 = C + (Pv / 6.0) * (
-        (ratio > 2.0).astype(Pv.dtype) - (ratio <= -2.0).astype(Pv.dtype)
-    )
-
-    # (Pv + Pc) > TP
-    cond_pc = (Pv + Pc) > TP
-    CO = 2.0 * T11.real + Pc - TP
-
-    Ps1_else = da.where(CO > 0.0, S1 + amp_sq / S1, S1 - amp_sq / D1)
-    Pd1_else = da.where(CO > 0.0, D1 - amp_sq / S1, D1 + amp_sq / D1)
-
-    Ps1 = da.where(cond_pc, 0.0, Ps1_else)
-    Pd1 = da.where(cond_pc, 0.0, Pd1_else)
-    Pv1 = da.where(cond_pc, TP - Pc, Pv)
-
-    # Handle Ps/Pd negativity
-    cond_Ps_neg = Ps1 < 0
-    cond_Pd_neg = Pd1 < 0
-
-    Ps1 = da.where(
-        cond_Ps_neg & cond_Pd_neg,
-        0.0,
-        da.where(cond_Ps_neg, 0.0, da.where(cond_Pd_neg, TP - Pv1 - Pc, Ps1)),
-    )
-    Pd1 = da.where(
-        cond_Ps_neg & cond_Pd_neg,
-        0.0,
-        da.where(cond_Ps_neg, TP - Pv1 - Pc, da.where(cond_Pd_neg, 0.0, Pd1)),
-    )
-    Pv1 = da.where(cond_Ps_neg & cond_Pd_neg, TP - Pc, Pv1)
-
-    # -----------------------------------------------------------
-    # Double-bounce scattering (HV_type == 2)
-    # -----------------------------------------------------------
-    S2 = T11.real
-    D2 = TP - Pv - Pc - S2
-
-    Pd2 = D2 + amp_sq / D2
-    Ps2 = S2 - amp_sq / D2
-
-    cond_Ps_neg = Ps2 < 0
-    cond_Pd_neg = Pd2 < 0
-
-    Ps2 = da.where(
-        cond_Ps_neg & cond_Pd_neg,
-        0.0,
-        da.where(cond_Ps_neg, 0.0, da.where(cond_Pd_neg, TP - Pv - Pc, Ps2)),
-    )
-    Pd2 = da.where(
-        cond_Ps_neg & cond_Pd_neg,
-        0.0,
-        da.where(cond_Ps_neg, TP - Pv - Pc, da.where(cond_Pd_neg, 0.0, Pd2)),
-    )
-    Pv2 = da.where(cond_Ps_neg & cond_Pd_neg, TP - Pc, Pv)
-
-    # -----------------------------------------------------------
-    # Merge both cases (mask1 True → volume, False → double-bounce)
-    # -----------------------------------------------------------
-    Ps = da.where(mask1, Ps1, Ps2)
-    Pd = da.where(mask1, Pd1, Pd2)
-    Pv = da.where(mask1, Pv1, Pv2)
-    Ps = da.where(Ps <= min_span, min_span, da.where(Ps > max_span, max_span, Ps))
-    Pd = da.where(Pd <= min_span, min_span, da.where(Pd > max_span, max_span, Pd))
-    Pv = da.where(Pv <= min_span, min_span, da.where(Pv > max_span, max_span, Pv))
-    Pc = da.where(Pc <= min_span, min_span, da.where(Pc > max_span, max_span, Pc))
-
-    # -----------------------------------------------------------
-    # If Pv < 0 use three components and set Pc to 0
-    # -----------------------------------------------------------
-    out_3comp = _compute_yamaguchi3_components(T3_to_C3(T3_new))
-    mask_v = Pv >= 0
-    Ps = da.where(mask_v, Ps, out_3comp["odd"])
-    Pd = da.where(mask_v, Pd, out_3comp["double"])
-    Pv = da.where(mask_v, Pv, out_3comp["volume"])
-    Pc = da.where(mask_v, Pc, 0)
-    # placeholder to remember names
-    out = {"odd": Ps, "double": Pd, "volume": Pv, "helix": Pc}
-    return out
-
-
 def _compute_yamaguchi4_components(T3, mode="y4o"):
 
     eps = 1e-30
@@ -934,7 +795,9 @@ def _compute_yamaguchi4_components(T3, mode="y4o"):
 
     # Apply unitary rotation for corresponding modes
     if mode in ["y4r", "s4r"]:
-        theta = 0.5 * da.arctan(2 * T3.m23.data.real / (T3.m22.data - T3.m33.data + eps))
+        theta = 0.5 * da.arctan(
+            2 * T3.m23.data.real / (T3.m22.data - T3.m33.data + eps)
+        )
         T3_new = _unitary_rotation(T3, theta)
     else:
         T3_new = T3.copy(deep=True)

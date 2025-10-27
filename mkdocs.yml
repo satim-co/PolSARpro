@@ -5,15 +5,14 @@ nav:
   - Home: index.md
   - Tutorials:
     - quickstart: quickstart-tutorial.ipynb
-    - h-a-alpha: h-a-alpha-tutorial.ipynb
     - freeman: freeman-tutorial.ipynb
+    - h-a-alpha: h-a-alpha-tutorial.ipynb
+    - yamaguchi3: yamaguchi3-tutorial.ipynb
   - API reference: 
     - Decompositions: decompositions.md
     - Utilities: util.md
     - Inputs/Outputs: io.md
   - Theory: theory.md
-  # - Theory:
-    # - H/A/Alpha decomposition: h_a_alpha_for_docs.html
 
 theme:
   name: material

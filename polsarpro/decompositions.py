@@ -305,7 +305,6 @@ def yamaguchi4(
     # pre-processing step, it is recommended to filter the matrices to mitigate speckle effects
     in_ = boxcar(in_, boxcar_size[0], boxcar_size[1])
 
-    # out = _compute_yamaguchi4_components_old(in_, mode=mode)
     out = _compute_yamaguchi4_components(in_, mode=mode)
     poltype_out = f"yamaguchi4_{mode.lower()}"
     return xr.Dataset(
@@ -823,7 +822,7 @@ def _compute_yamaguchi4_components(T3, mode="y4o"):
     ratio = 10 * da.log10((T11 + T22 - 2 * T12.real) / (T11 + T22 + 2 * T12.real + eps))
     cnd = hv_type == 1
     cnd_ratio = (ratio > -2) & (ratio <= 2)
-    Pv = da.where(cnd, da.where(cnd_ratio, 2, 15 / 8) * (2 * T33 - Pc), eps)
+    Pv = da.where(cnd, da.where(cnd_ratio, np.float32(2), np.float32(15 / 8)) * (2 * T33 - Pc), np.float32(eps))
 
     # Double bounce scattering
     Pv = da.where(hv_type == 2, (15 / 16) * (2 * T33 - Pc), Pv)

@@ -8,6 +8,7 @@ nav:
     - freeman: freeman-tutorial.ipynb
     - h-a-alpha: h-a-alpha-tutorial.ipynb
     - yamaguchi3: yamaguchi3-tutorial.ipynb
+    - yamaguchi4: yamaguchi4-tutorial.ipynb
   - API reference: 
     - Decompositions: decompositions.md
     - Utilities: util.md

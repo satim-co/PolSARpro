@@ -1,7 +1,7 @@
 import numpy as np
 import xarray as xr
 import pytest
-from polsarpro.decompositions import h_a_alpha, freeman
+from polsarpro.decompositions import h_a_alpha, freeman, yamaguchi3, yamaguchi4
 from polsarpro.util import vec_to_mat
 
 
@@ -104,7 +104,7 @@ def test_freeman(synthetic_poldata):
     input_data = synthetic_poldata
 
     for _, ds in input_data.items():
-        # Freeman uses dask specific functions and cannot be run on numpy arrays
+        # uses dask specific functions and cannot be run on numpy arrays
         ds = ds.chunk("auto")
         res = freeman(
             input_data=ds,
@@ -114,3 +114,46 @@ def test_freeman(synthetic_poldata):
         shp = ds[var].shape
         assert all((res[it].shape == shp for it in ["odd", "double", "volume"]))
         assert all((res[it].dtype == "float32" for it in ["odd", "double", "volume"]))
+
+
+@pytest.mark.parametrize("synthetic_poldata", ["S", "C3", "T3"], indirect=True)
+@pytest.mark.filterwarnings("ignore:invalid")
+def test_yamaguchi3(synthetic_poldata):
+
+    input_data = synthetic_poldata
+
+    for _, ds in input_data.items():
+        # uses dask specific functions and cannot be run on numpy arrays
+        ds = ds.chunk("auto")
+        res = yamaguchi3(
+            input_data=ds,
+            boxcar_size=[5, 5],
+        )
+        var = "hh" if "hh" in ds.data_vars else "m11"
+        shp = ds[var].shape
+        assert all((res[it].shape == shp for it in ["odd", "double", "volume"]))
+        assert all((res[it].dtype == "float32" for it in ["odd", "double", "volume"]))
+
+
+@pytest.mark.parametrize("synthetic_poldata", ["S", "C3", "T3"], indirect=True)
+@pytest.mark.filterwarnings("ignore:invalid")
+def test_yamaguchi4(synthetic_poldata):
+
+    input_data = synthetic_poldata
+
+    for _, ds in input_data.items():
+        for mode in ["y4o", "y4r", "s4r"]:
+            # uses dask specific functions and cannot be run on numpy arrays
+            ds = ds.chunk("auto")
+            res = yamaguchi4(input_data=ds, boxcar_size=[5, 5], mode=mode)
+            var = "hh" if "hh" in ds.data_vars else "m11"
+            shp = ds[var].shape
+            assert all(
+                (res[it].shape == shp for it in ["odd", "double", "volume", "helix"])
+            )
+            assert all(
+                (
+                    res[it].dtype == "float32"
+                    for it in ["odd", "double", "volume", "helix"]
+                )
+            )

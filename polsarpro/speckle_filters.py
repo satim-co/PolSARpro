@@ -140,27 +140,46 @@ def _compute_mask_index(ds_in: xr.Dataset, window_size: int) -> da.Array:
     return mask_index
 
 def _compute_reflee_coefficients(
-    span: da.Array, mask_index: da.Array, num_looks: int
+    span: da.Array, mask_index: da.Array, masks: da.Array, num_looks: int
 ) -> da.Array:
     # compute local statistics
-    for idx in da.range(mask_index.shape[0]):
-        mean_local = boxcar(span, dim_az=window_size, dim_rg=window_size)
-        mean_local_sq = boxcar(span**2, dim_az=window_size, dim_rg=window_size)
-        var_local = mean_local_sq - mean_local**2
+    mean_local = _convolve_and_select(span, mask_index, masks)
+    mean_local_sq = _convolve_and_select(span**2, mask_index, masks)
+    var_local = mean_local_sq - mean_local**2
 
-        # noise variance
-        var_noise = (mean_local**2) / num_looks
+    # # noise variance
+    var_noise = (mean_local**2) / num_looks
 
-        # compute the filter coefficients
-        coeff = var_local - var_noise
-        coeff = coeff / var_local
-        coeff = da.clip(coeff, 0, 1)
+    # # compute the filter coefficients
+    coeff = var_local - var_noise
+    coeff = coeff / var_local
+    coeff = da.clip(coeff, 0, 1)
 
     return coeff
+from scipy.ndimage import convolve
 
 # TODO: use numba to avoid all convolutions 
 def _convolve_and_select(img, mask_index, masks): 
-    pass
+    mode = 'constant'
+    imgout = da.zeros(img.shape+(1,), dtype=img.dtype)
+    # TODO update kernel normalization in NaN areas
+    for i in da.range(masks.shape[0]):
+        msk = np.isnan(img)
+        img_ = img.copy()
+        img_[msk] = 0
+        ker = masks[i] 
+        if np.iscomplexobj(img_):
+            imgout = convolve(img_.real, ker, mode=mode) + 1j * convolve(
+                img_.imag, ker, mode=mode
+            )
+            imgout[msk] = np.nan + 1j * np.nan
+        else:
+            imgout = convolve(img_, ker, mode=mode)
+            imgout[msk] = np.nan
+    
+    res = imgout[mask_index, da.arange(img.shape[0])[:, None], da.arange(img.shape[1])]
+    return res
+
 
 def _compute_span(ds_in: xr.Dataset) -> da.Array:
     # directly return a dask array to avoid unnecessary conversions
@@ -217,15 +236,23 @@ def _make_masks(window_size: int) -> da.Array:
     )
 
     # Masks (same order as original C Nmax indices)
-    w0 = grid_j >= 0  # right half
-    w1 = grid_j >= grid_i  # upper-right triangle
-    w2 = grid_i <= 0  # top half
-    w3 = grid_i >= grid_j  # upper-left triangle
-    w4 = grid_j <= 0  # left half
-    w5 = grid_j <= grid_i  # lower-left triangle
-    w6 = grid_i >= 0  # bottom half
-    w7 = grid_i <= grid_j  # lower-right triangle
+    w0 = (grid_j >= 0).astype("float32")  # right half
+    w1 = (grid_j >= grid_i).astype("float32")  # upper-right triangle
+    w2 = (grid_i <= 0).astype("float32")  # top half
+    w3 = (grid_i >= grid_j).astype("float32")  # upper-left triangle
+    w4 = (grid_j <= 0).astype("float32")  # left half
+    w5 = (grid_j <= grid_i).astype("float32")  # lower-left triangle
+    w6 = (grid_i >= 0).astype("float32")  # bottom half
+    w7 = (grid_i <= grid_j).astype("float32")  # lower-right triangle
 
+    w0 /= da.sum(w0)
+    w1 /= da.sum(w1)
+    w2 /= da.sum(w2)
+    w3 /= da.sum(w3)
+    w4 /= da.sum(w4)
+    w5 /= da.sum(w5)
+    w6 /= da.sum(w6)
+    w7 /= da.sum(w7)
     masks = da.stack([w0, w1, w2, w3, w4, w5, w6, w7], axis=0).astype("float32")
 
     return masks

@@ -60,6 +60,8 @@ def refined_lee(
     allowed_poltypes = ("C2", "C3", "C4", "T3", "T4")
     poltype = validate_dataset(input_data, allowed_poltypes=allowed_poltypes)
 
+    # TODO: add checks on window_size and num_looks
+
     span = _compute_span(input_data)
     # directional masks creation
     masks = _make_masks(window_size)
@@ -88,7 +90,7 @@ def refined_lee(
 
 
 def _compute_mask_index(span: xr.Dataset, window_size: int) -> da.Array:
-    mask_index = da.zeros_like(span.m11.data, dtype=da.uint8)
+    mask_index = da.zeros_like(span, dtype=da.uint8)
 
     # use a different window size for gradient computation
     # also return an offset for efficient dilated convolutions

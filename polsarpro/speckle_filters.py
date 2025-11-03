@@ -58,29 +58,37 @@ def refined_lee(
     """
     # Validate input dataset
     allowed_poltypes = ("C2", "C3", "C4", "T3", "T4")
-    validate_dataset(input_data, allowed_poltypes=allowed_poltypes)
+    poltype = validate_dataset(input_data, allowed_poltypes=allowed_poltypes)
+
+    span = _compute_span(input_data)
+    # directional masks creation
+    masks = _make_masks(window_size)
 
     # TODO: adapt to chunked data (use map_overlap?)
     # directional gradient-based mask selection
-    mask_index = _compute_mask_index(input_data, window_size)
+    mask_index = _compute_mask_index(span, window_size)
 
-    masks = _make_masks(window_size)
     # filter coefficient computation
+    coeff = _compute_reflee_coefficients(span, mask_index, masks, num_looks)
 
     # apply filter to input matrix elements
-
-    # For now, we will return the input data as a placeholder.
-    filtered_data = input_data.copy()
-
-    return filtered_data
+    out = _apply_reflee_filter(input_data, coeff, mask_index, masks)
+    return xr.Dataset(
+        # add dimension names
+        {k: (tuple(input_data.dims), v) for k, v in out.items()},
+        attrs=dict(
+            poltype=poltype,
+            description=input_data.description,
+        ),
+        coords=input_data.coords,
+    )
 
 
 # functions for internal computations -- do not use directly
 
 
-def _compute_mask_index(ds_in: xr.Dataset, window_size: int) -> da.Array:
-    mask_index = da.zeros_like(ds_in.m11.data)
-    span = _compute_span(ds_in)
+def _compute_mask_index(span: xr.Dataset, window_size: int) -> da.Array:
+    mask_index = da.zeros_like(span.m11.data, dtype=da.uint8)
 
     # use a different window size for gradient computation
     # also return an offset for efficient dilated convolutions
@@ -134,7 +142,7 @@ def _compute_mask_index(ds_in: xr.Dataset, window_size: int) -> da.Array:
     mask_index = da.argmax(da.abs(dist), axis=0)
 
     # determine the sign of the gradient for proper mask selection
-    shp_in = ds_in.m11.data.shape
+    shp_in = span.m11.data.shape
     sign = dist[mask_index, da.arange(shp_in[0])[:, None], da.arange(shp_in[1])] > 0
     mask_index = mask_index + 4 * sign
 
@@ -149,18 +157,29 @@ def _compute_reflee_coefficients(
     mean_local_sq = _convolve_and_select(span**2, mask_index, masks)
     var_local = mean_local_sq - mean_local**2
 
-    # # noise variance
-    var_noise = (mean_local**2) / num_looks
+    sigma2 = 1 / num_looks
 
-    # # compute the filter coefficients
-    coeff = var_local - var_noise
-    coeff = coeff / var_local
+    coeff = var_local - mean_local_sq * sigma2
+    coeff /= var_local * (1 + sigma2)
     coeff = da.clip(coeff, 0, 1)
-
     return coeff
 
 
+def _apply_reflee_filter(
+    input_data: xr.Dataset, coeff: da.Array, mask_index: da.Array, masks: da.Array
+) -> dict:
+    # apply filter to each element of the covariance/coherency matrix
+    filtered_elements = {}
+    for var in input_data.data_vars:
+        img = input_data[var].data
+        mean_local = _convolve_and_select(img, mask_index, masks)
+        filtered_img = mean_local + coeff * (img - mean_local)
+        filtered_elements[var] = filtered_img
+    return filtered_elements
+
+
 # TODO: use numba to avoid all convolutions
+# convolves with all masks and selects according to index
 def _convolve_and_select(img, mask_index, masks):
     mode = "constant"
     imgout = da.zeros(img.shape + (1,), dtype=img.dtype)

@@ -32,6 +32,7 @@ import xarray as xr
 import dask.array as da
 
 from polsarpro.auxil import validate_dataset
+from polsarpro.util import boxcar
 
 
 def refined_lee(
@@ -57,12 +58,174 @@ def refined_lee(
     # Validate input dataset
     allowed_poltypes = ("C2", "C3", "C4", "T3", "T4")
     validate_dataset(input_data, allowed_poltypes=allowed_poltypes)
-    # Placeholder for the actual implementation of the Refined Lee filter
-    # This function should include the steps to compute local statistics,
-    # determine the filtering weights based on local gradients, and apply
-    # the filter to the input data.
+
+    # TODO: adapt to chunked data (use map_overlap?)
+    # directional gradient-based mask selection
+    mask_index = _compute_mask_index(input_data, window_size)
+
+    masks = _make_masks(window_size)
+    # filter coefficient computation
+
+    # apply filter to input matrix elements
 
     # For now, we will return the input data as a placeholder.
     filtered_data = input_data.copy()
 
     return filtered_data
+
+
+# functions for internal computations -- do not use directly
+
+
+def _compute_mask_index(ds_in: xr.Dataset, window_size: int) -> da.Array:
+    mask_index = da.zeros_like(ds_in.m11.data)
+    span = _compute_span(ds_in)
+
+    # use a different window size for gradient computation
+    # also return an offset for efficient dilated convolutions
+    nwg, off = _get_window_params(window_size)
+
+    # smooth power image prior to gradient computation
+    span_smooth = boxcar(span, dim_az=nwg, dim_rg=nwg)
+
+    # use a short name for more compact expressions
+    I = da.pad(span_smooth, off, mode="reflect")
+
+    # directional gradients on dilated 3x3 windows
+    d0 = (
+        -I[: -2 * off, : -2 * off]
+        + I[: -2 * off, 2 * off :]
+        - I[off:-off, : -2 * off]
+        + I[off:-off, 2 * off :]
+        - I[2 * off :, : -2 * off]
+        + I[2 * off :, 2 * off :]
+    )
+
+    d1 = (
+        I[: -2 * off, off:-off]
+        + I[: -2 * off, 2 * off :]
+        - I[off:-off, : -2 * off]
+        + I[off:-off, 2 * off :]
+        - I[2 * off :, : -2 * off]
+        - I[2 * off :, off:-off]
+    )
+
+    d2 = (
+        I[: -2 * off, : -2 * off]
+        + I[: -2 * off, off:-off]
+        + I[: -2 * off, 2 * off :]
+        - I[2 * off :, : -2 * off]
+        - I[2 * off :, off:-off]
+        - I[2 * off :, 2 * off :]
+    )
+
+    d3 = (
+        I[: -2 * off, : -2 * off]
+        + I[: -2 * off, off:-off]
+        + I[off:-off, : -2 * off]
+        - I[off:-off, 2 * off :]
+        - I[2 * off :, off:-off]
+        - I[2 * off :, 2 * off :]
+    )
+
+    # find index of maximum gradient
+    dist = da.stack([d0, d1, d2, d3], axis=0)
+    mask_index = da.argmax(da.abs(dist), axis=0)
+
+    # determine the sign of the gradient for proper mask selection
+    shp_in = ds_in.m11.data.shape
+    sign = dist[mask_index, da.arange(shp_in[0])[:, None], da.arange(shp_in[1])] > 0
+    mask_index = mask_index + 4 * sign
+
+    return mask_index
+
+def _compute_reflee_coefficients(
+    span: da.Array, mask_index: da.Array, num_looks: int
+) -> da.Array:
+    # compute local statistics
+    for idx in da.range(mask_index.shape[0]):
+        mean_local = boxcar(span, dim_az=window_size, dim_rg=window_size)
+        mean_local_sq = boxcar(span**2, dim_az=window_size, dim_rg=window_size)
+        var_local = mean_local_sq - mean_local**2
+
+        # noise variance
+        var_noise = (mean_local**2) / num_looks
+
+        # compute the filter coefficients
+        coeff = var_local - var_noise
+        coeff = coeff / var_local
+        coeff = da.clip(coeff, 0, 1)
+
+    return coeff
+
+# TODO: use numba to avoid all convolutions 
+def _convolve_and_select(img, mask_index, masks): 
+    pass
+
+def _compute_span(ds_in: xr.Dataset) -> da.Array:
+    # directly return a dask array to avoid unnecessary conversions
+    span = da.zeros_like(ds_in.m11.data)
+    poltype = ds_in.poltype
+    if poltype in ("C2", "T2"):
+        span = ds_in.m11.data + ds_in.m22.data
+    elif poltype in ("C3", "T3"):
+        span = ds_in.m11.data + ds_in.m22.data + ds_in.m33.data
+    elif poltype in ("C4", "T4"):
+        span = ds_in.m11.data + ds_in.m22.data + ds_in.m33.data + ds_in.m44.data
+    return span
+
+
+def _get_window_params(nw: int) -> tuple[int, int]:
+
+    # compute for any allowed window sizes the corresponding
+    # gradient window size and the subsampling step
+    params = {
+        3: (1, 1),
+        5: (3, 1),
+        7: (3, 2),
+        9: (5, 2),
+        11: (5, 3),
+        13: (5, 4),
+        15: (7, 4),
+        17: (7, 5),
+        19: (7, 6),
+        21: (9, 6),
+        23: (9, 7),
+        25: (9, 8),
+        27: (11, 8),
+        29: (11, 9),
+        31: (11, 10),
+    }
+
+    try:
+        window_size_grad, sub = params[nw]
+    except KeyError:
+        raise ValueError("Window size must be one of {3, 5, 7, …, 31}")
+
+    return window_size_grad, sub
+
+
+def _make_masks(window_size: int) -> da.Array:
+    if window_size % 2 == 0:
+        raise ValueError("window_size must be odd")
+
+    h = window_size // 2
+    grid_i, grid_j = da.meshgrid(
+        da.arange(-h, h + 1, dtype=da.int32),
+        da.arange(-h, h + 1, dtype=da.int32),
+        indexing="ij",
+    )
+
+    # Masks (same order as original C Nmax indices)
+    w0 = grid_j >= 0  # right half
+    w1 = grid_j >= grid_i  # upper-right triangle
+    w2 = grid_i <= 0  # top half
+    w3 = grid_i >= grid_j  # upper-left triangle
+    w4 = grid_j <= 0  # left half
+    w5 = grid_j <= grid_i  # lower-left triangle
+    w6 = grid_i >= 0  # bottom half
+    w7 = grid_i <= grid_j  # lower-right triangle
+
+    masks = da.stack([w0, w1, w2, w3, w4, w5, w6, w7], axis=0).astype("float32")
+
+    return masks

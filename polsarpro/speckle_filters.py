@@ -30,6 +30,7 @@ limitations under the License.
 import numpy as np
 import xarray as xr
 import dask.array as da
+from scipy.ndimage import convolve
 
 from polsarpro.auxil import validate_dataset
 from polsarpro.util import boxcar
@@ -139,6 +140,7 @@ def _compute_mask_index(ds_in: xr.Dataset, window_size: int) -> da.Array:
 
     return mask_index
 
+
 def _compute_reflee_coefficients(
     span: da.Array, mask_index: da.Array, masks: da.Array, num_looks: int
 ) -> da.Array:
@@ -156,18 +158,18 @@ def _compute_reflee_coefficients(
     coeff = da.clip(coeff, 0, 1)
 
     return coeff
-from scipy.ndimage import convolve
 
-# TODO: use numba to avoid all convolutions 
-def _convolve_and_select(img, mask_index, masks): 
-    mode = 'constant'
-    imgout = da.zeros(img.shape+(1,), dtype=img.dtype)
+
+# TODO: use numba to avoid all convolutions
+def _convolve_and_select(img, mask_index, masks):
+    mode = "constant"
+    imgout = da.zeros(img.shape + (1,), dtype=img.dtype)
     # TODO update kernel normalization in NaN areas
     for i in da.range(masks.shape[0]):
         msk = np.isnan(img)
         img_ = img.copy()
         img_[msk] = 0
-        ker = masks[i] 
+        ker = masks[i]
         if np.iscomplexobj(img_):
             imgout = convolve(img_.real, ker, mode=mode) + 1j * convolve(
                 img_.imag, ker, mode=mode
@@ -176,7 +178,7 @@ def _convolve_and_select(img, mask_index, masks):
         else:
             imgout = convolve(img_, ker, mode=mode)
             imgout[msk] = np.nan
-    
+
     res = imgout[mask_index, da.arange(img.shape[0])[:, None], da.arange(img.shape[1])]
     return res
 

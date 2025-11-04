@@ -65,33 +65,45 @@ def refined_lee(
     span = _compute_span(input_data)
     # directional masks creation
     masks = _make_masks(window_size)
-    print(span)
-    print(masks)
+
+    # use a different window size for gradient computation
+    # also return an offset for efficient dilated convolutions
+    nwg, _ = _get_window_params(window_size)
+
+    # smooth power image prior to gradient computation
+    process_args = dict(dim_az=nwg, dim_rg=nwg, depth=(window_size, window_size))
+    span_smooth = da.map_overlap(  # convolutions require overlapping chunks
+        _boxcar_core,
+        span,
+        **process_args,
+        dtype="float32",
+    )
 
     # directional gradient-based mask selection
     process_args = dict(window_size=window_size, depth=(window_size, window_size))
     mask_index = da.map_overlap(  # convolutions require overlapping chunks
         _compute_mask_index,
-        span,
+        span_smooth,
         **process_args,
-        dtype="complex64",
+        dtype="int64",
     )
 
     # filter coefficient computation
     process_args = dict(
         span=span, mask_index=mask_index, masks=masks, num_looks=num_looks, depth=(window_size, window_size)
     )
-    # coeff = _compute_reflee_coefficients(span, mask_index, masks, num_looks)
     coeff = da.map_overlap(  # convolutions require overlapping chunks
         _compute_reflee_coefficients,
         **process_args,
-        dtype="complex64",
+        dtype="float32",
     )
 
     # apply filter to input matrix elements
     # out = _apply_reflee_filter(input_data, coeff, mask_index, masks)
+
+    # outputs
     out = {}
-    out["mask_index"] = mask_index.compute()
+    out["mask_index"] = mask_index.compute()  # .compute()
     out["coeff"] = coeff.compute()
     return out
 
@@ -109,18 +121,13 @@ def refined_lee(
 # functions for internal computations -- do not use directly
 
 
-def _compute_mask_index(span: xr.Dataset, window_size: int) -> da.Array:
-    mask_index = da.zeros_like(span, dtype=da.uint8)
+def _compute_mask_index(span: da.Array, window_size: int) -> da.Array:
+    mask_index = np.zeros_like(span, dtype=da.uint8)
 
-    # use a different window size for gradient computation
-    # also return an offset for efficient dilated convolutions
-    nwg, off = _get_window_params(window_size)
-
-    # smooth power image prior to gradient computation
-    span_smooth = _boxcar_core(span, dim_az=nwg, dim_rg=nwg)
-
+    # remove if not needed and change window_size to off
+    _, off = _get_window_params(window_size)
     # use a short name for more compact expressions
-    I = da.pad(span_smooth, off, mode="reflect")
+    I = np.pad(span, off, mode="reflect")
 
     # directional gradients on dilated 3x3 windows
     d0 = (
@@ -160,8 +167,8 @@ def _compute_mask_index(span: xr.Dataset, window_size: int) -> da.Array:
     )
 
     # find index of maximum gradient
-    dist = da.stack([d0, d1, d2, d3], axis=0)
-    mask_index = da.argmax(da.abs(dist), axis=0)
+    dist = np.stack([d0, d1, d2, d3], axis=0)
+    mask_index = np.argmax(da.abs(dist), axis=0)
 
     # determine the sign of the gradient for proper mask selection
     sign = _extract_value_at_indices(dist, mask_index) > 0
@@ -183,7 +190,7 @@ def _compute_reflee_coefficients(
 
     coeff = var_local - mean_local_sq * sigma2
     coeff /= var_local * (1 + sigma2)
-    coeff = da.clip(coeff, 0, 1)
+    coeff = np.clip(coeff, 0, 1)
     return coeff
 
 
@@ -204,30 +211,30 @@ def _apply_reflee_filter(
 # convolves with all masks and selects according to index
 def _convolve_and_select(img, mask_index, masks):
     mode = "constant"
-    imgout = da.zeros(img.shape + (1,), dtype=img.dtype)
+    imgout = np.zeros((mask_index.shape[0],) + img.shape, dtype=img.dtype)
     # TODO update kernel normalization in NaN areas
-    for i in da.arange(masks.shape[0]):
-        msk = np.isnan(img)
-        img_ = img.copy()
-        img_[msk] = 0
+
+    msk = np.isnan(img)
+    img_ = np.where(msk, 0, img)
+    for i in np.arange(masks.shape[0]):
         ker = masks[i]
         if np.iscomplexobj(img_):
-            imgout = convolve(img_.real, ker, mode=mode) + 1j * convolve(
+            imgout[i] = convolve(img_.real, ker, mode=mode) + 1j * convolve(
                 img_.imag, ker, mode=mode
             )
-            imgout[msk] = np.nan + 1j * np.nan
+            imgout[i][msk] = np.nan + 1j * np.nan
         else:
-            imgout = convolve(img_, ker, mode=mode)
-            imgout[msk] = np.nan
+            imgout[i] = convolve(img_, ker, mode=mode)
+            imgout[i][msk] = np.nan
 
     return _extract_value_at_indices(imgout, mask_index)
 
 
 # dask doesn't support ND fancy indexing
 def _extract_value_at_indices(arr: da.Array, indices: da.Array) -> da.Array:
-    val = da.zeros_like(indices, dtype=arr.dtype)
-    for i in da.arange(arr.shape[0]):
-        val = da.where(indices == i, arr[i], val)
+    val = np.zeros_like(indices, dtype=arr.dtype)
+    for i in np.arange(arr.shape[0]):
+        val = np.where(indices == i, arr[i], val)
     return val
 
 

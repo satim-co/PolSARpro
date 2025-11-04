@@ -33,7 +33,7 @@ import dask.array as da
 from scipy.ndimage import convolve
 
 from polsarpro.auxil import validate_dataset
-from polsarpro.util import boxcar
+from polsarpro.util import boxcar, _boxcar_core
 
 
 def refined_lee(
@@ -65,25 +65,45 @@ def refined_lee(
     span = _compute_span(input_data)
     # directional masks creation
     masks = _make_masks(window_size)
+    print(span)
+    print(masks)
 
-    # TODO: adapt to chunked data (use map_overlap?)
     # directional gradient-based mask selection
-    mask_index = _compute_mask_index(span, window_size)
+    process_args = dict(window_size=window_size, depth=(window_size, window_size))
+    mask_index = da.map_overlap(  # convolutions require overlapping chunks
+        _compute_mask_index,
+        span,
+        **process_args,
+        dtype="complex64",
+    )
 
     # filter coefficient computation
-    coeff = _compute_reflee_coefficients(span, mask_index, masks, num_looks)
+    process_args = dict(
+        span=span, mask_index=mask_index, masks=masks, num_looks=num_looks, depth=(window_size, window_size)
+    )
+    # coeff = _compute_reflee_coefficients(span, mask_index, masks, num_looks)
+    coeff = da.map_overlap(  # convolutions require overlapping chunks
+        _compute_reflee_coefficients,
+        **process_args,
+        dtype="complex64",
+    )
 
     # apply filter to input matrix elements
-    out = _apply_reflee_filter(input_data, coeff, mask_index, masks)
-    return xr.Dataset(
-        # add dimension names
-        {k: (tuple(input_data.dims), v) for k, v in out.items()},
-        attrs=dict(
-            poltype=poltype,
-            description=input_data.description,
-        ),
-        coords=input_data.coords,
-    )
+    # out = _apply_reflee_filter(input_data, coeff, mask_index, masks)
+    out = {}
+    out["mask_index"] = mask_index.compute()
+    out["coeff"] = coeff.compute()
+    return out
+
+    # return xr.Dataset(
+    #     # add dimension names
+    #     {k: (tuple(input_data.dims), v) for k, v in out.items()},
+    #     attrs=dict(
+    #         poltype=poltype,
+    #         description=input_data.description,
+    #     ),
+    #     coords=input_data.coords,
+    # )
 
 
 # functions for internal computations -- do not use directly
@@ -97,7 +117,7 @@ def _compute_mask_index(span: xr.Dataset, window_size: int) -> da.Array:
     nwg, off = _get_window_params(window_size)
 
     # smooth power image prior to gradient computation
-    span_smooth = boxcar(span, dim_az=nwg, dim_rg=nwg)
+    span_smooth = _boxcar_core(span, dim_az=nwg, dim_rg=nwg)
 
     # use a short name for more compact expressions
     I = da.pad(span_smooth, off, mode="reflect")
@@ -144,8 +164,7 @@ def _compute_mask_index(span: xr.Dataset, window_size: int) -> da.Array:
     mask_index = da.argmax(da.abs(dist), axis=0)
 
     # determine the sign of the gradient for proper mask selection
-    shp_in = span.m11.data.shape
-    sign = dist[mask_index, da.arange(shp_in[0])[:, None], da.arange(shp_in[1])] > 0
+    sign = _extract_value_at_indices(dist, mask_index) > 0
     mask_index = mask_index + 4 * sign
 
     return mask_index
@@ -155,6 +174,7 @@ def _compute_reflee_coefficients(
     span: da.Array, mask_index: da.Array, masks: da.Array, num_looks: int
 ) -> da.Array:
     # compute local statistics
+
     mean_local = _convolve_and_select(span, mask_index, masks)
     mean_local_sq = _convolve_and_select(span**2, mask_index, masks)
     var_local = mean_local_sq - mean_local**2
@@ -186,7 +206,7 @@ def _convolve_and_select(img, mask_index, masks):
     mode = "constant"
     imgout = da.zeros(img.shape + (1,), dtype=img.dtype)
     # TODO update kernel normalization in NaN areas
-    for i in da.range(masks.shape[0]):
+    for i in da.arange(masks.shape[0]):
         msk = np.isnan(img)
         img_ = img.copy()
         img_[msk] = 0
@@ -200,8 +220,15 @@ def _convolve_and_select(img, mask_index, masks):
             imgout = convolve(img_, ker, mode=mode)
             imgout[msk] = np.nan
 
-    res = imgout[mask_index, da.arange(img.shape[0])[:, None], da.arange(img.shape[1])]
-    return res
+    return _extract_value_at_indices(imgout, mask_index)
+
+
+# dask doesn't support ND fancy indexing
+def _extract_value_at_indices(arr: da.Array, indices: da.Array) -> da.Array:
+    val = da.zeros_like(indices, dtype=arr.dtype)
+    for i in da.arange(arr.shape[0]):
+        val = da.where(indices == i, arr[i], val)
+    return val
 
 
 def _compute_span(ds_in: xr.Dataset) -> da.Array:

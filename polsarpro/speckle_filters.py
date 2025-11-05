@@ -192,17 +192,16 @@ def _compute_reflee_coefficients(
     window_size: int,
     num_looks: int,
 ) -> np.ndarray:
-
+    eps = 1e-30
     # compute local statistics
     mean_local = _convolve_and_select(span, mask_index, window_size)
     mean_local_sq = _convolve_and_select(span**2, mask_index, window_size)
     var_local = mean_local_sq - mean_local**2
-
     sigma2 = 1 / num_looks
+    cv_span2 = abs(var_local) / (eps + mean_local**2)
+    coeff = (cv_span2 - sigma2) / (cv_span2 * (1 + sigma2) + eps)
+    coeff = np.where(coeff < 0, 0, coeff)
 
-    coeff = var_local - mean_local_sq * sigma2
-    coeff /= var_local * (1 + sigma2)
-    coeff = np.clip(coeff, 0, 1)
     return coeff
 
 

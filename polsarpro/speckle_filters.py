@@ -180,7 +180,7 @@ def _compute_mask_index(span: np.array, window_size: int) -> np.array:
     mask_index = np.argmax(np.abs(dist), axis=0)
 
     # determine the sign of the gradient for proper mask selection
-    sign = _extract_value_at_indices(dist, mask_index) > 0
+    sign = _extract_value_at_indices(dist, mask_index) < 0
     mask_index = mask_index + 4 * sign
 
     return mask_index
@@ -304,11 +304,11 @@ def _make_masks(window_size: int) -> np.array:
     w0 = (grid_j >= 0).astype("float32")  # right half
     w1 = (grid_j >= grid_i).astype("float32")  # upper-right triangle
     w2 = (grid_i <= 0).astype("float32")  # top half
-    w3 = (grid_i >= grid_j).astype("float32")  # upper-left triangle
+    w3 = (grid_j <= grid_i)[::-1].astype("float32")  # upper-left triangle
     w4 = (grid_j <= 0).astype("float32")  # left half
     w5 = (grid_j <= grid_i).astype("float32")  # lower-left triangle
     w6 = (grid_i >= 0).astype("float32")  # bottom half
-    w7 = (grid_i <= grid_j).astype("float32")  # lower-right triangle
+    w7 = (grid_j >= grid_i)[::-1].astype("float32")  # lower-right triangle
 
     w0 /= np.sum(w0)
     w1 /= np.sum(w1)

@@ -79,13 +79,13 @@ def test_refined_lee(synthetic_poldata):
     input_data = synthetic_poldata
 
     for _, ds in input_data.items():
-        input_data = ds.chunk(x=32, y=32)
+        input_data = ds.chunk(x=64, y=64)
         res = refined_lee(
-            input_data=ds,
+            input_data=input_data,
             window_size=7,
             num_looks=4,
         )
         # print(res)
-        # shp = ds["m11"].shape
-        # assert all((res[it].shape == shp for it in ds.data_vars))
+        shp = ds["m11"].shape
+        assert all((res[it].shape == shp for it in ds.data_vars))
         # TODO: check all element types and existence

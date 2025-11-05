@@ -66,10 +66,11 @@ def refined_lee(
 
     # use a different window size for gradient computation
     # also return an offset for efficient dilated convolutions
+    # TODO: call only once (remove from _compute_mask_index)
     nwg, _ = _get_window_params(window_size)
 
     # smooth power image prior to gradient computation
-    process_args = dict(dim_az=nwg, dim_rg=nwg, depth=(window_size, window_size))
+    process_args = dict(dim_az=nwg, dim_rg=nwg, depth=(nwg, nwg))
     span_smooth = da.map_overlap(  # convolutions require overlapping chunks
         _boxcar_core,
         span,
@@ -116,7 +117,6 @@ def refined_lee(
     return xr.Dataset(
         # add dimension names
         {k: (tuple(input_data.dims), v) for k, v in out.items()},
-        # out,
         attrs=dict(
             poltype=poltype,
             description=input_data.description,
@@ -136,6 +136,7 @@ def _compute_mask_index(span: da.Array, window_size: int) -> da.Array:
     # use a short name for more compact expressions
     I = np.pad(span, off, mode="reflect")
 
+    # TODO: check gradient and windows alignment
     # directional gradients on dilated 3x3 windows
     d0 = (
         -I[: -2 * off, : -2 * off]
@@ -189,13 +190,9 @@ def _compute_reflee_coefficients(
     mask_index: da.Array,
     window_size: int,
     num_looks: int,
-    # span: da.Array, mask_index: da.Array, masks: da.Array, num_looks: int
 ) -> da.Array:
+
     # compute local statistics
-
-    # mean_local = _convolve_and_select(span, mask_index, masks)
-    # mean_local_sq = _convolve_and_select(span**2, mask_index, masks)
-
     mean_local = _convolve_and_select(span, mask_index, window_size)
     mean_local_sq = _convolve_and_select(span**2, mask_index, window_size)
     var_local = mean_local_sq - mean_local**2
@@ -211,7 +208,6 @@ def _compute_reflee_coefficients(
 def _apply_reflee_filter(
     img: np.array, coeff: da.Array, mask_index: da.Array, window_size: int
 ) -> dict:
-    # mean_local = _convolve_and_select(img, mask_index, masks)
     mean_local = _convolve_and_select(img, mask_index, window_size)
     filtered_img = mean_local + coeff * (img - mean_local)
     return filtered_img
@@ -228,7 +224,6 @@ def _convolve_and_select(img, mask_index, window_size):  # , masks):
     img_ = np.where(msk, 0, img)
     for i in np.arange(masks.shape[0]):
         ker = masks[i]
-        # print(ker.shape)
         if np.iscomplexobj(img_):
             imgout[i] = convolve(img_.real, ker, mode=mode) + 1j * convolve(
                 img_.imag, ker, mode=mode
@@ -246,7 +241,6 @@ def _extract_value_at_indices(arr: da.Array, indices: da.Array) -> da.Array:
     val = np.zeros_like(indices, dtype=arr.dtype)
     for i in np.arange(arr.shape[0]):
         val = np.where(indices == i, arr[i], val)
-        # val[indices == i] = arr[i][indices == i]
     return val
 
 

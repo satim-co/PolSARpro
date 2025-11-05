@@ -72,7 +72,7 @@ def refined_lee(
     # smooth power image prior to gradient computation
     process_args = dict(dim_az=nwg, dim_rg=nwg, depth=(nwg, nwg))
     span_smooth = da.map_overlap(  # convolutions require overlapping chunks
-        _boxcar_core,
+        _boxcar_core, # used instead of boxcar() to avoid extra conversions
         span,
         **process_args,
         dtype="float32",
@@ -80,7 +80,7 @@ def refined_lee(
 
     # directional gradient-based mask selection
     process_args = dict(window_size=window_size, depth=(window_size, window_size))
-    mask_index = da.map_overlap(  # convolutions require overlapping chunks
+    mask_index = da.map_overlap(  # operation requires overlapping chunks
         _compute_mask_index,
         span_smooth,
         **process_args,
@@ -176,7 +176,7 @@ def _compute_mask_index(span: np.array, window_size: int) -> np.array:
 
     # find index of maximum gradient
     dist = np.stack([d0, d1, d2, d3], axis=0)
-    mask_index = np.argmax(da.abs(dist), axis=0)
+    mask_index = np.argmax(np.abs(dist), axis=0)
 
     # determine the sign of the gradient for proper mask selection
     sign = _extract_value_at_indices(dist, mask_index) > 0
@@ -215,7 +215,8 @@ def _apply_reflee_filter(
 
 # TODO: use numba to avoid all convolutions
 # convolves with all masks and selects according to index
-def _convolve_and_select(img, mask_index, window_size):  # , masks):
+def _convolve_and_select(img, mask_index, window_size):
+    # adds small overhead and avoids chunk alignment issues
     masks = _make_masks(window_size)
     mode = "constant"
     imgout = np.zeros((masks.shape[0],) + img.shape, dtype=img.dtype)

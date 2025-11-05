@@ -58,8 +58,9 @@ def refined_lee(
     """
     # Validate input dataset
     allowed_poltypes = ("C2", "C3", "C4", "T3", "T4")
-    poltype = validate_dataset(input_data, allowed_poltypes=allowed_poltypes)
+    validate_dataset(input_data, allowed_poltypes=allowed_poltypes)
 
+    poltype = input_data.poltype
     # TODO: add checks on window_size and num_looks
 
     span = _compute_span(input_data)

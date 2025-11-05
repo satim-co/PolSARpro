@@ -63,8 +63,6 @@ def refined_lee(
     # TODO: add checks on window_size and num_looks
 
     span = _compute_span(input_data)
-    # directional masks creation
-    masks = _make_masks(window_size)
 
     # use a different window size for gradient computation
     # also return an offset for efficient dilated convolutions
@@ -90,32 +88,41 @@ def refined_lee(
 
     # filter coefficient computation
     process_args = dict(
-        span=span, mask_index=mask_index, masks=masks, num_looks=num_looks, depth=(window_size, window_size)
+        window_size=window_size, num_looks=num_looks, depth=(window_size, window_size)
     )
     coeff = da.map_overlap(  # convolutions require overlapping chunks
         _compute_reflee_coefficients,
+        span,
+        mask_index,
         **process_args,
         dtype="float32",
     )
 
     # apply filter to input matrix elements
-    # out = _apply_reflee_filter(input_data, coeff, mask_index, masks)
-
-    # outputs
+    process_args = dict(window_size=window_size, depth=(window_size, window_size))
     out = {}
-    out["mask_index"] = mask_index.compute()  # .compute()
-    out["coeff"] = coeff.compute()
-    return out
+    for var in input_data.data_vars:
+        img = input_data[var].data
+        filtered_img = da.map_overlap(  # convolutions require overlapping chunks
+            _apply_reflee_filter,
+            img,
+            coeff,
+            mask_index,
+            **process_args,
+            dtype=img.dtype,
+        )
+        out[var] = filtered_img
 
-    # return xr.Dataset(
-    #     # add dimension names
-    #     {k: (tuple(input_data.dims), v) for k, v in out.items()},
-    #     attrs=dict(
-    #         poltype=poltype,
-    #         description=input_data.description,
-    #     ),
-    #     coords=input_data.coords,
-    # )
+    return xr.Dataset(
+        # add dimension names
+        {k: (tuple(input_data.dims), v) for k, v in out.items()},
+        # out,
+        attrs=dict(
+            poltype=poltype,
+            description=input_data.description,
+        ),
+        coords=input_data.coords,
+    )
 
 
 # functions for internal computations -- do not use directly
@@ -178,12 +185,19 @@ def _compute_mask_index(span: da.Array, window_size: int) -> da.Array:
 
 
 def _compute_reflee_coefficients(
-    span: da.Array, mask_index: da.Array, masks: da.Array, num_looks: int
+    span: da.Array,
+    mask_index: da.Array,
+    window_size: int,
+    num_looks: int,
+    # span: da.Array, mask_index: da.Array, masks: da.Array, num_looks: int
 ) -> da.Array:
     # compute local statistics
 
-    mean_local = _convolve_and_select(span, mask_index, masks)
-    mean_local_sq = _convolve_and_select(span**2, mask_index, masks)
+    # mean_local = _convolve_and_select(span, mask_index, masks)
+    # mean_local_sq = _convolve_and_select(span**2, mask_index, masks)
+
+    mean_local = _convolve_and_select(span, mask_index, window_size)
+    mean_local_sq = _convolve_and_select(span**2, mask_index, window_size)
     var_local = mean_local_sq - mean_local**2
 
     sigma2 = 1 / num_looks
@@ -195,29 +209,26 @@ def _compute_reflee_coefficients(
 
 
 def _apply_reflee_filter(
-    input_data: xr.Dataset, coeff: da.Array, mask_index: da.Array, masks: da.Array
+    img: np.array, coeff: da.Array, mask_index: da.Array, window_size: int
 ) -> dict:
-    # apply filter to each element of the covariance/coherency matrix
-    filtered_elements = {}
-    for var in input_data.data_vars:
-        img = input_data[var].data
-        mean_local = _convolve_and_select(img, mask_index, masks)
-        filtered_img = mean_local + coeff * (img - mean_local)
-        filtered_elements[var] = filtered_img
-    return filtered_elements
+    # mean_local = _convolve_and_select(img, mask_index, masks)
+    mean_local = _convolve_and_select(img, mask_index, window_size)
+    filtered_img = mean_local + coeff * (img - mean_local)
+    return filtered_img
 
 
 # TODO: use numba to avoid all convolutions
 # convolves with all masks and selects according to index
-def _convolve_and_select(img, mask_index, masks):
+def _convolve_and_select(img, mask_index, window_size):  # , masks):
+    masks = _make_masks(window_size)
     mode = "constant"
-    imgout = np.zeros((mask_index.shape[0],) + img.shape, dtype=img.dtype)
+    imgout = np.zeros((masks.shape[0],) + img.shape, dtype=img.dtype)
     # TODO update kernel normalization in NaN areas
-
     msk = np.isnan(img)
     img_ = np.where(msk, 0, img)
     for i in np.arange(masks.shape[0]):
         ker = masks[i]
+        # print(ker.shape)
         if np.iscomplexobj(img_):
             imgout[i] = convolve(img_.real, ker, mode=mode) + 1j * convolve(
                 img_.imag, ker, mode=mode
@@ -235,6 +246,7 @@ def _extract_value_at_indices(arr: da.Array, indices: da.Array) -> da.Array:
     val = np.zeros_like(indices, dtype=arr.dtype)
     for i in np.arange(arr.shape[0]):
         val = np.where(indices == i, arr[i], val)
+        # val[indices == i] = arr[i][indices == i]
     return val
 
 
@@ -286,9 +298,9 @@ def _make_masks(window_size: int) -> da.Array:
         raise ValueError("window_size must be odd")
 
     h = window_size // 2
-    grid_i, grid_j = da.meshgrid(
-        da.arange(-h, h + 1, dtype=da.int32),
-        da.arange(-h, h + 1, dtype=da.int32),
+    grid_i, grid_j = np.meshgrid(
+        np.arange(-h, h + 1, dtype=np.int32),
+        np.arange(-h, h + 1, dtype=np.int32),
         indexing="ij",
     )
 
@@ -302,14 +314,14 @@ def _make_masks(window_size: int) -> da.Array:
     w6 = (grid_i >= 0).astype("float32")  # bottom half
     w7 = (grid_i <= grid_j).astype("float32")  # lower-right triangle
 
-    w0 /= da.sum(w0)
-    w1 /= da.sum(w1)
-    w2 /= da.sum(w2)
-    w3 /= da.sum(w3)
-    w4 /= da.sum(w4)
-    w5 /= da.sum(w5)
-    w6 /= da.sum(w6)
-    w7 /= da.sum(w7)
-    masks = da.stack([w0, w1, w2, w3, w4, w5, w6, w7], axis=0).astype("float32")
+    w0 /= np.sum(w0)
+    w1 /= np.sum(w1)
+    w2 /= np.sum(w2)
+    w3 /= np.sum(w3)
+    w4 /= np.sum(w4)
+    w5 /= np.sum(w5)
+    w6 /= np.sum(w6)
+    w7 /= np.sum(w7)
+    masks = np.stack([w0, w1, w2, w3, w4, w5, w6, w7], axis=0).astype("float32")
 
-    return masks
+    return masks  # .compute()

@@ -128,7 +128,7 @@ def refined_lee(
 # functions for internal computations -- do not use directly
 
 
-def _compute_mask_index(span: da.Array, window_size: int) -> da.Array:
+def _compute_mask_index(span: np.array, window_size: int) -> np.array:
     mask_index = np.zeros_like(span, dtype=da.uint8)
 
     # remove if not needed and change window_size to off
@@ -186,11 +186,11 @@ def _compute_mask_index(span: da.Array, window_size: int) -> da.Array:
 
 
 def _compute_reflee_coefficients(
-    span: da.Array,
-    mask_index: da.Array,
+    span: np.ndarray,
+    mask_index: np.ndarray,
     window_size: int,
     num_looks: int,
-) -> da.Array:
+) -> np.ndarray:
 
     # compute local statistics
     mean_local = _convolve_and_select(span, mask_index, window_size)
@@ -237,7 +237,7 @@ def _convolve_and_select(img, mask_index, window_size):  # , masks):
 
 
 # dask doesn't support ND fancy indexing
-def _extract_value_at_indices(arr: da.Array, indices: da.Array) -> da.Array:
+def _extract_value_at_indices(arr: np.ndarray, indices: np.ndarray) -> np.ndarray:
     val = np.zeros_like(indices, dtype=arr.dtype)
     for i in np.arange(arr.shape[0]):
         val = np.where(indices == i, arr[i], val)
@@ -287,7 +287,7 @@ def _get_window_params(nw: int) -> tuple[int, int]:
     return window_size_grad, sub
 
 
-def _make_masks(window_size: int) -> da.Array:
+def _make_masks(window_size: int) -> np.array:
     if window_size % 2 == 0:
         raise ValueError("window_size must be odd")
 
@@ -318,4 +318,4 @@ def _make_masks(window_size: int) -> da.Array:
     w7 /= np.sum(w7)
     masks = np.stack([w0, w1, w2, w3, w4, w5, w6, w7], axis=0).astype("float32")
 
-    return masks  # .compute()
+    return masks

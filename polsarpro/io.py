@@ -32,6 +32,7 @@ from pathlib import Path
 import numpy as np
 import xarray as xr
 import xarray
+from polsarpro.auxil import validate_dataset
 
 
 log = logging.getLogger(__name__)
@@ -201,17 +202,19 @@ def open_netcdf_beam(file_path: str | Path) -> xarray.Dataset:
         xarray.Dataset: output dataset with python PolSARpro specific metadata.
 
     Note:
-        Only polarimetric data is allowed.  
+        Only polarimetric data is allowed.
         Supported polarimetric types are 'S' scattering matrix, 'C3' and 'C4' covariance matrices, 'T3' and 'T4' coherency matrices as well as 'C2' dual-polarimetric covariance matrix.
     """
 
     # use chunks to create dask instead of numpy arrays
     ds = xr.open_dataset(file_path, chunks={})
-    meta = ds.metadata.attrs
     var_names = set(ds.data_vars)
 
-    # check if image is in the SAR geometry or in geographic coordinates
-    is_geocoded = bool(meta["Abstracted_Metadata:is_terrain_corrected"])
+    # file comes from SNAP, else assume python PolSARpro dataset
+    if "poltype" not in ds.attrs:
+        meta = ds.metadata.attrs
+        # check if image is in the SAR geometry or in geographic coordinates
+        is_geocoded = bool(meta["Abstracted_Metadata:is_terrain_corrected"])
 
     # Scattering matrix
     pol_list = ("H", "V")
@@ -333,18 +336,116 @@ def open_netcdf_beam(file_path: str | Path) -> xarray.Dataset:
         )
 
     # make a new dataset with PolSARpro metadata
-    ds_out = xr.Dataset(
-        data, attrs={"poltype": poltype, "description": description}
-    )
+    if "poltype" not in ds.attrs:
+        ds_out = xr.Dataset(
+            data, attrs={"poltype": poltype, "description": description}
+        )
 
-    # coordinates: "y" & "x" for SAR geometry, "lat" & "lon" for geocoded
-    if {"y", "x"}.issubset(ds.dims) and not is_geocoded:
-        # make sure coordinates are only pixel indices
-        return ds_out.assign_coords(
-            {"y": np.arange(ds.sizes["y"]), "x": np.arange(ds.sizes["x"])}
-        ).drop_vars(("lon", "lat"), errors="ignore")
+        # coordinates: "y" & "x" for SAR geometry, "lat" & "lon" for geocoded
+        if {"y", "x"}.issubset(ds.dims) and not is_geocoded:
+            # make sure coordinates are only pixel indices
+            return ds_out.assign_coords(
+                {"y": np.arange(ds.sizes["y"]), "x": np.arange(ds.sizes["x"])}
+            ).drop_vars(("lon", "lat"), errors="ignore")
+        else:
+            return ds_out
+    # input data was already a python PolSARpro dataset
     else:
+        ds_out = xr.Dataset(
+            data,
+            attrs={"poltype": poltype, "description": description},
+            coords=ds.coords,
+        )
         return ds_out
+
+
+def polmat_to_netcdf(ds: xarray.Dataset, file_path: str | Path):
+    """Writes complex polarimetric matrices to a nectdf file.
+    Due to the lack of complex number support in netcdf files, real and imaginary parts are stored separately.
+    Variable names follow the netcdf-beam convention used by SNAP.
+    Args:
+        ds (xarray.Dataset): input dataset with polarimetric matrix elements.
+        file_path (str|Path): output file path.
+    """
+
+    validate_dataset(ds, allowed_poltypes=["S", "C2", "C3", "T3", "C4", "T4"])
+    poltype = ds.poltype
+
+    data = {}
+    if poltype == "S":
+        data["i_HH"] = ds.hh.real
+        data["q_HH"] = ds.hh.imag
+        data["i_HV"] = ds.hv.real
+        data["q_HV"] = ds.hv.imag
+    elif poltype == "C4":
+        data["C11"] = ds.m11
+        data["C22"] = ds.m22
+        data["C33"] = ds.m33
+        data["C44"] = ds.m44
+        data["C12_real"] = ds.m12.real
+        data["C12_imag"] = ds.m12.imag
+        data["C13_real"] = ds.m13.real
+        data["C13_imag"] = ds.m13.imag
+        data["C14_real"] = ds.m14.real
+        data["C14_imag"] = ds.m14.imag
+        data["C23_real"] = ds.m23.real
+        data["C23_imag"] = ds.m23.imag
+        data["C24_real"] = ds.m24.real
+        data["C24_imag"] = ds.m24.imag
+        data["C34_real"] = ds.m34.real
+        data["C34_imag"] = ds.m34.imag
+    elif poltype == "C3":
+        data["C11"] = ds.m11
+        data["C22"] = ds.m22
+        data["C33"] = ds.m33
+        data["C12_real"] = ds.m12.real
+        data["C12_imag"] = ds.m12.imag
+        data["C13_real"] = ds.m13.real
+        data["C13_imag"] = ds.m13.imag
+        data["C23_real"] = ds.m23.real
+        data["C23_imag"] = ds.m23.imag
+    elif poltype == "C2":
+        data["C11"] = ds.m11
+        data["C22"] = ds.m22
+        data["C12_real"] = ds.m12.real
+        data["C12_imag"] = ds.m12.imag
+    elif poltype == "T4":
+        data["T11"] = ds.m11
+        data["T22"] = ds.m22
+        data["T33"] = ds.m33
+        data["T44"] = ds.m44
+        data["T12_real"] = ds.m12.real
+        data["T12_imag"] = ds.m12.imag
+        data["T13_real"] = ds.m13.real
+        data["T13_imag"] = ds.m13.imag
+        data["T14_real"] = ds.m14.real
+        data["T14_imag"] = ds.m14.imag
+        data["T23_real"] = ds.m23.real
+        data["T23_imag"] = ds.m23.imag
+        data["T24_real"] = ds.m24.real
+        data["T24_imag"] = ds.m24.imag
+        data["T34_real"] = ds.m34.real
+        data["T34_imag"] = ds.m34.imag
+    elif poltype == "T3":
+        data["T11"] = ds.m11
+        data["T22"] = ds.m22
+        data["T33"] = ds.m33
+        data["T12_real"] = ds.m12.real
+        data["T12_imag"] = ds.m12.imag
+        data["T13_real"] = ds.m13.real
+        data["T13_imag"] = ds.m13.imag
+        data["T23_real"] = ds.m23.real
+        data["T23_imag"] = ds.m23.imag
+    # make a new dataset with PolSARpro metadata
+    # Preserve chunking when writing
+    encoding = {var: {"chunksizes": ds[var].data.chunksize} for var in ds.data_vars}
+    print(encoding)
+    ds_out = xr.Dataset(
+        data,
+        attrs={"poltype": poltype, "description": ds.description},
+        coords=ds.coords,
+    )
+    ds_out.to_netcdf(file_path, encoding=encoding)
 
 
 # Reader below does not work due to a bug in gdal PALSAR driver (adds a line of zeros at the top)

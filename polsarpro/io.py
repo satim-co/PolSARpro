@@ -438,7 +438,8 @@ def polmat_to_netcdf(ds: xarray.Dataset, file_path: str | Path):
         data["T23_imag"] = ds.m23.imag
     # make a new dataset with PolSARpro metadata
     # Preserve chunking when writing
-    encoding = {var: {"chunksizes": ds[var].data.chunksize} for var in ds.data_vars}
+    # encoding = {var: {"chunksizes": ds[var].data.chunksize} for var in ds.data_vars}
+    encoding = {var: {"chunksizes": ds.chunksizes} for var in data}
     print(encoding)
     ds_out = xr.Dataset(
         data,

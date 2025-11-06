@@ -37,7 +37,7 @@ from polsarpro.util import boxcar, _boxcar_core
 
 
 def refined_lee(
-    input_data: xr.Dataset, window_size: int = 7, num_looks: int = 4
+    input_data: xr.Dataset, window_size: int = 7, num_looks: int = 1
 ) -> xr.Dataset:
     """
     Apply the Refined Lee Speckle Filter to a PolSAR dataset.
@@ -49,7 +49,7 @@ def refined_lee(
     window_size : int, optional
         Size of the filtering window (default is 7).
     num_looks : int, optional
-        Number of looks of the input data (default is 4).
+        Number of looks of the input data (default is 1).
 
     Returns
     -------
@@ -138,7 +138,6 @@ def _compute_mask_index(span: np.array, off: int) -> np.array:
     # use a short name for more compact expressions
     I = np.pad(span, off, mode="reflect")
 
-    # TODO: check gradient and windows alignment
     # directional gradients on dilated 3x3 windows
     d0 = (
         -I[: -2 * off, : -2 * off]
@@ -221,7 +220,6 @@ def _convolve_and_select(img, mask_index, window_size):
     masks = _make_masks(window_size)
     mode = "constant"
     imgout = np.zeros((masks.shape[0],) + img.shape, dtype=img.dtype)
-    # TODO update kernel normalization in NaN areas
     msk = np.isnan(img)
     img_ = np.where(msk, 0, img)
     for i in np.arange(masks.shape[0]):

@@ -193,7 +193,7 @@ def read_psp_bin(file_name: str, dtype: str = "float32"):
 
 
 def open_netcdf_beam(file_path: str | Path) -> xarray.Dataset:
-    """Open data in the NetCDF-BEAM format exported by SNAP and create a valid python PolSARpro Dataset.
+    """Open data in the NetCDF-BEAM format exported by SNAP and create a valid python PolSARpro Dataset. Also works for complex matrix datasets written with polmat_to_netcdf.
 
     Args:
         file_path (str|Path): path of the input file.
@@ -371,83 +371,82 @@ def polmat_to_netcdf(ds: xarray.Dataset, file_path: str | Path):
     validate_dataset(ds, allowed_poltypes=["S", "C2", "C3", "T3", "C4", "T4"])
     poltype = ds.poltype
 
-    data = {}
+    data_out = {}
     if poltype == "S":
-        data["i_HH"] = ds.hh.real
-        data["q_HH"] = ds.hh.imag
-        data["i_HV"] = ds.hv.real
-        data["q_HV"] = ds.hv.imag
+        data_out["i_HH"] = ds.hh.real
+        data_out["q_HH"] = ds.hh.imag
+        data_out["i_HV"] = ds.hv.real
+        data_out["q_HV"] = ds.hv.imag
     elif poltype == "C4":
-        data["C11"] = ds.m11
-        data["C22"] = ds.m22
-        data["C33"] = ds.m33
-        data["C44"] = ds.m44
-        data["C12_real"] = ds.m12.real
-        data["C12_imag"] = ds.m12.imag
-        data["C13_real"] = ds.m13.real
-        data["C13_imag"] = ds.m13.imag
-        data["C14_real"] = ds.m14.real
-        data["C14_imag"] = ds.m14.imag
-        data["C23_real"] = ds.m23.real
-        data["C23_imag"] = ds.m23.imag
-        data["C24_real"] = ds.m24.real
-        data["C24_imag"] = ds.m24.imag
-        data["C34_real"] = ds.m34.real
-        data["C34_imag"] = ds.m34.imag
+        data_out["C11"] = ds.m11
+        data_out["C22"] = ds.m22
+        data_out["C33"] = ds.m33
+        data_out["C44"] = ds.m44
+        data_out["C12_real"] = ds.m12.real
+        data_out["C12_imag"] = ds.m12.imag
+        data_out["C13_real"] = ds.m13.real
+        data_out["C13_imag"] = ds.m13.imag
+        data_out["C14_real"] = ds.m14.real
+        data_out["C14_imag"] = ds.m14.imag
+        data_out["C23_real"] = ds.m23.real
+        data_out["C23_imag"] = ds.m23.imag
+        data_out["C24_real"] = ds.m24.real
+        data_out["C24_imag"] = ds.m24.imag
+        data_out["C34_real"] = ds.m34.real
+        data_out["C34_imag"] = ds.m34.imag
     elif poltype == "C3":
-        data["C11"] = ds.m11
-        data["C22"] = ds.m22
-        data["C33"] = ds.m33
-        data["C12_real"] = ds.m12.real
-        data["C12_imag"] = ds.m12.imag
-        data["C13_real"] = ds.m13.real
-        data["C13_imag"] = ds.m13.imag
-        data["C23_real"] = ds.m23.real
-        data["C23_imag"] = ds.m23.imag
+        data_out["C11"] = ds.m11
+        data_out["C22"] = ds.m22
+        data_out["C33"] = ds.m33
+        data_out["C12_real"] = ds.m12.real
+        data_out["C12_imag"] = ds.m12.imag
+        data_out["C13_real"] = ds.m13.real
+        data_out["C13_imag"] = ds.m13.imag
+        data_out["C23_real"] = ds.m23.real
+        data_out["C23_imag"] = ds.m23.imag
     elif poltype == "C2":
-        data["C11"] = ds.m11
-        data["C22"] = ds.m22
-        data["C12_real"] = ds.m12.real
-        data["C12_imag"] = ds.m12.imag
+        data_out["C11"] = ds.m11
+        data_out["C22"] = ds.m22
+        data_out["C12_real"] = ds.m12.real
+        data_out["C12_imag"] = ds.m12.imag
     elif poltype == "T4":
-        data["T11"] = ds.m11
-        data["T22"] = ds.m22
-        data["T33"] = ds.m33
-        data["T44"] = ds.m44
-        data["T12_real"] = ds.m12.real
-        data["T12_imag"] = ds.m12.imag
-        data["T13_real"] = ds.m13.real
-        data["T13_imag"] = ds.m13.imag
-        data["T14_real"] = ds.m14.real
-        data["T14_imag"] = ds.m14.imag
-        data["T23_real"] = ds.m23.real
-        data["T23_imag"] = ds.m23.imag
-        data["T24_real"] = ds.m24.real
-        data["T24_imag"] = ds.m24.imag
-        data["T34_real"] = ds.m34.real
-        data["T34_imag"] = ds.m34.imag
+        data_out["T11"] = ds.m11
+        data_out["T22"] = ds.m22
+        data_out["T33"] = ds.m33
+        data_out["T44"] = ds.m44
+        data_out["T12_real"] = ds.m12.real
+        data_out["T12_imag"] = ds.m12.imag
+        data_out["T13_real"] = ds.m13.real
+        data_out["T13_imag"] = ds.m13.imag
+        data_out["T14_real"] = ds.m14.real
+        data_out["T14_imag"] = ds.m14.imag
+        data_out["T23_real"] = ds.m23.real
+        data_out["T23_imag"] = ds.m23.imag
+        data_out["T24_real"] = ds.m24.real
+        data_out["T24_imag"] = ds.m24.imag
+        data_out["T34_real"] = ds.m34.real
+        data_out["T34_imag"] = ds.m34.imag
     elif poltype == "T3":
-        data["T11"] = ds.m11
-        data["T22"] = ds.m22
-        data["T33"] = ds.m33
-        data["T12_real"] = ds.m12.real
-        data["T12_imag"] = ds.m12.imag
-        data["T13_real"] = ds.m13.real
-        data["T13_imag"] = ds.m13.imag
-        data["T23_real"] = ds.m23.real
-        data["T23_imag"] = ds.m23.imag
+        data_out["T11"] = ds.m11
+        data_out["T22"] = ds.m22
+        data_out["T33"] = ds.m33
+        data_out["T12_real"] = ds.m12.real
+        data_out["T12_imag"] = ds.m12.imag
+        data_out["T13_real"] = ds.m13.real
+        data_out["T13_imag"] = ds.m13.imag
+        data_out["T23_real"] = ds.m23.real
+        data_out["T23_imag"] = ds.m23.imag
+
     # make a new dataset with PolSARpro metadata
     # Preserve chunking when writing
-    # encoding = {var: {"chunksizes": ds[var].data.chunksize} for var in ds.data_vars}
-    encoding = {var: {"chunksizes": ds.chunksizes} for var in data}
-    print(encoding)
+    encoding = {var: {"chunksizes": data_out[var].data.chunksize} for var in data_out}
     ds_out = xr.Dataset(
-        data,
+        # extract dask arrays and dims from xarray data
+        {k: (ds.dims, v.data) for k, v in data_out.items()},
         attrs={"poltype": poltype, "description": ds.description},
         coords=ds.coords,
     )
     ds_out.to_netcdf(file_path, encoding=encoding)
-
 
 # Reader below does not work due to a bug in gdal PALSAR driver (adds a line of zeros at the top)
 # def read_demo_data(data_dir: str) -> xarray.Dataset:

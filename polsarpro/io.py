@@ -377,65 +377,19 @@ def polmat_to_netcdf(ds: xarray.Dataset, file_path: str | Path):
         data_out["q_HH"] = ds.hh.imag
         data_out["i_HV"] = ds.hv.real
         data_out["q_HV"] = ds.hv.imag
-    elif poltype == "C4":
-        data_out["C11"] = ds.m11
-        data_out["C22"] = ds.m22
-        data_out["C33"] = ds.m33
-        data_out["C44"] = ds.m44
-        data_out["C12_real"] = ds.m12.real
-        data_out["C12_imag"] = ds.m12.imag
-        data_out["C13_real"] = ds.m13.real
-        data_out["C13_imag"] = ds.m13.imag
-        data_out["C14_real"] = ds.m14.real
-        data_out["C14_imag"] = ds.m14.imag
-        data_out["C23_real"] = ds.m23.real
-        data_out["C23_imag"] = ds.m23.imag
-        data_out["C24_real"] = ds.m24.real
-        data_out["C24_imag"] = ds.m24.imag
-        data_out["C34_real"] = ds.m34.real
-        data_out["C34_imag"] = ds.m34.imag
-    elif poltype == "C3":
-        data_out["C11"] = ds.m11
-        data_out["C22"] = ds.m22
-        data_out["C33"] = ds.m33
-        data_out["C12_real"] = ds.m12.real
-        data_out["C12_imag"] = ds.m12.imag
-        data_out["C13_real"] = ds.m13.real
-        data_out["C13_imag"] = ds.m13.imag
-        data_out["C23_real"] = ds.m23.real
-        data_out["C23_imag"] = ds.m23.imag
-    elif poltype == "C2":
-        data_out["C11"] = ds.m11
-        data_out["C22"] = ds.m22
-        data_out["C12_real"] = ds.m12.real
-        data_out["C12_imag"] = ds.m12.imag
-    elif poltype == "T4":
-        data_out["T11"] = ds.m11
-        data_out["T22"] = ds.m22
-        data_out["T33"] = ds.m33
-        data_out["T44"] = ds.m44
-        data_out["T12_real"] = ds.m12.real
-        data_out["T12_imag"] = ds.m12.imag
-        data_out["T13_real"] = ds.m13.real
-        data_out["T13_imag"] = ds.m13.imag
-        data_out["T14_real"] = ds.m14.real
-        data_out["T14_imag"] = ds.m14.imag
-        data_out["T23_real"] = ds.m23.real
-        data_out["T23_imag"] = ds.m23.imag
-        data_out["T24_real"] = ds.m24.real
-        data_out["T24_imag"] = ds.m24.imag
-        data_out["T34_real"] = ds.m34.real
-        data_out["T34_imag"] = ds.m34.imag
-    elif poltype == "T3":
-        data_out["T11"] = ds.m11
-        data_out["T22"] = ds.m22
-        data_out["T33"] = ds.m33
-        data_out["T12_real"] = ds.m12.real
-        data_out["T12_imag"] = ds.m12.imag
-        data_out["T13_real"] = ds.m13.real
-        data_out["T13_imag"] = ds.m13.imag
-        data_out["T23_real"] = ds.m23.real
-        data_out["T23_imag"] = ds.m23.imag
+    else:
+        # automatically extract data for T and C matrices
+        n = int(poltype[-1])
+        name = poltype[0]
+        for i in range(1, n + 1):
+            for j in range(i, n + 1):
+                arr = ds[f"m{i}{j}"]
+                if i == j:
+                    data_out[f"{name}{i}{j}"] = arr
+                else:
+                    data_out[f"{name}{i}{j}_real"] = arr.real
+                    data_out[f"{name}{i}{j}_imag"] = arr.imag
+
 
     # make a new dataset with PolSARpro metadata
     # Preserve chunking when writing

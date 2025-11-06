@@ -48,7 +48,7 @@ def refined_lee(
         num_looks (int or float, optional): Number of looks of the input data (default is 1).
 
     Returns:
-    xr.Dataset: Speckle filtered PolSAR dataset.
+        xr.Dataset: Speckle filtered PolSAR dataset.
     
     References:
         Lee, J.-S., Grunes, M. R., & Kwok, R. (1999). "Polarimetric SAR Speckle Filtering and Its Implications for Classification." IEEE Transactions on Geoscience and Remote Sensing, 37(5), 2363-2373. doi:10.1109/36.789467

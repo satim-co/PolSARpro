@@ -50,12 +50,8 @@ def refined_lee(
     Returns:
     xr.Dataset: Speckle filtered PolSAR dataset.
     
-    References
-    ----------
-    Lee, J.-S., Grunes, M. R., & Kwok, R. (1999). 
-    "Polarimetric SAR Speckle Filtering and Its Implications for Classification." 
-    IEEE Transactions on Geoscience and Remote Sensing, 37(5), 2363-2373.
-    doi:10.1109/36.789467
+    References:
+        Lee, J.-S., Grunes, M. R., & Kwok, R. (1999). "Polarimetric SAR Speckle Filtering and Its Implications for Classification." IEEE Transactions on Geoscience and Remote Sensing, 37(5), 2363-2373. doi:10.1109/36.789467
     """
     # Validate input dataset
     allowed_poltypes = ("C2", "C3", "C4", "T3", "T4")

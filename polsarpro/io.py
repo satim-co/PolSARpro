@@ -363,6 +363,7 @@ def polmat_to_netcdf(ds: xarray.Dataset, file_path: str | Path):
     """Writes complex polarimetric matrices to a nectdf file.
     Due to the lack of complex number support in netcdf files, real and imaginary parts are stored separately.
     Variable names follow the netcdf-beam convention used by SNAP.
+
     Args:
         ds (xarray.Dataset): input dataset with polarimetric matrix elements.
         file_path (str|Path): output file path.

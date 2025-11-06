@@ -42,19 +42,13 @@ def refined_lee(
     """
     Apply the Refined Lee Speckle Filter to a PolSAR dataset.
 
-    Parameters
-    ----------
-    input_data : xr.Dataset
-        Input PolSAR dataset containing covariance or coherency matrices. Works for 2x2, 3x3 and 4x4 matrices.
-    window_size : int, optional
-        Size of the filtering window (default is 7).
-    num_looks : int or float, optional
-        Number of looks of the input data (default is 1).
+    Args:
+        input_data (xr.Dataset): Input PolSAR dataset containing covariance or coherency matrices. Works for 2x2, 3x3 and 4x4 matrices.
+        window_size (int, optional): Size of the filtering window (default is 7).
+        num_looks (int or float, optional): Number of looks of the input data (default is 1).
 
-    Returns
-    -------
-    xr.Dataset
-        Speckle filtered PolSAR dataset.
+    Returns:
+    xr.Dataset: Speckle filtered PolSAR dataset.
     
     References
     ----------

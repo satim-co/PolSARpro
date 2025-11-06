@@ -9,6 +9,7 @@ nav:
     - refined-lee: refined-lee-tutorial.ipynb
   - API reference: 
     - Decompositions: decompositions.md
+    - Speckle Filters: speckle_filters.md
     - Utilities: util.md
     - Inputs/Outputs: io.md
   - Theory: theory.md

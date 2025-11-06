@@ -60,15 +60,18 @@ def refined_lee(
     allowed_poltypes = ("C2", "C3", "C4", "T3", "T4")
     validate_dataset(input_data, allowed_poltypes=allowed_poltypes)
 
+    # test that num_looks is a number > 0
+    if num_looks <= 0 or not isinstance(num_looks, (int, float)):
+        raise ValueError("num_looks must be a positive number")
+
     poltype = input_data.poltype
-    # TODO: add checks on window_size and num_looks
+
 
     span = _compute_span(input_data)
 
     # use a different window size for gradient computation
     # also return an offset for efficient dilated convolutions
-    # TODO: call only once (remove from _compute_mask_index)
-    nwg, _ = _get_window_params(window_size)
+    nwg, off = _get_window_params(window_size)
 
     # smooth power image prior to gradient computation
     process_args = dict(dim_az=nwg, dim_rg=nwg, depth=(nwg, nwg))
@@ -80,7 +83,7 @@ def refined_lee(
     )
 
     # directional gradient-based mask selection
-    process_args = dict(window_size=window_size, depth=(window_size, window_size))
+    process_args = dict(off=off, depth=(off, off))
     mask_index = da.map_overlap(  # operation requires overlapping chunks
         _compute_mask_index,
         span_smooth,
@@ -129,11 +132,9 @@ def refined_lee(
 # functions for internal computations -- do not use directly
 
 
-def _compute_mask_index(span: np.array, window_size: int) -> np.array:
+def _compute_mask_index(span: np.array, off: int) -> np.array:
     mask_index = np.zeros_like(span, dtype=da.uint8)
 
-    # remove if not needed and change window_size to off
-    _, off = _get_window_params(window_size)
     # use a short name for more compact expressions
     I = np.pad(span, off, mode="reflect")
 

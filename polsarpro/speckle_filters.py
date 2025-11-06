@@ -33,7 +33,7 @@ import dask.array as da
 from scipy.ndimage import convolve
 
 from polsarpro.auxil import validate_dataset
-from polsarpro.util import boxcar, _boxcar_core
+from polsarpro.util import _boxcar_core
 
 
 def refined_lee(
@@ -45,16 +45,23 @@ def refined_lee(
     Parameters
     ----------
     input_data : xr.Dataset
-        Input PolSAR dataset containing covariance or coherency matrices.
+        Input PolSAR dataset containing covariance or coherency matrices. Works for 2x2, 3x3 and 4x4 matrices.
     window_size : int, optional
         Size of the filtering window (default is 7).
-    num_looks : int, optional
+    num_looks : int or float, optional
         Number of looks of the input data (default is 1).
 
     Returns
     -------
     xr.Dataset
         Speckle filtered PolSAR dataset.
+    
+    References
+    ----------
+    Lee, J.-S., Grunes, M. R., & Kwok, R. (1999). 
+    "Polarimetric SAR Speckle Filtering and Its Implications for Classification." 
+    IEEE Transactions on Geoscience and Remote Sensing, 37(5), 2363-2373.
+    doi:10.1109/36.789467
     """
     # Validate input dataset
     allowed_poltypes = ("C2", "C3", "C4", "T3", "T4")

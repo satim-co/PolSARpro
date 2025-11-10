@@ -55,14 +55,11 @@ def refined_lee(
     """
     # Validate input dataset
     allowed_poltypes = ("C2", "C3", "C4", "T3", "T4")
-    validate_dataset(input_data, allowed_poltypes=allowed_poltypes)
+    poltype = validate_dataset(input_data, allowed_poltypes=allowed_poltypes)
 
     # test that num_looks is a number > 0
     if num_looks <= 0 or not isinstance(num_looks, (int, float)):
         raise ValueError("num_looks must be a positive number")
-
-    poltype = input_data.poltype
-
 
     span = _compute_span(input_data)
 

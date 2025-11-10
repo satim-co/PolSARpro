@@ -38,7 +38,8 @@ from polsarpro.util import _boxcar_core
 
 def PWF(
     input_data: xr.Dataset,
-    boxcar_size: list[int, int] = [3, 3],
+    train_window_size: list[int, int] = [9, 9],
+    test_window_size: list[int, int] = [1, 1],
 ) -> xr.Dataset:
     """
     Speckle reduction using Polarimetric Whitening Filter.
@@ -55,9 +56,8 @@ def PWF(
             - "C4" and "T4": 4x4 versions of the above
 
             - "C2": Dual-polarimetric covariance
-
-        boxcar_size (list[int, int], optional): Size of the spatial averaging window to be
-            applied before decomposition (boxcar filter). Defaults to [3, 3].
+        train_window_size (list[int, int], optional): Size of the spatial averaging window to be applied to compute the inverse covariance (boxcar filter). Defaults to [9, 9].
+        test_window_size (list[int, int], optional): Size of the spatial averaging window to be applied on the input covariance (boxcar filter). Defaults to [1, 1].
 
     Returns:
         xr.Dataset: Result of the filtering.
@@ -68,6 +68,9 @@ def PWF(
 
     allowed_poltypes = ("S", "C2", "C3", "C4", "T3", "T4")
     poltype = validate_dataset(input_data, allowed_poltypes=allowed_poltypes)
+
+    if test_window_size[0] >= train_window_size[0] or test_window_size[1] >= train_window_size[1]:
+        raise ValueError("Testing window size must be smaller than training window size.") 
 
     if poltype in ["C2", "C3", "T3", "C4", "T4"]:
         in_ = input_data
@@ -80,14 +83,16 @@ def PWF(
 
     eps = 1e-30
     # pre-processing step, it is recommended to filter the matrices to mitigate speckle effects
-    box_out = boxcar(in_, dim_az=boxcar_size[0], dim_rg=boxcar_size[1])
+    box_train = boxcar(in_, dim_az=train_window_size[0], dim_rg=train_window_size[1])
+    box_test = boxcar(in_, dim_az=test_window_size[0], dim_rg=test_window_size[1])
 
     # remove NaNs to avoid errors in eigh
-    mask = box_out.to_array().isnull().any("variable")
-    box_out = box_out.fillna(eps)
+    mask = box_train.to_array().isnull().any("variable")
+    box_train = box_train.fillna(eps)
 
-    M_box = _reconstruct_matrix_from_ds(box_out).data
-    M = _reconstruct_matrix_from_ds(in_).data
+    M_box = _reconstruct_matrix_from_ds(box_train).data
+    # M = _reconstruct_matrix_from_ds(in_).data
+    M = _reconstruct_matrix_from_ds(box_test).data
     # eigendecomposition
     meta = (
         np.array([], dtype="complex64").reshape((0, 0, 0, 0)),

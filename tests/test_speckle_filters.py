@@ -2,7 +2,7 @@ import numpy as np
 import xarray as xr
 import pytest
 from polsarpro.util import vec_to_mat
-from polsarpro.speckle_filters import refined_lee
+from polsarpro.speckle_filters import refined_lee, PWF
 
 @pytest.fixture(scope="function")
 def synthetic_poldata(request):
@@ -85,7 +85,23 @@ def test_refined_lee(synthetic_poldata):
             window_size=7,
             num_looks=4,
         )
-        # print(res)
-        shp = ds["m11"].shape
+        var = "hh" if "hh" in ds.data_vars else "m11"
+        shp = ds[var].shape
+        assert res.data_vars.dtypes == ds.data_vars.dtypes
         assert all((res[it].shape == shp for it in ds.data_vars))
-        # TODO: check all element types and existence
+
+@pytest.mark.parametrize("synthetic_poldata", ["S", "C3", "T3"], indirect=True)
+def test_PWF(synthetic_poldata):
+    input_data = synthetic_poldata
+
+    for _, ds in input_data.items():
+        input_data = ds.chunk(x=64, y=64)
+        res = PWF(
+            input_data=input_data,
+            train_window_size=[7,7],
+            test_window_size=[3,3],
+        )
+        var = "hh" if "hh" in ds.data_vars else "m11"
+        shp = ds[var].shape
+        assert res["pwf"].dtype == "float32"
+        assert res["pwf"].shape == shp

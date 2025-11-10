@@ -47,7 +47,16 @@ def synthetic_poldata(request):
         # Only generate v/vp when needed
         v = np.random.randn(N, N, D) + 1j * np.random.randn(N, N, D)
         vp = np.random.randn(N, N, D) + 1j * np.random.randn(N, N, D)
-
+        if "C2" in requested:
+            C2 = vec_to_mat(v[..., :2]).astype("complex64")
+            C2_dict = dict(
+                m11=xr.DataArray(C2[..., 0, 0].real, dims=dims),
+                m22=xr.DataArray(C2[..., 1, 1].real, dims=dims),
+                m12=xr.DataArray(C2[..., 0, 1], dims=dims),
+            )
+            result["C2"] = xr.Dataset(
+                C2_dict, attrs=dict(poltype="C2", description="...")
+            )
         if "C3" in requested:
             C3 = vec_to_mat(v).astype("complex64")
             C3_dict = dict(
@@ -59,7 +68,24 @@ def synthetic_poldata(request):
                 m23=xr.DataArray(C3[..., 1, 2], dims=dims),
             )
             result["C3"] = xr.Dataset(C3_dict, attrs=dict(poltype="C3"))
-
+        if "C4" in requested:
+            v = np.random.randn(N, N, 4) + 1j * np.random.randn(N, N, 4)
+            C4 = vec_to_mat(v).astype("complex64")
+            C4_dict = dict(
+                m11=xr.DataArray(C4[..., 0, 0].real, dims=dims),
+                m22=xr.DataArray(C4[..., 1, 1].real, dims=dims),
+                m33=xr.DataArray(C4[..., 2, 2].real, dims=dims),
+                m44=xr.DataArray(C4[..., 3, 3].real, dims=dims),
+                m12=xr.DataArray(C4[..., 0, 1], dims=dims),
+                m13=xr.DataArray(C4[..., 0, 2], dims=dims),
+                m14=xr.DataArray(C4[..., 0, 3], dims=dims),
+                m23=xr.DataArray(C4[..., 1, 2], dims=dims),
+                m24=xr.DataArray(C4[..., 1, 3], dims=dims),
+                m34=xr.DataArray(C4[..., 2, 3], dims=dims),
+            )
+            result["C4"] = xr.Dataset(
+                C4_dict, attrs=dict(poltype="C4", description="...")
+            )
         if "T3" in requested:
             T3 = vec_to_mat(vp).astype("complex64")
             T3_dict = dict(
@@ -75,7 +101,7 @@ def synthetic_poldata(request):
     return result
 
 
-@pytest.mark.parametrize("synthetic_poldata", ["S", "C3", "T3"], indirect=True)
+@pytest.mark.parametrize("synthetic_poldata", ["S", "C2", "C3", "C4", "T3"], indirect=True)
 def test_h_a_alpha(synthetic_poldata):
     input_data = synthetic_poldata
 

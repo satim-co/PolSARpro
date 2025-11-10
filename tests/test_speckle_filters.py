@@ -4,6 +4,7 @@ import pytest
 from polsarpro.util import vec_to_mat
 from polsarpro.speckle_filters import refined_lee, PWF
 
+
 @pytest.fixture(scope="function")
 def synthetic_poldata(request):
     """Generate only the requested synthetic polarimetric datasets.
@@ -40,12 +41,23 @@ def synthetic_poldata(request):
             vh=xr.DataArray(S[..., 1, 0], dims=dims),
             vv=xr.DataArray(S[..., 1, 1], dims=dims),
         )
-        result["S"] = xr.Dataset(S_dict, attrs=dict(poltype="S" , description="..."))
+        result["S"] = xr.Dataset(S_dict, attrs=dict(poltype="S", description="..."))
 
-    if any(t in requested for t in ("C3", "T3")):
+    if any(t in requested for t in ("C2", "C3", "T3")):
         # Only generate v/vp when needed
         v = np.random.randn(N, N, D) + 1j * np.random.randn(N, N, D)
         vp = np.random.randn(N, N, D) + 1j * np.random.randn(N, N, D)
+
+        if "C2" in requested:
+            C2 = vec_to_mat(v[..., :2]).astype("complex64")
+            C2_dict = dict(
+                m11=xr.DataArray(C2[..., 0, 0].real, dims=dims),
+                m22=xr.DataArray(C2[..., 1, 1].real, dims=dims),
+                m12=xr.DataArray(C2[..., 0, 1], dims=dims),
+            )
+            result["C2"] = xr.Dataset(
+                C2_dict, attrs=dict(poltype="C2", description="...")
+            )
 
         if "C3" in requested:
             C3 = vec_to_mat(v).astype("complex64")
@@ -57,7 +69,28 @@ def synthetic_poldata(request):
                 m13=xr.DataArray(C3[..., 0, 2], dims=dims),
                 m23=xr.DataArray(C3[..., 1, 2], dims=dims),
             )
-            result["C3"] = xr.Dataset(C3_dict, attrs=dict(poltype="C3", description="..."))
+            result["C3"] = xr.Dataset(
+                C3_dict, attrs=dict(poltype="C3", description="...")
+            )
+
+        if "C4" in requested:
+            v = np.random.randn(N, N, 4) + 1j * np.random.randn(N, N, 4)
+            C4 = vec_to_mat(v).astype("complex64")
+            C4_dict = dict(
+                m11=xr.DataArray(C4[..., 0, 0].real, dims=dims),
+                m22=xr.DataArray(C4[..., 1, 1].real, dims=dims),
+                m33=xr.DataArray(C4[..., 2, 2].real, dims=dims),
+                m44=xr.DataArray(C4[..., 3, 3].real, dims=dims),
+                m12=xr.DataArray(C4[..., 0, 1], dims=dims),
+                m13=xr.DataArray(C4[..., 0, 2], dims=dims),
+                m14=xr.DataArray(C4[..., 0, 3], dims=dims),
+                m23=xr.DataArray(C4[..., 1, 2], dims=dims),
+                m24=xr.DataArray(C4[..., 1, 3], dims=dims),
+                m34=xr.DataArray(C4[..., 2, 3], dims=dims),
+            )
+            result["C4"] = xr.Dataset(
+                C4_dict, attrs=dict(poltype="C4", description="...")
+            )
 
         if "T3" in requested:
             T3 = vec_to_mat(vp).astype("complex64")
@@ -69,12 +102,14 @@ def synthetic_poldata(request):
                 m13=xr.DataArray(T3[..., 0, 2], dims=dims),
                 m23=xr.DataArray(T3[..., 1, 2], dims=dims),
             )
-            result["T3"] = xr.Dataset(T3_dict, attrs=dict(poltype="T3", description="..."))
+            result["T3"] = xr.Dataset(
+                T3_dict, attrs=dict(poltype="T3", description="...")
+            )
 
     return result
 
 
-@pytest.mark.parametrize("synthetic_poldata", ["C3", "T3"], indirect=True)
+@pytest.mark.parametrize("synthetic_poldata", ["C2", "C3", "C4", "T3"], indirect=True)
 def test_refined_lee(synthetic_poldata):
     input_data = synthetic_poldata
 
@@ -90,7 +125,10 @@ def test_refined_lee(synthetic_poldata):
         assert res.data_vars.dtypes == ds.data_vars.dtypes
         assert all((res[it].shape == shp for it in ds.data_vars))
 
-@pytest.mark.parametrize("synthetic_poldata", ["S", "C3", "T3"], indirect=True)
+
+@pytest.mark.parametrize(
+    "synthetic_poldata", ["S", "C2", "C3", "C4", "T3"], indirect=True
+)
 def test_PWF(synthetic_poldata):
     input_data = synthetic_poldata
 
@@ -98,8 +136,8 @@ def test_PWF(synthetic_poldata):
         input_data = ds.chunk(x=64, y=64)
         res = PWF(
             input_data=input_data,
-            train_window_size=[7,7],
-            test_window_size=[3,3],
+            train_window_size=[7, 7],
+            test_window_size=[3, 3],
         )
         var = "hh" if "hh" in ds.data_vars else "m11"
         shp = ds[var].shape

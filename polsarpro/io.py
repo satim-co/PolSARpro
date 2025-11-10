@@ -369,8 +369,7 @@ def polmat_to_netcdf(ds: xarray.Dataset, file_path: str | Path):
         file_path (str|Path): output file path.
     """
 
-    validate_dataset(ds, allowed_poltypes=["S", "C2", "C3", "T3", "C4", "T4"])
-    poltype = ds.poltype
+    poltype = validate_dataset(ds, allowed_poltypes=["S", "C2", "C3", "T3", "C4", "T4"])
 
     data_out = {}
     if poltype == "S":

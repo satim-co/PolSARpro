@@ -4,3 +4,4 @@
 - [Freeman-Durden decomposition](Freeman_theory.html)
 - [Yamaguchi 3-component decomposition](Yamaguchi_3_theory.html)
 - [Yamaguchi 4-component decomposition](Yamaguchi_4_theory.html)
+- [Refined Lee filter](Refined_Lee_theory.html)

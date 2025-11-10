@@ -11,8 +11,8 @@ nav:
       - yamaguchi3: yamaguchi3-tutorial.ipynb
       - yamaguchi4: yamaguchi4-tutorial.ipynb
     - Speckle filters:
-      - pwf: pwf-tutorial.ipynb
       - refined-lee: refined-lee-tutorial.ipynb
+      - pwf: pwf-tutorial.ipynb
   - API reference: 
     - Decompositions: decompositions.md
     - Speckle Filters: speckle_filters.md

@@ -63,7 +63,7 @@ def PWF(
         xr.Dataset: Result of the filtering.
 
     Notes:
-        If the S matrix is given as an input, a 3x3 analysis will be assumed using the C3 matrix.
+        If the S matrix is given as an input, it will be converted to C3.
     """
 
     allowed_poltypes = ("S", "C2", "C3", "C4", "T3", "T4")

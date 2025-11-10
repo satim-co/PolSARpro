@@ -9,8 +9,10 @@ nav:
     - h-a-alpha: h-a-alpha-tutorial.ipynb
     - yamaguchi3: yamaguchi3-tutorial.ipynb
     - yamaguchi4: yamaguchi4-tutorial.ipynb
+    - refined-lee: refined-lee-tutorial.ipynb
   - API reference: 
     - Decompositions: decompositions.md
+    - Speckle Filters: speckle_filters.md
     - Utilities: util.md
     - Inputs/Outputs: io.md
   - Theory: theory.md

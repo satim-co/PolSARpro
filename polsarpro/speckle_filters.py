@@ -356,7 +356,6 @@ def _apply_reflee_filter(
     return filtered_img
 
 
-# TODO: use numba to avoid all convolutions
 # convolves with all masks and selects according to index
 def _convolve_and_select(img, mask_index, window_size):
     # adds small overhead and avoids chunk alignment issues

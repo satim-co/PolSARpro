@@ -1,7 +1,7 @@
 import numpy as np
 import xarray as xr
 import pytest
-from polsarpro.decompositions import h_a_alpha, freeman, yamaguchi3, yamaguchi4
+from polsarpro.decompositions import h_a_alpha, freeman, yamaguchi3, yamaguchi4, tsvm
 from polsarpro.util import vec_to_mat
 
 
@@ -101,7 +101,9 @@ def synthetic_poldata(request):
     return result
 
 
-@pytest.mark.parametrize("synthetic_poldata", ["S", "C2", "C3", "C4", "T3"], indirect=True)
+@pytest.mark.parametrize(
+    "synthetic_poldata", ["S", "C2", "C3", "C4", "T3"], indirect=True
+)
 def test_h_a_alpha(synthetic_poldata):
     input_data = synthetic_poldata
 
@@ -183,3 +185,25 @@ def test_yamaguchi4(synthetic_poldata):
                     for it in ["odd", "double", "volume", "helix"]
                 )
             )
+
+
+@pytest.mark.parametrize("synthetic_poldata", ["S", "C3", "T3"], indirect=True)
+def test_tsvm(synthetic_poldata):
+    input_data = synthetic_poldata
+
+    for _, ds in input_data.items():
+        res = tsvm(
+            input_data=ds,
+            boxcar_size=[5, 5],
+            flags=("psi", "psis"),
+        )
+        var = "hh" if "hh" in ds.data_vars else "m11"
+        shp = ds[var].shape
+        assert all((res[it].shape == shp for it in ["psi"]))
+        assert res.psis.shape == shp + (3,)
+        assert all(
+            (
+                res[it].dtype == "float32"
+                for it in ["psi", "psis"]
+            )
+        )

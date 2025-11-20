@@ -48,7 +48,7 @@ def freeman(
 
     Returns:
         xr.Dataset: Ps, Pd and Pv components.
-    
+
     References:
         Freeman A. and Durden S., “A Three-Component Scattering Model for Polarimetric SAR Data”, IEEE Trans. Geosci. Remote Sens., vol. 36, no. 3, May 1998.
     """
@@ -236,7 +236,7 @@ def yamaguchi3(
 
     Returns:
         xr.Dataset: odd, surface and volume scattering components.
-    
+
     References:
         Yamaguchi Y., Moriyama T., Ishido M. and Yamada H., “Four-Component Scattering Model for Polarimetric SAR Image Decomposition”, IEEE Trans. Geos. Remote Sens., vol. 43, no. 8, August 2005.
 
@@ -283,7 +283,7 @@ def yamaguchi4(
 
     Returns:
         xr.Dataset: odd, surface, volume and helix scattering components.
-    
+
     References:
         Yamaguchi Y., Moriyama T., Ishido M. and Yamada H., “Four-Component Scattering Model for Polarimetric SAR Image Decomposition”, IEEE Trans. Geos. Remote Sens., vol. 43, no. 8, August 2005.
     """
@@ -316,6 +316,79 @@ def yamaguchi4(
         ),
         coords=input_data.coords,
     )
+
+
+def tsvm(
+    input_data: xr.Dataset,
+    boxcar_size: list[int, int] = [3, 3],
+    flags: tuple[str] = ("alpha", "phi", "tau", "psi"),
+) -> xr.Dataset:
+    # check flags validity
+
+    # TODO: discuss if we use these or
+    # ("alpha_phi_tau_psi", "alpha", "phi", etc)
+    possible_flags = (
+        "alpha",
+        "phi",
+        "tau",
+        "psi",
+        "alphas",
+        "phis",
+        "taus",
+        "psis",
+    )
+    for flag in flags:
+        if flag not in possible_flags:
+            raise ValueError(
+                f"Flag '{flag}' not recognized. Possible values are {possible_flags}."
+            )
+    allowed_poltypes = ("S", "C3", "T3")
+    poltype = validate_dataset(input_data, allowed_poltypes=allowed_poltypes)
+
+    if poltype == "S":
+        in_ = S_to_T3(input_data)
+    elif poltype == "C3":
+        in_ = C3_to_T3(input_data)
+    elif poltype == "T3":
+        in_ = input_data
+    else:
+        raise ValueError(f"Invalid polarimetric type: {input_data.poltype}")
+
+    new_dims = tuple(input_data.dims)
+
+    eps = 1e-30
+    # pre-processing step, it is recommended to filter the matrices to mitigate speckle effects
+    in_ = boxcar(in_, dim_az=boxcar_size[0], dim_rg=boxcar_size[1])
+
+    # remove NaNs to avoid errors in eigh
+    mask = in_.to_array().isnull().any("variable")
+    in_ = in_.fillna(eps)
+
+    M = _reconstruct_matrix_from_ds(in_)
+
+    # eigendecomposition
+    meta = (
+        np.array([], dtype="float32").reshape((0, 0, 0)),
+        np.array([], dtype="complex64").reshape((0, 0, 0, 0)),
+    )
+    l, v = da.apply_gufunc(np.linalg.eigh, "(i,j)->(i), (i,j)", M, meta=meta)
+
+    l = l[..., ::-1]  # descending order
+    v = v[..., ::-1]
+
+    out = _compute_tsvm_parameters(l, v, flags)
+
+    return xr.Dataset(
+        # add dimension names, account for 2D and 3D outputs
+        {
+            k: (new_dims, v) if v.ndim == 2 else (new_dims + ("i",), v)
+            for k, v in out.items()
+        },
+        attrs=dict(
+            poltype="tsvm", description="Results of Touzi's TSVM decomposition."
+        ),
+        coords=input_data.coords,
+    ).where(~mask)
 
 
 # below this line, functions are not meant to be called directly
@@ -822,7 +895,11 @@ def _compute_yamaguchi4_components(T3, mode="y4o"):
     ratio = 10 * da.log10((T11 + T22 - 2 * T12.real) / (T11 + T22 + 2 * T12.real + eps))
     cnd = hv_type == 1
     cnd_ratio = (ratio > -2) & (ratio <= 2)
-    Pv = da.where(cnd, da.where(cnd_ratio, np.float32(2), np.float32(15 / 8)) * (2 * T33 - Pc), np.float32(eps))
+    Pv = da.where(
+        cnd,
+        da.where(cnd_ratio, np.float32(2), np.float32(15 / 8)) * (2 * T33 - Pc),
+        np.float32(eps),
+    )
 
     # Double bounce scattering
     Pv = da.where(hv_type == 2, (15 / 16) * (2 * T33 - Pc), Pv)
@@ -893,6 +970,38 @@ def _compute_yamaguchi4_components(T3, mode="y4o"):
         "helix": Pc,
     }
     return out
+
+
+def _compute_tsvm_parameters(l, v, flags):
+
+    eps = 1e-30
+
+    # Pseudo-probabilities (normalized eigenvalues)
+    p = np.clip(l / (eps + l.sum(axis=2)[..., None]), eps, 1)
+
+    outputs = {}
+    phases = np.atan2(v[:, :, 0, :].imag, eps + v[:, :, 0, :].real)
+    x1 = v.copy()
+    # TODO: can we simplify?
+    v = x1.real * np.cos(phases[:, :, None, :]) + x1.imag * np.sin(
+        phases[:, :, None, :]
+    )
+    +1j * (
+        x1.real * np.cos(phases[:, :, None, :])
+        - x1.imag * np.sin(phases[:, :, None, :])
+    )
+    psis = 0.5 * np.atan2(v[:, :, 2, :].imag, v[:, :, 0, :].real)
+    psis *= 180 / np.pi
+
+    if "psi" in flags:
+        psi = np.sum(p * psis, axis=2)
+        outputs["psi"] = psi
+
+
+    if "psis" in flags:
+        outputs["psis"] = psis
+
+    return outputs
 
 
 def _unitary_rotation(T3, theta):

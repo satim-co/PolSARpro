@@ -983,12 +983,12 @@ def _compute_tsvm_parameters(l, v, flags):
     phases = np.atan2(v[:, :, 0, :].imag, eps + v[:, :, 0, :].real)
     x1 = v.copy()
     # TODO: can we simplify?
-    v = x1.real * np.cos(phases[:, :, None, :]) + x1.imag * np.sin(
-        phases[:, :, None, :]
+    v = x1.real * np.cos(phases[:, :, :, None]) + x1.imag * np.sin(
+        phases[:, :, :, None]
     )
     +1j * (
-        x1.real * np.cos(phases[:, :, None, :])
-        - x1.imag * np.sin(phases[:, :, None, :])
+        x1.real * np.cos(phases[:, :, :, None])
+        - x1.imag * np.sin(phases[:, :, :, None])
     )
     psis = 0.5 * np.atan2(v[:, :, 2, :].imag, v[:, :, 0, :].real)
     psis *= 180 / np.pi

@@ -1005,8 +1005,8 @@ def _compute_tsvm_parameters(l, v, flags):
     c = np.cos(2 * taus)
     s = np.sin(2 * taus)
 
-    v[:, :, 0, :] = z1 * c - 1j * z2 * s
-    v[:, :, 2, :] = z2 * c - 1j * z1 * s
+    v[:, :, 0, :] = z1 * c + 1j * z2 * s
+    v[:, :, 2, :] = z2 * c + 1j * z1 * s
 
     alphas = np.arccos(v[:, :, 0, :].real)
 
@@ -1014,10 +1014,15 @@ def _compute_tsvm_parameters(l, v, flags):
     phis = np.where((psis < -np.pi/4) | (psis > np.pi/4), -phis, phis)
 
     # Convert to degrees
-    for it in [psis, taus, phis, alphas]:
+    # for it in [psis, taus, phis, alphas]:
     # for it in [psis, taus, phis]:
     # for it in [psis]:
-        it *= 180 / np.pi
+        # it *= 180 / np.pi
+    
+    alphas *= 180 / np.pi
+    phis *= 180 / np.pi
+    taus *= 180 / np.pi
+    psis *= 180 / np.pi
 
     # Default flag: compute mean parameters
     if "alpha_phi_tau_psi" in flags:

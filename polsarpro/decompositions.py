@@ -321,21 +321,17 @@ def yamaguchi4(
 def tsvm(
     input_data: xr.Dataset,
     boxcar_size: list[int, int] = [3, 3],
-    flags: tuple[str] = ("alpha", "phi", "tau", "psi"),
+    flags: tuple[str] = ("alpha_phi_tau_psi"),
 ) -> xr.Dataset:
     # check flags validity
 
-    # TODO: discuss if we use these or
-    # ("alpha_phi_tau_psi", "alpha", "phi", etc)
+    # TODO: discuss if we keep C convention for flag definiftion
     possible_flags = (
+        "alpha_phi_tau_psi",
         "alpha",
         "phi",
         "tau",
         "psi",
-        "alphas",
-        "phis",
-        "taus",
-        "psis",
     )
     for flag in flags:
         if flag not in possible_flags:
@@ -980,26 +976,80 @@ def _compute_tsvm_parameters(l, v, flags):
     p = np.clip(l / (eps + l.sum(axis=2)[..., None]), eps, 1)
 
     outputs = {}
-    phases = np.atan2(v[:, :, 0, :].imag, eps + v[:, :, 0, :].real)
-    x1 = v.copy()
-    # TODO: can we simplify?
-    v = x1.real * np.cos(phases[:, :, :, None]) + x1.imag * np.sin(
-        phases[:, :, :, None]
-    )
-    +1j * (
-        x1.real * np.cos(phases[:, :, :, None])
-        - x1.imag * np.sin(phases[:, :, :, None])
-    )
-    psis = 0.5 * np.atan2(v[:, :, 2, :].imag, v[:, :, 0, :].real)
-    psis *= 180 / np.pi
 
-    if "psi" in flags:
+    # --- Psi parameters
+    phases = np.atan2(v[:, :, 0, :].imag, eps + v[:, :, 0, :].real)
+    # Rotation factor e^{-i phase} with shape (M, N, K)
+    rot = np.exp(-1j * phases)
+    v *= rot[..., None, :]
+    psis = 0.5 * np.atan2(v[:, :, 2, :].real, eps + v[:, :, 1, :].real)
+
+    # --- Tau and Phi parameters
+    z1 = v[:, :, 1, :].copy()
+    z2 = v[:, :, 2, :].copy()
+
+    c = np.cos(2*psis)
+    s = np.sin(2*psis)
+
+    v[:, :, 1, :] = z1 * c + z2 * s
+    v[: ,:, 2, :] = z2 * c - z1 * s 
+
+    taus = 0.5 * np.atan2(-v[:, :, 2, :].imag, eps + v[:, :, 0, :].real)
+    phis = np.atan2(v[:, :, 1, :].imag, eps + v[:, :, 1, :].real)
+
+
+    # --- Alpha parameters
+    z1 = v[:, :, 0, :].copy()
+    z2 = v[:, :, 2, :].copy()
+
+    c = np.cos(2 * taus)
+    s = np.sin(2 * taus)
+
+    v[:, :, 0, :] = z1 * c - 1j * z2 * s
+    v[:, :, 2, :] = z2 * c - 1j * z1 * s
+
+    alphas = np.arccos(v[:, :, 0, :].real)
+
+    taus = np.where((psis < -np.pi/4) | (psis > np.pi/4), -taus, taus)
+    phis = np.where((psis < -np.pi/4) | (psis > np.pi/4), -phis, phis)
+
+    # Convert to degrees
+    for it in [psis, taus, phis, alphas]:
+    # for it in [psis, taus, phis]:
+    # for it in [psis]:
+        it *= 180 / np.pi
+
+    # Default flag: compute mean parameters
+    if "alpha_phi_tau_psi" in flags:
+        alpha = np.sum(p * alphas, axis=2)
+        phi = np.sum(p * phis, axis=2)
+        tau = np.sum(p * taus, axis=2)
         psi = np.sum(p * psis, axis=2)
+        outputs["alpha_s"] = alpha
+        outputs["phi_s"] = phi
+        outputs["tau_m"] = tau
         outputs["psi"] = psi
 
+    # Extra outputs: non averaged parameters (ex: alpha1, alpha2, alpha3)
+    if "alpha" in flags:
+        outputs["alpha_s1"] = alphas[..., 0]
+        outputs["alpha_s2"] = alphas[..., 1]
+        outputs["alpha_s3"] = alphas[..., 2]
+    
+    if "phi" in flags:
+        outputs["phi_s1"] = phis[..., 0]
+        outputs["phi_s2"] = phis[..., 1]
+        outputs["phi_s3"] = phis[..., 2]
+    
+    if "tau" in flags:
+        outputs["tau_m1"] = taus[..., 0]
+        outputs["tau_m2"] = taus[..., 1]
+        outputs["tau_m3"] = taus[..., 2]
 
-    if "psis" in flags:
-        outputs["psis"] = psis
+    if "psi" in flags:
+        outputs["psi1"] = psis[..., 0]
+        outputs["psi2"] = psis[..., 1]
+        outputs["psi3"] = psis[..., 2]
 
     return outputs
 

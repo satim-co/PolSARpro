@@ -323,9 +323,27 @@ def tsvm(
     boxcar_size: list[int, int] = [3, 3],
     flags: tuple[str] = ("alpha_phi_tau_psi"),
 ) -> xr.Dataset:
+    """Applies the TSVM decomposition.
+
+    Args:
+        input_data (xr.Dataset): Input image, may be a covariance (C3), coherency (T3) or Sinclair (S) matrix.
+        boxcar_size (list[int, int], optional): Boxcar dimensions along azimuth and range. Defaults to [3, 3].
+        flags (tuple[str], optional): Parameters to compute and return from the decomposition. Possible values include:
+
+            - "alpha_phi_tau_psi": Compute mean values of all output parameters.
+
+            - "alpha", "phi", "tau", "psi": Compute per eigenvalue versions of the parameter. 
+        
+        Defaults to ("alpha_phi_tau_psi").
+
+    Returns:
+        xr.Dataset: An xarray.Dataset where data variable names depend the requested flags, and values are the corresponding 2D arrays.
+    
+    Notes:
+        Output variables have the same names as in the original PolSARpro C version. "alpha_s", "phi_s", "psi", "tau_m" followed by 1, 2 or 3 in the case of per-eigenvalue parameters.
+    """
     # check flags validity
 
-    # TODO: discuss if we keep C convention for flag definiftion
     possible_flags = (
         "alpha_phi_tau_psi",
         "alpha",

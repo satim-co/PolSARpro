@@ -191,19 +191,24 @@ def test_yamaguchi4(synthetic_poldata):
 def test_tsvm(synthetic_poldata):
     input_data = synthetic_poldata
 
+    # input flags and corresponding output names
+    in_out = {
+        "alpha_phi_tau_psi": ["alpha_s", "phi_s", "tau_m", "psi"],
+        "alpha": ["alpha_s1", "alpha_s2", "alpha_s3"],
+        "phi": ["phi_s1", "phi_s2", "phi_s3"],
+        "tau": ["tau_m1", "tau_m2", "tau_m3"],
+        "psi": ["psi1", "psi2", "psi3"],
+    }
+
     for _, ds in input_data.items():
         res = tsvm(
             input_data=ds,
             boxcar_size=[5, 5],
-            flags=("psi", "psis"),
+            flags=in_out.keys(),
         )
         var = "hh" if "hh" in ds.data_vars else "m11"
         shp = ds[var].shape
-        assert all((res[it].shape == shp for it in ["psi"]))
-        assert res.psis.shape == shp + (3,)
-        assert all(
-            (
-                res[it].dtype == "float32"
-                for it in ["psi", "psis"]
-            )
-        )
+        for flag in in_out:
+            for name in in_out[flag]:
+                assert res[name].dtype == "float32"
+                assert res[name].shape == shp

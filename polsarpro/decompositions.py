@@ -918,6 +918,7 @@ def _compute_yamaguchi4_components(T3, mode="y4o"):
     # Double bounce scattering
     Pv = da.where(hv_type == 2, (15 / 16) * (2 * T33 - Pc), Pv)
 
+    mask_v = Pv >= 0
     TP = T11 + T22 + T33
 
     # 4 component algorithm
@@ -972,7 +973,6 @@ def _compute_yamaguchi4_components(T3, mode="y4o"):
 
     # If Pv < 0 use three components and set Pc to 0
     out_3comp = _compute_yamaguchi3_components(T3_to_C3(T3_new))
-    mask_v = Pv >= 0
     Ps = da.where(mask_v, Ps, out_3comp["odd"])
     Pd = da.where(mask_v, Pd, out_3comp["double"])
     Pv = da.where(mask_v, Pv, out_3comp["volume"])

@@ -91,3 +91,28 @@ def summarize_metrics(
         dfs.append(df)
 
     return pd.concat(dfs)
+
+def visualize_errors(out_py, out_c):
+    import matplotlib.pyplot as plt
+
+    for var in out_py.data_vars:
+        if var not in out_c:
+            Warning(f"Skipping variable '{var}'! Not found in C outputs.")
+        m = 0.5 * (np.nanmean(out_py[var]) + np.nanmean(out_c[var]))
+        plt.figure(figsize=(10, 6))
+        plt.suptitle(var)
+        plt.subplot(131)
+        plt.imshow((out_py[var] - out_c[var])[::8], interpolation="none")
+        plt.title("Difference: python - C")
+        plt.axis("off")
+        plt.colorbar(fraction=0.046, pad=0.04, location="bottom")
+        plt.subplot(132)
+        plt.imshow(out_c[var][::8].clip(0, 2*m), interpolation="none")
+        plt.title("C")
+        plt.axis("off")
+        plt.colorbar(fraction=0.046, pad=0.04, location="bottom")
+        plt.subplot(133)
+        plt.imshow(out_py[var][::8].clip(0, 2*m), interpolation="none")
+        plt.colorbar(fraction=0.046, pad=0.04, location="bottom")
+        plt.title("python")
+        plt.axis("off")

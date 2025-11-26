@@ -15,7 +15,6 @@ dependencies:
   - xarray
   - netcdf4
   - rioxarray
-  - numba
   - dask
   - bottleneck
   - jupyter

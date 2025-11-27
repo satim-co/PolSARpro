@@ -437,6 +437,8 @@ def vanzyl(
 
     # pre-processing step, it is recommended to filter the matrices to mitigate speckle effects
     in_ = boxcar(in_, boxcar_size[0], boxcar_size[1])
+    # Replace zeros by NaNs across the whole Dataset
+    in_ = in_.where(in_ != 0)
 
     out = _compute_vanzyl_components(in_)
     return xr.Dataset(
@@ -1166,25 +1168,30 @@ def _compute_vanzyl_components(C3):
 
     eps = 1e-30
 
-    HHHH = C3.m11
-    HHVV = C3.m13
-    HVHV = C3.m22 / 2
-    VVVV = C3.m33
+    HHHH = C3.m11.data
+    HHVV = C3.m13.data
+    HVHV = C3.m22.data / 2
+    VVVV = C3.m33.data
 
     # pre-compute some factors
     pow_HHVV = (HHVV * HHVV.conj()).real
-    det = da.sqrt((HHHH - VVVV) ** 2 + 4 * pow_HHVV)
+    det = da.sqrt((HHHH - VVVV) ** 2 + 4 * pow_HHVV + eps)
+    # det = da.sqrt((HHHH - VVVV) ** 2 + 4 * pow_HHVV)
     factor1 = VVVV - HHHH + det
     factor2 = VVVV - HHHH - det
 
-    lambda1 = 0.5 * factor1
-    lambda2 = 0.5 * factor2
+    lambda1 = 0.5 * (HHHH + VVVV + det)
+    lambda2 = 0.5 * (HHHH + VVVV - det)
 
-    alpha = 2 * HHVV / (VVVV - HHHH + det)
-    beta = 2 * HHVV / (VVVV - HHHH - det)
+    alpha = 2 * HHVV / (factor1 + eps)
+    beta = 2 * HHVV / (factor2 + eps)
+    # alpha = 2 * HHVV / (factor1)
+    # beta = 2 * HHVV / (factor2)
 
-    omega1 = (lambda1 * factor1**2) / (factor1**2 + 4 * pow_HHVV)
-    omega2 = (lambda2 * factor2**2) / (factor2**2 + 4 * pow_HHVV)
+    # omega1 = (lambda1 * factor1**2) / (factor1**2 + 4 * pow_HHVV)
+    # omega2 = (lambda2 * factor2**2) / (factor2**2 + 4 * pow_HHVV)
+    omega1 = (lambda1 * factor1**2) / (factor1**2 + 4 * pow_HHVV + eps)
+    omega2 = (lambda2 * factor2**2) / (factor2**2 + 4 * pow_HHVV + eps)
 
     # target generator
     A0A0 = omega1 * ((1 + alpha.real) ** 2 + alpha.imag**2)
@@ -1202,7 +1209,7 @@ def _compute_vanzyl_components(C3):
     )
     Pv = 2 * HVHV
 
-    # Compute span on __original__ covariance, not modified one
+    # compute span
     sp = C3.m11.data + C3.m22.data + C3.m33.data
     min_span, max_span = da.nanmin(sp), da.nanmax(sp)
     min_span = da.maximum(min_span, eps)

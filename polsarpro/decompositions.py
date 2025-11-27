@@ -332,13 +332,13 @@ def tsvm(
 
             - "alpha_phi_tau_psi": Compute mean values of all output parameters.
 
-            - "alpha", "phi", "tau", "psi": Compute per eigenvalue versions of the parameter. 
-        
+            - "alpha", "phi", "tau", "psi": Compute per eigenvalue versions of the parameter.
+
         Defaults to ("alpha_phi_tau_psi").
 
     Returns:
         xr.Dataset: An xarray.Dataset where data variable names depend the requested flags, and values are the corresponding 2D arrays.
-    
+
     Notes:
         Output variables have the same names as in the original PolSARpro C version. "alpha_s", "phi_s", "psi", "tau_m" followed by 1, 2 or 3 in the case of per-eigenvalue parameters.
     """
@@ -403,6 +403,51 @@ def tsvm(
         ),
         coords=input_data.coords,
     ).where(~mask)
+
+
+def vanzyl(
+    input_data: xr.Dataset,
+    boxcar_size: list[int, int] = [3, 3],
+) -> xr.Dataset:
+    """Applies the Van Zyl 1992 3-component decomposition. This decomposition is based on physical modeling
+      of the covariance matrix and returns 3 components Ps, Pd and Pv which are the powers of resp.
+      surface, double bounce and volume backscattering.
+
+    Args:
+        input_data (xr.Dataset): Input image, may be a covariance (C3), coherency (T3) or Sinclair (S) matrix.
+        boxcar_size (list[int, int], optional):  Boxcar dimensions along azimuth and range. Defaults to [3, 3].
+
+    Returns:
+        xr.Dataset: Ps, Pd and Pv components.
+
+    References:
+       Jakob J. van Zyl, Yunjin Kim, Synthetic Aperture Radar Polarimetry, Wiley; 1st edition (October 14, 2011), ISBN-10 1-118-11511-2, ISBN-13 978-1118115114
+    """
+
+    allowed_poltypes = ("S", "C3", "T3")
+    poltype = validate_dataset(input_data, allowed_poltypes=allowed_poltypes)
+
+    # in_ = input_data.astype("complex64", copy=False)
+    if poltype == "C3":
+        in_ = input_data
+    elif poltype == "T3":
+        in_ = T3_to_C3(input_data)
+    elif poltype == "S":
+        in_ = S_to_C3(input_data)
+
+    # pre-processing step, it is recommended to filter the matrices to mitigate speckle effects
+    in_ = boxcar(in_, boxcar_size[0], boxcar_size[1])
+
+    out = _compute_vanzyl_components(in_)
+    return xr.Dataset(
+        # add dimension names
+        {k: (tuple(input_data.dims), v) for k, v in out.items()},
+        attrs=dict(
+            poltype="freeman",
+            description="Results of the Freeman-Durden decomposition.",
+        ),
+        coords=input_data.coords,
+    )
 
 
 # below this line, functions are not meant to be called directly
@@ -1006,15 +1051,14 @@ def _compute_tsvm_parameters(l, v, flags):
     z1 = v[:, :, 1, :].copy()
     z2 = v[:, :, 2, :].copy()
 
-    c = np.cos(2*psis)
-    s = np.sin(2*psis)
+    c = np.cos(2 * psis)
+    s = np.sin(2 * psis)
 
     v[:, :, 1, :] = z1 * c + z2 * s
-    v[: ,:, 2, :] = z2 * c - z1 * s 
+    v[:, :, 2, :] = z2 * c - z1 * s
 
     taus = 0.5 * np.atan2(-v[:, :, 2, :].imag, eps + v[:, :, 0, :].real)
     phis = np.atan2(v[:, :, 1, :].imag, eps + v[:, :, 1, :].real)
-
 
     # --- Alpha parameters
     z1 = v[:, :, 0, :].copy()
@@ -1028,15 +1072,15 @@ def _compute_tsvm_parameters(l, v, flags):
 
     alphas = np.arccos(v[:, :, 0, :].real)
 
-    taus = np.where((psis < -np.pi/4) | (psis > np.pi/4), -taus, taus)
-    phis = np.where((psis < -np.pi/4) | (psis > np.pi/4), -phis, phis)
+    taus = np.where((psis < -np.pi / 4) | (psis > np.pi / 4), -taus, taus)
+    phis = np.where((psis < -np.pi / 4) | (psis > np.pi / 4), -phis, phis)
 
     # Convert to degrees
     # for it in [psis, taus, phis, alphas]:
     # for it in [psis, taus, phis]:
     # for it in [psis]:
-        # it *= 180 / np.pi
-    
+    # it *= 180 / np.pi
+
     alphas *= 180 / np.pi
     phis *= 180 / np.pi
     taus *= 180 / np.pi
@@ -1058,12 +1102,12 @@ def _compute_tsvm_parameters(l, v, flags):
         outputs["alpha_s1"] = alphas[..., 0]
         outputs["alpha_s2"] = alphas[..., 1]
         outputs["alpha_s3"] = alphas[..., 2]
-    
+
     if "phi" in flags:
         outputs["phi_s1"] = phis[..., 0]
         outputs["phi_s2"] = phis[..., 1]
         outputs["phi_s3"] = phis[..., 2]
-    
+
     if "tau" in flags:
         outputs["tau_m1"] = taus[..., 0]
         outputs["tau_m2"] = taus[..., 1]
@@ -1116,3 +1160,54 @@ def _unitary_rotation(T3, theta):
 
     attrs = {"poltype": "T3", "description": "Coherency matrix (3x3)"}
     return xr.Dataset({k: (tuple(T3.dims), v) for k, v in T3_out.items()}, attrs=attrs)
+
+
+def _compute_vanzyl_components(C3):
+
+    eps = 1e-30
+
+    HHHH = C3.m11
+    HHVV = C3.m13
+    HVHV = C3.m22 / 2
+    VVVV = C3.m33
+
+    # pre-compute some factors
+    pow_HHVV = (HHVV * HHVV.conj()).real
+    det = da.sqrt((HHHH - VVVV) ** 2 + 4 * pow_HHVV)
+    factor1 = VVVV - HHHH + det
+    factor2 = VVVV - HHHH - det
+
+    lambda1 = 0.5 * factor1
+    lambda2 = 0.5 * factor2
+
+    alpha = 2 * HHVV / (VVVV - HHHH + det)
+    beta = 2 * HHVV / (VVVV - HHHH - det)
+
+    omega1 = (lambda1 * factor1**2) / (factor1**2 + 4 * pow_HHVV)
+    omega2 = (lambda2 * factor2**2) / (factor2**2 + 4 * pow_HHVV)
+
+    # target generator
+    A0A0 = omega1 * ((1 + alpha.real) ** 2 + alpha.imag**2)
+    B0Bp = omega1 * ((1 - alpha.real) ** 2 + alpha.imag**2)
+
+    Ps = da.where(
+        A0A0 > B0Bp,
+        omega1 * (1 + (alpha * alpha.conj()).real),
+        omega2 * (1 + (beta * beta.conj()).real),
+    )
+    Pd = da.where(
+        A0A0 > B0Bp,
+        omega2 * (1 + (beta * beta.conj()).real),
+        omega1 * (1 + (alpha * alpha.conj()).real),
+    )
+    Pv = 2 * HVHV
+
+    # Compute span on __original__ covariance, not modified one
+    sp = C3.m11.data + C3.m22.data + C3.m33.data
+    min_span, max_span = da.nanmin(sp), da.nanmax(sp)
+    min_span = da.maximum(min_span, eps)
+
+    Ps = da.where(Ps <= min_span, min_span, da.where(Ps > max_span, max_span, Ps))
+    Pd = da.where(Pd <= min_span, min_span, da.where(Pd > max_span, max_span, Pd))
+    Pv = da.where(Pv <= min_span, min_span, da.where(Pv > max_span, max_span, Pv))
+    return {"odd": Ps, "double": Pd, "volume": Pv}

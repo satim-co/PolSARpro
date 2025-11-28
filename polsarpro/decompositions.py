@@ -438,7 +438,8 @@ def vanzyl(
     # pre-processing step, it is recommended to filter the matrices to mitigate speckle effects
     in_ = boxcar(in_, boxcar_size[0], boxcar_size[1])
     # Replace zeros by NaNs across the whole Dataset
-    in_ = in_.where(in_ != 0)
+    mask = in_ == 0
+    in_ = in_.where(~mask)
 
     out = _compute_vanzyl_components(in_)
     return xr.Dataset(
@@ -1166,7 +1167,8 @@ def _unitary_rotation(T3, theta):
 
 def _compute_vanzyl_components(C3):
 
-    eps = 1e-30
+    # use larger eps to avoid overflow in square
+    eps = 1e-15
 
     HHHH = C3.m11.data
     HHVV = C3.m13.data
@@ -1176,7 +1178,7 @@ def _compute_vanzyl_components(C3):
     # pre-compute some factors
     pow_HHVV = (HHVV * HHVV.conj()).real
     det = da.sqrt((HHHH - VVVV) ** 2 + 4 * pow_HHVV + eps)
-    # det = da.sqrt((HHHH - VVVV) ** 2 + 4 * pow_HHVV)
+
     factor1 = VVVV - HHHH + det
     factor2 = VVVV - HHHH - det
 
@@ -1185,11 +1187,8 @@ def _compute_vanzyl_components(C3):
 
     alpha = 2 * HHVV / (factor1 + eps)
     beta = 2 * HHVV / (factor2 + eps)
-    # alpha = 2 * HHVV / (factor1)
-    # beta = 2 * HHVV / (factor2)
 
-    # omega1 = (lambda1 * factor1**2) / (factor1**2 + 4 * pow_HHVV)
-    # omega2 = (lambda2 * factor2**2) / (factor2**2 + 4 * pow_HHVV)
+
     omega1 = (lambda1 * factor1**2) / (factor1**2 + 4 * pow_HHVV + eps)
     omega2 = (lambda2 * factor2**2) / (factor2**2 + 4 * pow_HHVV + eps)
 
@@ -1207,6 +1206,7 @@ def _compute_vanzyl_components(C3):
         omega2 * (1 + (beta * beta.conj()).real),
         omega1 * (1 + (alpha * alpha.conj()).real),
     )
+
     Pv = 2 * HVHV
 
     # compute span

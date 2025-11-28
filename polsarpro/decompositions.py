@@ -1188,7 +1188,6 @@ def _compute_vanzyl_components(C3):
     alpha = 2 * HHVV / (factor1 + eps)
     beta = 2 * HHVV / (factor2 + eps)
 
-
     omega1 = (lambda1 * factor1**2) / (factor1**2 + 4 * pow_HHVV + eps)
     omega2 = (lambda2 * factor2**2) / (factor2**2 + 4 * pow_HHVV + eps)
 
@@ -1206,7 +1205,6 @@ def _compute_vanzyl_components(C3):
         omega2 * (1 + (beta * beta.conj()).real),
         omega1 * (1 + (alpha * alpha.conj()).real),
     )
-
     Pv = 2 * HVHV
 
     # compute span

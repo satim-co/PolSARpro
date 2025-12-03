@@ -1,3 +1,7 @@
+# 2025.12.1
+## Bugfixes
+- Updated `pyptoject.toml` for conda-forge packaging.
+
 # 2025.12.0
 ## Bugfixes
 - Updated dependencies to match conda recipe.

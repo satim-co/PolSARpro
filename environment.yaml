@@ -19,4 +19,4 @@ dependencies:
   - bottleneck
   - jupyter
   - zarr
-  - yaml
+  - pyyaml

@@ -1,3 +1,7 @@
+# 2025.12.0
+## Bugfixes
+- Updated dependencies to match conda recipe.
+
 # 2025.10.0
 ## Features 
 - Definition of and Xarray dataset based structure including: named matrix elements, coordinates (geocoded or SAR geometry), polarimetric type (e.g. S, T3, C4)

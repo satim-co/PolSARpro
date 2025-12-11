@@ -193,18 +193,18 @@ def test_tsvm(synthetic_poldata):
 
     # input flags and corresponding output names
     in_out = {
-        "alpha_phi_tau_psi": ["alpha_s", "phi_s", "tau_m", "psi"],
-        "alpha": ["alpha_s1", "alpha_s2", "alpha_s3"],
-        "phi": ["phi_s1", "phi_s2", "phi_s3"],
-        "tau": ["tau_m1", "tau_m2", "tau_m3"],
-        "psi": ["psi1", "psi2", "psi3"],
+        "alpha_phi_tau_psi": ("alpha_s", "phi_s", "tau_m", "psi"),
+        "alpha": ("alpha_s1", "alpha_s2", "alpha_s3"),
+        "phi": ("phi_s1", "phi_s2", "phi_s3"),
+        "tau": ("tau_m1", "tau_m2", "tau_m3"),
+        "psi": ("psi1", "psi2", "psi3"),
     }
 
     for _, ds in input_data.items():
         res = tsvm(
             input_data=ds,
             boxcar_size=[5, 5],
-            flags=in_out.keys(),
+            flags=tuple(in_out.keys()),
         )
         var = "hh" if "hh" in ds.data_vars else "m11"
         shp = ds[var].shape

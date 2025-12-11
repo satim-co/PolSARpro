@@ -261,7 +261,13 @@ def yamaguchi3(
     # pre-processing step, it is recommended to filter the matrices to mitigate speckle effects
     in_ = boxcar(in_, boxcar_size[0], boxcar_size[1])
 
+    # remove NaNs
+    eps=1e-30
+    mask = in_.to_array().isnull().any("variable")
+    in_ = in_.fillna(eps) 
+    
     out = _compute_yamaguchi3_components(in_)
+    
     return xr.Dataset(
         # add dimension names
         {k: (tuple(input_data.dims), v) for k, v in out.items()},
@@ -270,7 +276,7 @@ def yamaguchi3(
             description="Results of the Yamaguchi 3 component decomposition.",
         ),
         coords=input_data.coords,
-    )
+    ).where(~mask)
 
 
 def yamaguchi4(
@@ -310,17 +316,22 @@ def yamaguchi4(
     # pre-processing step, it is recommended to filter the matrices to mitigate speckle effects
     in_ = boxcar(in_, boxcar_size[0], boxcar_size[1])
 
+    # remove NaNs
+    eps=1e-30
+    mask = in_.to_array().isnull().any("variable")
+    in_ = in_.fillna(eps) 
+
     out = _compute_yamaguchi4_components(in_, mode=mode)
     poltype_out = f"yamaguchi4_{mode.lower()}"
     return xr.Dataset(
         # add dimension names
         {k: (tuple(input_data.dims), v) for k, v in out.items()},
         attrs=dict(
-            poltype="yamaguchi4",
-            description="Results of the Yamaguchi 4 component decomposition.",
+            poltype=poltype_out,
+            description=f"Results of the Yamaguchi 4 component decomposition (mode={mode.lower()}).",
         ),
         coords=input_data.coords,
-    )
+    ).where(~mask)
 
 
 def tsvm(

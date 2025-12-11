@@ -147,7 +147,6 @@ def h_a_alpha(
     if not isinstance(flags, tuple):
         raise ValueError("'flags' parameter must be a tuple.")
 
-
     possible_flags = (
         "entropy",
         "anisotropy",

@@ -1,7 +1,14 @@
 import numpy as np
 import xarray as xr
 import pytest
-from polsarpro.decompositions import h_a_alpha, freeman, yamaguchi3, yamaguchi4, tsvm, vanzyl
+from polsarpro.decompositions import (
+    h_a_alpha,
+    freeman,
+    yamaguchi3,
+    yamaguchi4,
+    tsvm,
+    vanzyl,
+)
 from polsarpro.util import vec_to_mat
 
 
@@ -212,6 +219,7 @@ def test_tsvm(synthetic_poldata):
             for name in in_out[flag]:
                 assert res[name].dtype == "float32"
                 assert res[name].shape == shp
+
 
 @pytest.mark.parametrize("synthetic_poldata", ["S", "C3", "T3"], indirect=True)
 @pytest.mark.filterwarnings("ignore:invalid")

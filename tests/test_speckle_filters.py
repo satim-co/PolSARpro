@@ -2,7 +2,7 @@ import numpy as np
 import xarray as xr
 import pytest
 from polsarpro.util import vec_to_mat
-from polsarpro.speckle_filters import refined_lee, PWF
+from polsarpro.speckle_filters import refined_lee, pwf
 
 
 @pytest.fixture(scope="function")
@@ -129,12 +129,12 @@ def test_refined_lee(synthetic_poldata):
 @pytest.mark.parametrize(
     "synthetic_poldata", ["S", "C2", "C3", "C4", "T3"], indirect=True
 )
-def test_PWF(synthetic_poldata):
+def test_pwf(synthetic_poldata):
     input_data = synthetic_poldata
 
     for _, ds in input_data.items():
         input_data = ds.chunk(x=64, y=64)
-        res = PWF(
+        res = pwf(
             input_data=input_data,
             train_window_size=[7, 7],
             test_window_size=[3, 3],

@@ -36,7 +36,7 @@ from scipy.ndimage import convolve
 from polsarpro.util import _boxcar_core
 
 
-def PWF(
+def pwf(
     input_data: xr.Dataset,
     train_window_size: list[int, int] = [9, 9],
     test_window_size: list[int, int] = [1, 1],
@@ -69,8 +69,13 @@ def PWF(
     allowed_poltypes = ("S", "C2", "C3", "C4", "T3", "T4")
     poltype = validate_dataset(input_data, allowed_poltypes=allowed_poltypes)
 
-    if test_window_size[0] >= train_window_size[0] or test_window_size[1] >= train_window_size[1]:
-        raise ValueError("Testing window size must be smaller than training window size.") 
+    if (
+        test_window_size[0] >= train_window_size[0]
+        or test_window_size[1] >= train_window_size[1]
+    ):
+        raise ValueError(
+            "Testing window size must be smaller than training window size."
+        )
 
     if poltype in ["C2", "C3", "T3", "C4", "T4"]:
         in_ = input_data
@@ -94,9 +99,7 @@ def PWF(
     # M = _reconstruct_matrix_from_ds(in_).data
     M = _reconstruct_matrix_from_ds(box_test).data
     # eigendecomposition
-    meta = (
-        np.array([], dtype="complex64").reshape((0, 0, 0, 0)),
-    )
+    meta = (np.array([], dtype="complex64").reshape((0, 0, 0, 0)),)
     M_inv = da.apply_gufunc(np.linalg.inv, "(i,j)->(i,j)", M_box, meta=meta)
     prod = np.matmul(M_inv, M)
     trace = np.trace(prod, axis1=2, axis2=3).real
@@ -183,8 +186,6 @@ def _reconstruct_matrix_from_ds(ds):
         )
 
 
-
-
 def refined_lee(
     input_data: xr.Dataset, window_size: int = 7, num_looks: int = 1
 ) -> xr.Dataset:
@@ -198,7 +199,7 @@ def refined_lee(
 
     Returns:
         xr.Dataset: Speckle filtered PolSAR dataset.
-    
+
     References:
         Lee, J.-S., Grunes, M. R., & Kwok, R. (1999). "Polarimetric SAR Speckle Filtering and Its Implications for Classification." IEEE Transactions on Geoscience and Remote Sensing, 37(5), 2363-2373. doi:10.1109/36.789467
     """
@@ -219,7 +220,7 @@ def refined_lee(
     # smooth power image prior to gradient computation
     process_args = dict(dim_az=nwg, dim_rg=nwg, depth=(nwg, nwg))
     span_smooth = da.map_overlap(  # convolutions require overlapping chunks
-        _boxcar_core, # used instead of boxcar() to avoid extra conversions
+        _boxcar_core,  # used instead of boxcar() to avoid extra conversions
         span,
         **process_args,
         dtype="float32",

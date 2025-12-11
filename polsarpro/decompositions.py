@@ -68,7 +68,7 @@ def freeman(
     in_ = boxcar(in_, boxcar_size[0], boxcar_size[1])
 
     # remove NaNs
-    eps=1e-30
+    eps = 1e-30
     mask = in_.to_array().isnull().any("variable")
     in_ = in_.fillna(eps)
 
@@ -262,12 +262,12 @@ def yamaguchi3(
     in_ = boxcar(in_, boxcar_size[0], boxcar_size[1])
 
     # remove NaNs
-    eps=1e-30
+    eps = 1e-30
     mask = in_.to_array().isnull().any("variable")
-    in_ = in_.fillna(eps) 
-    
+    in_ = in_.fillna(eps)
+
     out = _compute_yamaguchi3_components(in_)
-    
+
     return xr.Dataset(
         # add dimension names
         {k: (tuple(input_data.dims), v) for k, v in out.items()},
@@ -317,11 +317,12 @@ def yamaguchi4(
     in_ = boxcar(in_, boxcar_size[0], boxcar_size[1])
 
     # remove NaNs
-    eps=1e-30
+    eps = 1e-30
     mask = in_.to_array().isnull().any("variable")
-    in_ = in_.fillna(eps) 
+    in_ = in_.fillna(eps)
 
     out = _compute_yamaguchi4_components(in_, mode=mode)
+
     poltype_out = f"yamaguchi4_{mode.lower()}"
     return xr.Dataset(
         # add dimension names
@@ -453,9 +454,11 @@ def vanzyl(
 
     # pre-processing step, it is recommended to filter the matrices to mitigate speckle effects
     in_ = boxcar(in_, boxcar_size[0], boxcar_size[1])
-    # Replace zeros by NaNs across the whole Dataset
-    mask = in_ == 0
-    in_ = in_.where(~mask)
+
+    # remove NaNs
+    eps = 1e-30
+    mask = in_.to_array().isnull().any("variable")
+    in_ = in_.fillna(eps)
 
     out = _compute_vanzyl_components(in_)
     return xr.Dataset(
@@ -466,7 +469,7 @@ def vanzyl(
             description="Results of the Freeman-Durden decomposition.",
         ),
         coords=input_data.coords,
-    )
+    ).where(~mask)
 
 
 # below this line, functions are not meant to be called directly
@@ -860,7 +863,9 @@ def _compute_yamaguchi3_components(C3):
     c33 = C3.m33.data.copy()
 
     # Freeman-Yamaguchi algorithm
-    ratio = 10.0 * da.log10(c33 / c11)
+    num = np.where(c33 != 0, c33, eps)
+    den = np.where(c11 != 0, c11, eps)
+    ratio = 10.0 * da.log10(num / den)
     msk_l = ratio <= -2
     msk_h = ratio > 2
     msk_m = (ratio > -2) & (ratio <= 2)
@@ -946,7 +951,7 @@ def _compute_yamaguchi4_components(T3, mode="y4o"):
     # Apply unitary rotation for corresponding modes
     if mode in ["y4r", "s4r"]:
         theta = 0.5 * da.arctan(
-            2 * T3.m23.data.real / (T3.m22.data - T3.m33.data + eps)
+            (2 * T3.m23.data.real + eps) / (T3.m22.data - T3.m33.data + eps)
         )
         T3_new = _unitary_rotation(T3, theta)
     else:
@@ -970,7 +975,13 @@ def _compute_yamaguchi4_components(T3, mode="y4o"):
         hv_type = da.where(C1 > 0, 1, 2)
 
     # Surface scattering
-    ratio = 10 * da.log10((T11 + T22 - 2 * T12.real) / (T11 + T22 + 2 * T12.real + eps))
+    num = T11 + T22 - 2 * T12.real
+    den = T11 + T22 + 2 * T12.real
+    num = da.where(num != 0, num, eps)
+    den = da.where(den != 0, den, eps)
+    ratio = 10 * da.log10(num / den)
+
+    # ratio = 10 * da.log10((T11 + T22 - 2 * T12.real + eps) / (T11 + T22 + 2 * T12.real + eps))
     cnd = hv_type == 1
     cnd_ratio = (ratio > -2) & (ratio <= 2)
     Pv = da.where(
@@ -1002,6 +1013,8 @@ def _compute_yamaguchi4_components(T3, mode="y4o"):
     Pv = da.where(cnd_hv & cnd_tp, TP - Pc, Pv)
     cnd_c0 = (2 * T11 + Pc - TP) > 0
 
+    S = da.where(S != 0, S, eps)
+    D = da.where(D != 0, D, eps)
     Ps = da.where(cnd_hv & ~cnd_tp, da.where(cnd_c0, S + C_pow / S, S - C_pow / D), eps)
     Pd = da.where(cnd_hv & ~cnd_tp, da.where(cnd_c0, D - C_pow / S, D + C_pow / D), eps)
 
@@ -1009,6 +1022,7 @@ def _compute_yamaguchi4_components(T3, mode="y4o"):
     cnd_hv = hv_type == 2
     S = da.where(cnd_hv, T11, S)
     D = da.where(cnd_hv, TP - Pv - Pc - S, D)
+    D = da.where(D != 0, D, eps)
     Pd = da.where(cnd_hv, D + C_pow / D, Pd)
     Ps = da.where(cnd_hv, S - C_pow / D, Ps)
 

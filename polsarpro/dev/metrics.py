@@ -92,6 +92,7 @@ def summarize_metrics(
 
     return pd.concat(dfs)
 
+
 # helper function to visualize errors
 def visualize_errors(out_py, out_c):
     import matplotlib.pyplot as plt
@@ -108,18 +109,19 @@ def visualize_errors(out_py, out_c):
         plt.axis("off")
         plt.colorbar(fraction=0.046, pad=0.04, location="bottom")
         plt.subplot(132)
-        plt.imshow(out_c[var][::8].clip(0, 2*m), interpolation="none")
+        plt.imshow(out_c[var][::8].clip(0, 2 * m), interpolation="none")
         plt.title("C")
         plt.axis("off")
         plt.colorbar(fraction=0.046, pad=0.04, location="bottom")
         plt.subplot(133)
-        plt.imshow(out_py[var][::8].clip(0, 2*m), interpolation="none")
+        plt.imshow(out_py[var][::8].clip(0, 2 * m), interpolation="none")
         plt.colorbar(fraction=0.046, pad=0.04, location="bottom")
         plt.title("python")
         plt.axis("off")
-    
+
+
 # helper function to visualize errors - version for bounded parameters
-def visualize_errors_noscale(out_py, out_c):
+def visualize_errors_noclip(out_py, out_c):
     import matplotlib.pyplot as plt
 
     for var in out_py.data_vars:

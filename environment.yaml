@@ -6,24 +6,17 @@ dependencies:
   - python=3.12
   - pytest
   - gdal
-  - rasterio=1.3.11
-  # - rasterio
+  - rasterio
   - pip
   - geopandas
   - pandas
   - ipykernel
-  - ipywidgets
   - black
-  - scikit-image
-  - tqdm
-  - xmltodict
-  - httpx
   - xarray
   - netcdf4
   - rioxarray
-  - numba
   - dask
   - bottleneck
   - jupyter
-  - spectral
   - zarr
+  - pyyaml

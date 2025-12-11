@@ -88,7 +88,7 @@ def PWF(
 
     # remove NaNs to avoid errors in eigh
     mask = box_train.to_array().isnull().any("variable")
-    box_train = box_train.fillna(eps)
+    # box_train = box_train.fillna(eps)
 
     M_box = _reconstruct_matrix_from_ds(box_train).data
     # M = _reconstruct_matrix_from_ds(in_).data

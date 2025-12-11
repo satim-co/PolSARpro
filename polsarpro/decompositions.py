@@ -143,6 +143,10 @@ def h_a_alpha(
     """
 
     # check flags validity
+
+    if not isinstance(flags, tuple):
+        raise ValueError("Flags must be a tuple.")
+
     possible_flags = (
         "entropy",
         "anisotropy",
@@ -338,7 +342,7 @@ def yamaguchi4(
 def tsvm(
     input_data: xr.Dataset,
     boxcar_size: list[int, int] = [3, 3],
-    flags: tuple[str] = ("alpha_phi_tau_psi"),
+    flags: tuple[str] = ("alpha_phi_tau_psi",),
 ) -> xr.Dataset:
     """Applies the TSVM decomposition.
 
@@ -360,6 +364,9 @@ def tsvm(
         Output variables have the same names as in the original PolSARpro C version. "alpha_s", "phi_s", "psi", "tau_m" followed by 1, 2 or 3 in the case of per-eigenvalue parameters.
     """
     # check flags validity
+
+    if not isinstance(flags, tuple):
+        raise ValueError("Flags must be a tuple.")
 
     possible_flags = (
         "alpha_phi_tau_psi",

@@ -145,7 +145,8 @@ def h_a_alpha(
     # check flags validity
 
     if not isinstance(flags, tuple):
-        raise ValueError("Flags must be a tuple.")
+        raise ValueError("'flags' parameter must be a tuple.")
+
 
     possible_flags = (
         "entropy",
@@ -366,7 +367,7 @@ def tsvm(
     # check flags validity
 
     if not isinstance(flags, tuple):
-        raise ValueError("Flags must be a tuple.")
+        raise ValueError("'flags' parameter must be a tuple.")
 
     possible_flags = (
         "alpha_phi_tau_psi",

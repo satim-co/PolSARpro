@@ -92,55 +92,43 @@ def summarize_metrics(
 
     return pd.concat(dfs)
 
-
 # helper function to visualize errors
-def visualize_errors(out_py, out_c):
+def visualize_errors(out_py, out_c, clip=True):
     import matplotlib.pyplot as plt
 
     for var in out_py.data_vars:
         if var not in out_c:
             Warning(f"Skipping variable '{var}'! Not found in C outputs.")
-        m = 0.5 * (np.nanmean(out_py[var]) + np.nanmean(out_c[var]))
+        if np.iscomplexobj(out_py[var]):
+            img_c = np.abs(out_c[var])
+            img_py = np.abs(out_py[var])
+            err = abs(out_py[var] - out_c[var])
+            t_err = "Absolute difference: python - C"
+        else:
+            img_c = out_c[var]
+            img_py = out_py[var]
+            err = out_py[var] - out_c[var]
+            t_err = "Difference: python - C"
+
+        if clip:
+            m = 0.5 * (np.nanmean(img_py) + np.nanmean(img_py))
+            img_c = img_c.clip(0, 2*m) 
+            img_py = img_py.clip(0, 2*m) 
+
         plt.figure(figsize=(10, 6))
         plt.suptitle(var)
         plt.subplot(131)
-        plt.imshow((out_py[var] - out_c[var])[::8], interpolation="none")
-        plt.title("Difference: python - C")
+        plt.imshow(err[::8], interpolation="none")
+        plt.title(t_err)
         plt.axis("off")
         plt.colorbar(fraction=0.046, pad=0.04, location="bottom")
         plt.subplot(132)
-        plt.imshow(out_c[var][::8].clip(0, 2 * m), interpolation="none")
+        plt.imshow(img_c[::8], interpolation="none")
         plt.title("C")
         plt.axis("off")
         plt.colorbar(fraction=0.046, pad=0.04, location="bottom")
         plt.subplot(133)
-        plt.imshow(out_py[var][::8].clip(0, 2 * m), interpolation="none")
-        plt.colorbar(fraction=0.046, pad=0.04, location="bottom")
-        plt.title("python")
-        plt.axis("off")
-
-
-# helper function to visualize errors - version for bounded parameters
-def visualize_errors_noclip(out_py, out_c):
-    import matplotlib.pyplot as plt
-
-    for var in out_py.data_vars:
-        if var not in out_c:
-            Warning(f"Skipping variable '{var}'! Not found in C outputs.")
-        plt.figure(figsize=(10, 6))
-        plt.suptitle(var)
-        plt.subplot(131)
-        plt.imshow((out_py[var] - out_c[var])[::8], interpolation="none")
-        plt.title("Difference: python - C")
-        plt.axis("off")
-        plt.colorbar(fraction=0.046, pad=0.04, location="bottom")
-        plt.subplot(132)
-        plt.imshow(out_c[var][::8], interpolation="none")
-        plt.title("C")
-        plt.axis("off")
-        plt.colorbar(fraction=0.046, pad=0.04, location="bottom")
-        plt.subplot(133)
-        plt.imshow(out_py[var][::8], interpolation="none")
+        plt.imshow(img_py[::8], interpolation="none")
         plt.colorbar(fraction=0.046, pad=0.04, location="bottom")
         plt.title("python")
         plt.axis("off")

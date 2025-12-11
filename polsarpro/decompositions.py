@@ -67,6 +67,11 @@ def freeman(
     # pre-processing step, it is recommended to filter the matrices to mitigate speckle effects
     in_ = boxcar(in_, boxcar_size[0], boxcar_size[1])
 
+    # remove NaNs
+    eps=1e-30
+    mask = in_.to_array().isnull().any("variable")
+    in_ = in_.fillna(eps)
+
     out = _compute_freeman_components(in_)
     return xr.Dataset(
         # add dimension names
@@ -76,7 +81,7 @@ def freeman(
             description="Results of the Freeman-Durden decomposition.",
         ),
         coords=input_data.coords,
-    )
+    ).where(~mask)
 
 
 def h_a_alpha(

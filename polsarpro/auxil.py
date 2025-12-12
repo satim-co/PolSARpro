@@ -209,3 +209,4 @@ def validate_dataset(
                 raise ValueError(
                     f"Variable '{v}': expected {expected_dtype} dtype, but found {ds[v].dtype}."
                 )
+    return ds.poltype

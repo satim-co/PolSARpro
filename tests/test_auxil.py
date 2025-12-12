@@ -33,30 +33,30 @@ def make_dataset(poltype: str, wrong_dtype: bool = False, desc: str | None = Non
 def test_valid_datasets_pass(poltype):
     ds = make_dataset(poltype)
     # Should not raise
-    validate_dataset(ds, allowed_poltypes=poltype)
+    _ = validate_dataset(ds, allowed_poltypes=poltype)
 
 
 def test_invalid_poltype_raises():
     ds = make_dataset("INVALID")
     with pytest.raises(ValueError, match=f"Unsupported poltype"):
-        validate_dataset(ds, allowed_poltypes=("S", "T3", "C4"))
+        _ = validate_dataset(ds, allowed_poltypes=("S", "T3", "C4"))
 
 
 def test_missing_variable_raises():
     ds = make_dataset("S")
     ds = ds.drop_vars("hh")
     with pytest.raises(ValueError, match=f"Dataset is missing required variable: 'hh'"):
-        validate_dataset(ds, allowed_poltypes="S")
+        _ = validate_dataset(ds, allowed_poltypes="S")
 
 
 def test_wrong_dtype_detected():
     ds = make_dataset("T3", wrong_dtype=True)
     with pytest.raises(ValueError, match="dtype"):
-        validate_dataset(ds, allowed_poltypes="T3", check_dtypes=True)
+        _ = validate_dataset(ds, allowed_poltypes="T3", check_dtypes=True)
 
 
 def test_skip_checks_allows_pass():
     # Wrong dtype, but skip dtype check
     ds = make_dataset("T3", wrong_dtype=True)
     # Should not raise
-    validate_dataset(ds, allowed_poltypes="T3", check_dtypes=False)
+    _ = validate_dataset(ds, allowed_poltypes="T3", check_dtypes=False)

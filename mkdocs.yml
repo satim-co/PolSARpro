@@ -4,15 +4,23 @@ repo_name: 'satim-co/PolSARpro'
 nav:
   - Home: index.md
   - Tutorials:
-    - quickstart: quickstart-tutorial.ipynb
-    - h-a-alpha: h-a-alpha-tutorial.ipynb
+    - Quickstart: quickstart-tutorial.ipynb
+    - Decompositions:
+      - freeman: freeman-tutorial.ipynb
+      - h-a-alpha: h-a-alpha-tutorial.ipynb
+      - tsvm: tsvm-tutorial.ipynb
+      - vanzyl: vanzyl-tutorial.ipynb
+      - yamaguchi3: yamaguchi3-tutorial.ipynb
+      - yamaguchi4: yamaguchi4-tutorial.ipynb
+    - Speckle filters:
+      - refined-lee: refined-lee-tutorial.ipynb
+      - pwf: pwf-tutorial.ipynb
   - API reference: 
     - Decompositions: decompositions.md
+    - Speckle Filters: speckle_filters.md
     - Utilities: util.md
     - Inputs/Outputs: io.md
   - Theory: theory.md
-  # - Theory:
-    # - H/A/Alpha decomposition: h_a_alpha_for_docs.html
 
 theme:
   name: material

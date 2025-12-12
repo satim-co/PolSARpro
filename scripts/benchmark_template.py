@@ -23,7 +23,7 @@ test_path = "/data/psp/test_files/test.zarr"
 slc = open_netcdf_beam(input_alos_slc)
 for _ in range(n_runs):
     start_time = time.perf_counter()
-    res_slc = h_a_alpha(slc, boxcar_size=[7 ,7]).compute()
+    res_slc = h_a_alpha(slc, boxcar_size=[7, 7]).compute()
     end_time = time.perf_counter()
     total_time = end_time - start_time
-    print(f'Function took {total_time:.4f} seconds')
+    print(f"Function took {total_time:.4f} seconds")

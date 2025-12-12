@@ -12,13 +12,13 @@ _"Re-implementation of selected PolSARpro functions in Python, following the sci
 ### Install from conda-forge (recommended)
 This is the simplest and most reliable installation method.
 
-1. Install the `conda` package manager (recommended: **miniforge**).
-2. Create a dedicated environment to avoid dependency conflicts:
+- Install the `conda` package manager (recommended: **miniforge**).
+- Create a dedicated environment to avoid dependency conflicts:
 ```bash
 conda create -n polsarpro
 conda activate polsarpro
 ```
-3. Install the package from the `conda-forge` channel:
+- Install the package from the `conda-forge` channel:
 ```bash
 conda install conda-forge::polsarpro
 ```
@@ -28,18 +28,18 @@ conda install conda-forge::polsarpro
 ### Install with conda using a cloned repository
 Choose this approach if you want access to the source code.
 
-1. Clone the repository from GitHub and move into the project root.
-2. Install `conda` (recommended: **miniforge**).
-3. Create and activate the environment:  
+- Clone the repository from GitHub and move into the project root.
+- Install `conda` (recommended: **miniforge**).
+- Create and activate the environment:  
 ```bash
 conda env create -f environment.yaml
 conda activate psp
 ```
-4. Add the toolbox to your `PYTHONPATH`:    
+- Add the toolbox to your `PYTHONPATH`:    
 ```bash
 export PYTHONPATH="${PYTHONPATH}:/mypath/to/polsarpro/source"
 ```
-5. To verify the installation, run `pytest` from the main directory. All tests should pass.
+- To verify the installation, run `pytest` from the main directory. All tests should pass.
 
 ---
 

@@ -14,14 +14,14 @@ This is the simplest and most reliable installation method.
 
 1. Install the `conda` package manager (recommended: **miniforge**).
 2. Create a dedicated environment to avoid dependency conflicts:
-   ```bash
-   conda create -n polsarpro
-   conda activate polsarpro
-   ```
+```bash
+conda create -n polsarpro
+conda activate polsarpro
+```
 3. Install the package from the `conda-forge` channel:
-   ```bash
-   conda install conda-forge::polsarpro
-   ```
+```bash
+conda install conda-forge::polsarpro
+```
 
 ---
 
@@ -30,15 +30,15 @@ Choose this approach if you want access to the source code.
 
 1. Clone the repository from GitHub and move into the project root.
 2. Install `conda` (recommended: **miniforge**).
-3. Create and activate the environment:
-   ```bash
-   conda env create -f environment.yaml
-   conda activate psp
-   ```
-4. Add the toolbox to your `PYTHONPATH`:
-   ```bash
-   export PYTHONPATH="${PYTHONPATH}:/mypath/to/polsarpro/source"
-   ```
+3. Create and activate the environment:  
+```bash
+conda env create -f environment.yaml
+conda activate psp
+```
+4. Add the toolbox to your `PYTHONPATH`:    
+```bash
+export PYTHONPATH="${PYTHONPATH}:/mypath/to/polsarpro/source"
+```
 5. To verify the installation, run `pytest` from the main directory. All tests should pass.
 
 ---
@@ -49,7 +49,7 @@ These instructions are intended for contributors or advanced users who want to w
 
 ### VSCode Devcontainer
 - Provides a ready-to-use environment for development and testing.
-- Includes the C version of PolSARpro for running native decompositions.
+- Includes the C version of PolSARpro for running the legacy version.
 - Requires placing the official PolSARpro ZIP archive in the project root before building the container.
 - Requires Docker and Docker Compose.
 

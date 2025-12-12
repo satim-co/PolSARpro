@@ -1,3 +1,19 @@
+# 2025.12.2
+## Features
+- Freeman-Durden decomposition
+- Yamaguchi 4 & 3 component decompositions
+- Touzi's TSVM decomposition 
+- Van Zyl (1992) 3 component decomposition
+- Refined Lee speckle filter 
+- PWF (Polarimetric Whitening Filter)
+- New function: `polmat_to_netcdf` to write polarimetric matrices to NetCDF files (complex values are not natively handled in NetCDF ). Files written with this function can be read with `open_netcdf_beam`
+- PolSARPro is now available as a package on the conda-forge channel
+- Updated San Francisco ALOS-1 datasets with the latest JAXA version. Data will be distributed on STEP.
+## Improvements 
+- Function for automatic data generation to test more polarimetric types for each algorithm (unit tests)
+- Add test notebooks for all decompositions for geocoded data 
+- Protecting decompositions against division by zero warnings when using geocoded data 
+
 # 2025.12.1
 ## Bugfixes
 - Updated `pyptoject.toml` for conda-forge packaging.

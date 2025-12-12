@@ -2,39 +2,72 @@
 
 _"Re-implementation of selected PolSARpro functions in Python, following the scientific recommendations of PolInSAR 2021 (Work In Progress)."_
 
-## Installation guidelines
-- Clone the repository and choose one of the install options below. 
+## Installation Guidelines
 
-### Install with conda package manager (recommended)
+### Install from conda-forge (recommended)
+This is the simplest and most reliable installation method.
 
-- Install conda (recommended: miniforge)
-- Create and activate the environment
+1. Install the `conda` package manager (recommended: **miniforge**).
+2. Create a dedicated environment to avoid dependency conflicts:
+   ```bash
+   conda create -n polsarpro
+   conda activate polsarpro
+   ```
+3. Install the package from the `conda-forge` channel:
+   ```bash
+   conda install conda-forge::polsarpro
+   ```
+
+---
+
+### Install with conda using a cloned repository
+Choose this approach if you want access to the source code.
+
+1. Clone the repository from GitHub and move into the project root.
+2. Install `conda` (recommended: **miniforge**).
+3. Create and activate the environment:
+   ```bash
+   conda env create -f environment.yaml
+   conda activate psp
+   ```
+4. Add the toolbox to your `PYTHONPATH`:
+   ```bash
+   export PYTHONPATH="${PYTHONPATH}:/mypath/to/polsarpro/source"
+   ```
+5. To verify the installation, run `pytest` from the main directory. All tests should pass.
+
+---
+
+## Development Environment (optional)
+
+These instructions are intended for contributors or advanced users who want to work with the project's development tooling. They rely on a Docker configuration that mirrors the maintainer’s own setup and may require adjustments depending on your environment.
+
+### VSCode Devcontainer
+- Provides a ready-to-use environment for development and testing.
+- Includes the C version of PolSARpro for running native decompositions.
+- Requires placing the official PolSARpro ZIP archive in the project root before building the container.
+- Requires Docker and Docker Compose.
+
+Steps:
+1. Adjust volume paths in `docker-compose.yml` to match your system.
+2. Open the project in VSCode.
+3. Use **Rebuild and Reopen in Container** (Ctrl+Shift+P / Cmd+Shift+P) to launch the devcontainer.
+
+### Running the Docker container outside VSCode
+- Intended only for users comfortable managing containers manually.
+- Requires adjusting `docker-compose.yml` first.
+
+Commands:
 ```bash
-conda env create -f environment.yaml
-conda activate psp 
+docker compose up -d
+docker compose down
 ```
-- Add the toolbox path to `PYTHONPATH`
-```bash
-export PYTHONPATH="${PYTHONPATH}:/mypath/to/polsarpo/source"
-```
-- To check that the module is working, `pytest` can be run from the main directory. All tests should pass.
 
-### Install as a devcontainer in VSCode
+---
 
-- This method is recommended for development or advanced users who are familiar with docker.
-- Moreover jupyter notebooks are also supported directly in VSCode.
-- For development purposes, the docker container installs the C version of PolSARpro. This makes it possible to run the different decompositions from the command line, e.g. `freeman_decomposition.exe` to process some data and compare its outputs with the ones of the python version.
-- To build the container, it is required to download the zip file of the original PolSARpro in the main directory. This file can be found at https://ietr-lab.univ-rennes1.fr/polsarpro-bio/Linux/PolSARpro_v6.0.4_Biomass_Edition_Linux_Installer_20250122.zip
-- This assumes `docker` and `docker compose` are installed on your system.
-- Edit `docker-compose.yml` to set volume paths that suit your needs. 
-- Open the directory in VSCode
-- Then Ctrl-Shift-P (Cmd-Shift-P on Mac) and look for `Rebuild and reopen in container`. This will build the dev container and the development environment may be used.
+## Getting Started
 
-### Run the docker container without VSCode (untested)
-- This assumes `docker` and `docker compose` are installed on your system.
-- Edit `docker-compose.yml` to set volume paths that suit your needs. 
-- From the main directory type `docker compose up -d`
-- To stop the container `docker compose down`
+Read the tutorial:  
+https://polsarpro.readthedocs.io/en/latest/quickstart-tutorial/
 
-## Getting started
-Read this [tutorial](https://polsarpro.readthedocs.io/en/latest/quickstart-tutorial/) or use the tutorial notebook in the `notebooks/folder`.
+Or open the tutorial notebook in the `notebooks/` directory.

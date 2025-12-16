@@ -1253,3 +1253,59 @@ def _compute_vanzyl_components(C3):
     Pd = da.where(Pd <= min_span, min_span, da.where(Pd > max_span, max_span, Pd))
     Pv = da.where(Pv <= min_span, min_span, da.where(Pv > max_span, max_span, Pv))
     return {"odd": Ps, "double": Pd, "volume": Pv}
+
+
+def cameron(
+    input_data: xr.Dataset,
+) -> xr.Dataset:
+    """Applies the Cameron decomposition.
+
+    Args:
+        input_data (xr.Dataset): Input image of type Sinclair (S) matrix.
+
+    Returns:
+        xr.Dataset: Mechanism class.
+    """
+
+    allowed_poltypes = "S"
+    poltype = validate_dataset(input_data, allowed_poltypes=allowed_poltypes)
+
+    in_ = input_data.astype("complex64", copy=False)
+
+    # remove NaNs
+    eps = 1e-30
+    mask = in_.to_array().isnull().any("variable")
+    in_ = in_.fillna(eps)
+
+    out = _compute_cameron(in_)
+    return xr.Dataset(
+        # add dimension names
+        {k: (tuple(input_data.dims), v) for k, v in out.items()},
+        attrs=dict(
+            poltype="freeman",
+            description="Results of the Freeman-Durden decomposition.",
+        ),
+        coords=input_data.coords,
+    ).where(~mask)
+
+
+def _compute_cameron(S):
+    Shh = S.hh.data
+    Svv = S.vv.data
+    Shv = 0.5 * (S.hv.data + S.vh.data)
+
+    # TODO better variable names
+    r2 = da.sqrt(2)
+
+    alpha = (Shh + Svv) / r2
+    beta = (Shh - Svv) / r2
+    gamma = Shv * r2
+
+    alpham2 = (alpha * alpha.conj()).real
+    betam2 = (beta * beta.conj()).real
+    gammam2 = (gamma * gamma.conj()).real
+
+    reelle = 2 * (beta.real * gamma.real + beta.imag * gamma.imag)
+    diff_abs = betam2 - gammam2
+
+    # TODO continue

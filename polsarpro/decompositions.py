@@ -1282,14 +1282,15 @@ def cameron(
         # add dimension names
         {k: (tuple(input_data.dims), v) for k, v in out.items()},
         attrs=dict(
-            poltype="freeman",
-            description="Results of the Freeman-Durden decomposition.",
+            poltype="cameron",
+            description="Results of the Cameron decomposition.",
         ),
         coords=input_data.coords,
     ).where(~mask)
 
 
 def _compute_cameron(S):
+    eps = 1e-30
     Shh = S.hh.data
     Svv = S.vv.data
     Shv = 0.5 * (S.hv.data + S.vh.data)
@@ -1308,4 +1309,114 @@ def _compute_cameron(S):
     reelle = 2 * (beta.real * gamma.real + beta.imag * gamma.imag)
     diff_abs = betam2 - gammam2
 
-    # TODO continue
+    tol = (alpham2 + betam2 + gammam2) * eps
+
+    # magnitude used several times
+    den = da.sqrt(reelle**2 + diff_abs**2)
+    den = da.where(den > eps, den, eps)
+
+    # primary condition
+    is_zero = (da.fabs(reelle) < tol) & (da.fabs(diff_abs) < tol)
+
+    # sin and cos of Xi
+    sinXi = reelle / den
+    cosXi = diff_abs / den
+
+    # angle when not zero
+    Xi_nonzero = da.where(
+        cosXi > 0,
+        da.arcsin(sinXi),
+        da.pi - da.arcsin(sinXi),
+    )
+
+    # final Xi
+    Xi = da.where(is_zero, 0.0, Xi_nonzero)
+
+    c = da.cos(Xi / 2.0)
+    s = da.sin(Xi / 2.0)
+
+    # epsilon
+    epsilon = (1.0 / r2) * (c * (Shh - Svv) + s * 2.0 * Shv)
+
+    # scattering matrix elements
+    SMhh = (1.0 / r2) * (alpha + c * epsilon)
+    SMvv = (1.0 / r2) * (alpha - c * epsilon)
+    SMhv = (1.0 / r2) * (s * epsilon)
+
+    Psimax = -Xi / 4.0
+
+    # Frobenius norms of S and SM
+    norm_S = da.sqrt(da.abs(Shh) ** 2 + 2.0 * da.abs(Shv) ** 2 + da.abs(Svv) ** 2)
+
+    norm_SM = da.sqrt(da.abs(SMhh) ** 2 + 2.0 * da.abs(SMhv) ** 2 + da.abs(SMvv) ** 2)
+
+    norm = norm_S * norm_SM
+
+    # complex scalar product <S, SM>
+    prod = Shh * da.conj(SMhh) + 2.0 * Shv * da.conj(SMhv) + Svv * da.conj(SMvv)
+
+    # angle tau
+
+    tau = da.arccos(da.abs(prod) / norm)
+
+    # --- case tau < pi/8
+    cp = np.cos(Psimax)
+    sp = np.sin(Psimax)
+    s2p = np.sin(2 * Psimax)
+
+    ssm1 = cp**2 * SMhh - s2p * Shv + sp**2 * SMvv
+    ssm2 = sp**2 * SMhh + s2p * Shv + sp**2 * SMvv
+
+    pow_ssm1 = da.real(ssm1 * ssm1.conj())
+    pow_ssm2 = da.real(ssm2 * ssm2.conj())
+
+    cnd1 = pow_ssm1 >= pow_ssm2
+
+    z = da.where(
+        cnd1,
+        ssm2 * da.conj(ssm1) / pow_ssm1,
+        ssm1 * da.conj(ssm2) / pow_ssm2,
+    )
+
+    Psimax = da.where(cnd1, Psimax, Psimax + da.pi / 2.0)
+    Psimax = da.mod(Psimax, 2.0 * da.pi)
+
+    zr = z.real
+    zi = z.imag
+    pow_z = da.real(z * z.conj())
+    den2 = 1.0 + pow_z
+
+    c_plan = da.sqrt((1 + zr) ** 2 + zi**2) / da.sqrt(2 * den2)
+    c_diedre = da.sqrt((1 - zr) ** 2 + zi**2) / da.sqrt(2 * den2)
+    c_dipole = 1.0 / da.sqrt(den2)
+    c_cylindre = da.sqrt((1 - zr / 2) ** 2 + zi**2 / 4) / da.sqrt(5 / 4 * den2)
+    c_diedre_etroit = da.sqrt((1 + zr / 2) ** 2 + zi**2 / 4) / da.sqrt(5 / 4 * den2)
+    c_quartp = da.sqrt((1 + zi) ** 2 + zr**2) / da.sqrt(2 * den2)
+    c_quartm = da.sqrt((1 - zi) ** 2 + zr**2) / da.sqrt(2 * den2)
+
+    # mechanisme classification
+    stack = da.stack(
+        [
+            c_plan,
+            c_diedre,
+            c_dipole,
+            c_cylindre,
+            c_diedre_etroit,
+            da.maximum(c_quartp, c_quartm),
+        ]
+    )
+
+    cls_tau = da.argmax(stack, axis=0) + 1
+
+    # --- case where tau >= pi/8
+    c_hel_g = da.abs(Shh - Svv + 2j * Shv) / (2.0 * norm_S)
+    c_hel_d = da.abs(Shh - Svv - 2j * Shv) / (2.0 * norm_S)
+
+    cls_hel = da.where(c_hel_g > c_hel_d, 7, 8)
+
+    # --- combining the two possible cases
+    out = da.zeros_like(Shh, dtype=da.int32)
+    mask_tau = tau < (da.pi / 8.0)
+    out = da.where(mask_tau, cls_tau, cls_hel)
+
+    return {"cameron": out}

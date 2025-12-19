@@ -1,4 +1,4 @@
-# PolSARPro
+# (Py)PolSARPro
 
 _"Re-implementation of selected PolSARpro functions in Python, following the scientific recommendations of PolInSAR 2021 (Work In Progress)."_
 

@@ -48,14 +48,22 @@ import sys, json, os
 import numpy as np
 import matplotlib
 import rasterio
+from pathlib import Path
 
 def extractFullResolutionCOG(biomassImagePath):
 
-    biomassPath = biomassImagePath.lower()
-    biomassPath = biomassPath[-80:]
-    biomassPath = biomassPath[:70]
-    biomassDataAbsPath = os.path.join(biomassImagePath,"measurement",biomassPath + "_i_abs.tiff")
-    biomassDataPhasePath = os.path.join(biomassImagePath,"measurement",biomassPath + "_i_phase.tiff")
+    # biomassPath = biomassImagePath.lower()
+    # biomassPath = biomassPath[-80:]
+    # biomassPath = biomassPath[:70]
+
+    str_tiff_abs = f"**/measurement/*_abs.tiff"
+    str_tiff_phase = f"**/measurement/*_phase.tiff"
+
+    biomassPath = Path(biomassImagePath)
+    biomassDataAbsPath = list(biomassPath.glob(str_tiff_abs))[0]
+    # biomassDataAbsPath = os.path.join(biomassImagePath,"measurement",biomassPath + "_i_abs.tiff")
+    biomassDataPhasePath = list(biomassPath.glob(str_tiff_phase))[0] 
+    # biomassDataPhasePath = os.path.join(biomassImagePath,"measurement",biomassPath + "_i_phase.tiff")
     biomassDataOutputPolSARproPath = os.path.join(biomassImagePath,"polsarpro")
 
     try:

@@ -12,6 +12,7 @@ nav:
       - vanzyl: vanzyl-tutorial.ipynb
       - yamaguchi3: yamaguchi3-tutorial.ipynb
       - yamaguchi4: yamaguchi4-tutorial.ipynb
+      - cameron: cameron-tutorial.ipynb
     - Speckle filters:
       - refined-lee: refined-lee-tutorial.ipynb
       - pwf: pwf-tutorial.ipynb

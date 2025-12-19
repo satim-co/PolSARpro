@@ -8,6 +8,7 @@ from polsarpro.decompositions import (
     yamaguchi4,
     tsvm,
     vanzyl,
+    cameron,
 )
 from polsarpro.util import vec_to_mat
 
@@ -238,3 +239,16 @@ def test_vanzyl(synthetic_poldata):
         shp = ds[var].shape
         assert all((res[it].shape == shp for it in ["odd", "double", "volume"]))
         assert all((res[it].dtype == "float32" for it in ["odd", "double", "volume"]))
+
+
+@pytest.mark.parametrize("synthetic_poldata", ["S"], indirect=True)
+def test_cameron(synthetic_poldata):
+    input_data = synthetic_poldata
+
+    for _, ds in input_data.items():
+        input_data = ds.chunk(x=64, y=64)
+        res = cameron(input_data=input_data)
+        var = "hh" if "hh" in ds.data_vars else "m11"
+        shp = ds[var].shape
+        assert res["cameron"].shape == shp
+        assert res["cameron"].dtype == "int32"

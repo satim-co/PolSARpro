@@ -1416,7 +1416,7 @@ def _compute_cameron(S):
     cls_hel = da.where(c_hel_g > c_hel_d, da.int32(7), da.int32(8))
 
     # --- combining the two possible cases
-    out = da.zeros_like(Shh, dtype=da.int32)
+    out = da.zeros_like(cls_tau, dtype=da.int32)
     mask_tau = tau < (da.pi / 8.0)
     out = da.where(mask_tau, cls_tau, cls_hel)
 

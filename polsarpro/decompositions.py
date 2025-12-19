@@ -1302,67 +1302,64 @@ def _compute_cameron(S):
     beta = (Shh - Svv) / r2
     gamma = Shv * r2
 
-    alpham2 = (alpha * alpha.conj()).real
-    betam2 = (beta * beta.conj()).real
-    gammam2 = (gamma * gamma.conj()).real
+    pow_alpha = (alpha * alpha.conj()).real
+    pow_beta = (beta * beta.conj()).real
+    pow_gamma = (gamma * gamma.conj()).real
 
-    reelle = 2 * (beta.real * gamma.real + beta.imag * gamma.imag)
-    diff_abs = betam2 - gammam2
+    real = 2 * (beta.real * gamma.real + beta.imag * gamma.imag)
+    diff_abs = pow_beta - pow_gamma
 
-    tol = (alpham2 + betam2 + gammam2) * eps
+    tol = (pow_alpha + pow_beta + pow_gamma) * eps
 
     # magnitude used several times
-    den = da.sqrt(reelle**2 + diff_abs**2)
+    den = da.sqrt(real**2 + diff_abs**2)
     den = da.where(den > eps, den, eps)
 
     # primary condition
-    is_zero = (da.fabs(reelle) < tol) & (da.fabs(diff_abs) < tol)
+    is_zero = (da.fabs(real) < tol) & (da.fabs(diff_abs) < tol)
 
-    sinXi = reelle / den
-    cosXi = diff_abs / den
+    sin_xi = real / den
+    cos_xi = diff_abs / den
 
     # angle when not zero
-    Xi_nonzero = da.where(
-        cosXi > 0,
-        da.arcsin(sinXi),
-        da.pi - da.arcsin(sinXi),
+    xi_nonzero = da.where(
+        cos_xi > 0,
+        da.arcsin(sin_xi),
+        da.pi - da.arcsin(sin_xi),
     )
 
     # final Xi
-    Xi = da.where(is_zero, 0.0, Xi_nonzero)
+    xi = da.where(is_zero, 0.0, xi_nonzero)
 
-    c = da.cos(Xi / 2.0)
-    s = da.sin(Xi / 2.0)
+    c = da.cos(xi / 2.0)
+    s = da.sin(xi / 2.0)
 
-    # epsilon
     epsilon = (1.0 / r2) * (c * (Shh - Svv) + s * 2.0 * Shv)
 
-    # scattering matrix elements
     SMhh = (1.0 / r2) * (alpha + c * epsilon)
     SMvv = (1.0 / r2) * (alpha - c * epsilon)
     SMhv = (1.0 / r2) * (s * epsilon)
 
-    Psimax = -Xi / 4.0
+    psi_max = -xi / 4.0
 
-    # Frobenius norms of S and SM
+    # norms of S and SM
     norm_S = da.sqrt(da.abs(Shh) ** 2 + 2.0 * da.abs(Shv) ** 2 + da.abs(Svv) ** 2)
-
     norm_SM = da.sqrt(da.abs(SMhh) ** 2 + 2.0 * da.abs(SMhv) ** 2 + da.abs(SMvv) ** 2)
-
     norm = norm_S * norm_SM
     norm = da.where(norm > eps, norm, eps)
 
     # complex scalar product <S, SM>
     prod = Shh * da.conj(SMhh) + 2.0 * Shv * da.conj(SMhv) + Svv * da.conj(SMvv)
 
-    # angle tau
+    # avoid invalid values in arccos
     arg_acos = da.clip(da.abs(prod) / norm, -1, 1)
+    # angle tau
     tau = da.arccos(arg_acos)
 
     # --- case tau < pi/8
-    cp = np.cos(Psimax)
-    sp = np.sin(Psimax)
-    s2p = np.sin(2 * Psimax)
+    cp = np.cos(psi_max)
+    sp = np.sin(psi_max)
+    s2p = np.sin(2 * psi_max)
 
     ssm1 = cp**2 * SMhh - s2p * Shv + sp**2 * SMvv
     ssm2 = sp**2 * SMhh + s2p * Shv + cp**2 * SMvv
@@ -1378,31 +1375,31 @@ def _compute_cameron(S):
         ssm1 * da.conj(ssm2) / pow_ssm2,
     )
 
-    Psimax = da.where(cnd1, Psimax, Psimax + da.pi / 2.0)
-    Psimax = da.fmod(Psimax, 2.0 * da.pi)
+    psi_max = da.where(cnd1, psi_max, psi_max + da.pi / 2.0)
+    psi_max = da.fmod(psi_max, 2.0 * da.pi)
 
     zr = z.real
     zi = z.imag
     pow_z = da.real(z * z.conj())
     den2 = 1.0 + pow_z
 
-    c_plan = da.sqrt((1 + zr) ** 2 + zi**2) / da.sqrt(2 * den2)
-    c_diedre = da.sqrt((1 - zr) ** 2 + zi**2) / da.sqrt(2 * den2)
-    c_dipole = 1.0 / da.sqrt(den2)
-    c_cylindre = da.sqrt((1 - zr / 2) ** 2 + zi**2 / 4) / da.sqrt(5 / 4 * den2)
-    c_diedre_etroit = da.sqrt((1 + zr / 2) ** 2 + zi**2 / 4) / da.sqrt(5 / 4 * den2)
-    c_quartp = da.sqrt((1 + zi) ** 2 + zr**2) / da.sqrt(2 * den2)
-    c_quartm = da.sqrt((1 - zi) ** 2 + zr**2) / da.sqrt(2 * den2)
+    plane = da.sqrt((1 + zr) ** 2 + zi**2) / da.sqrt(2 * den2)
+    dihedral = da.sqrt((1 - zr) ** 2 + zi**2) / da.sqrt(2 * den2)
+    dipole = 1.0 / da.sqrt(den2)
+    cylinder = da.sqrt((1 - zr / 2) ** 2 + zi**2 / 4) / da.sqrt(5 / 4 * den2)
+    narrow_dip = da.sqrt((1 + zr / 2) ** 2 + zi**2 / 4) / da.sqrt(5 / 4 * den2)
+    quartp = da.sqrt((1 + zi) ** 2 + zr**2) / da.sqrt(2 * den2)
+    quartm = da.sqrt((1 - zi) ** 2 + zr**2) / da.sqrt(2 * den2)
 
-    # mechanisme classification
+    # mechanism classification
     stack = da.stack(
         [
-            c_plan,
-            c_diedre,
-            c_dipole,
-            c_cylindre,
-            c_diedre_etroit,
-            da.maximum(c_quartp, c_quartm),
+            plane,
+            dihedral,
+            dipole,
+            cylinder,
+            narrow_dip,
+            da.maximum(quartp, quartm),
         ]
     )
 

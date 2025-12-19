@@ -2,8 +2,8 @@
 
 _"Re-implementation of selected PolSARpro functions in Python, following the scientific recommendations of PolInSAR 2021 (Work In Progress)."_
 
-- Source code on GitHub: https://github.com/satim-co/PolSARpro/
-- Documentation on ReadTheDocs: https://polsarpro.readthedocs.io/
+- [Source code](https://github.com/satim-co/PolSARpro/)
+- [Documentation](https://polsarpro.readthedocs.io/)
 
 [![Conda Version](https://img.shields.io/conda/vn/conda-forge/polsarpro.svg)](https://anaconda.org/conda-forge/polsarpro) [![Conda Downloads](https://img.shields.io/conda/dn/conda-forge/polsarpro.svg)](https://anaconda.org/conda-forge/polsarpro)  
 

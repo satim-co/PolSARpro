@@ -1286,7 +1286,7 @@ def cameron(
             description="Results of the Cameron decomposition.",
         ),
         coords=input_data.coords,
-    )#.where(~mask)
+    )  # .where(~mask)
 
 
 def _compute_cameron(S):
@@ -1318,7 +1318,6 @@ def _compute_cameron(S):
     # primary condition
     is_zero = (da.fabs(reelle) < tol) & (da.fabs(diff_abs) < tol)
 
-    # sin and cos of Xi
     sinXi = reelle / den
     cosXi = diff_abs / den
 
@@ -1351,13 +1350,14 @@ def _compute_cameron(S):
     norm_SM = da.sqrt(da.abs(SMhh) ** 2 + 2.0 * da.abs(SMhv) ** 2 + da.abs(SMvv) ** 2)
 
     norm = norm_S * norm_SM
+    norm = da.where(norm > eps, norm, eps)
 
     # complex scalar product <S, SM>
     prod = Shh * da.conj(SMhh) + 2.0 * Shv * da.conj(SMhv) + Svv * da.conj(SMvv)
 
     # angle tau
-
-    tau = da.arccos(da.abs(prod) / norm)
+    arg_acos = da.clip(da.abs(prod) / norm, -1, 1)
+    tau = da.arccos(arg_acos)
 
     # --- case tau < pi/8
     cp = np.cos(Psimax)
@@ -1365,7 +1365,7 @@ def _compute_cameron(S):
     s2p = np.sin(2 * Psimax)
 
     ssm1 = cp**2 * SMhh - s2p * Shv + sp**2 * SMvv
-    ssm2 = sp**2 * SMhh + s2p * Shv + sp**2 * SMvv
+    ssm2 = sp**2 * SMhh + s2p * Shv + cp**2 * SMvv
 
     pow_ssm1 = da.real(ssm1 * ssm1.conj())
     pow_ssm2 = da.real(ssm2 * ssm2.conj())
@@ -1379,7 +1379,7 @@ def _compute_cameron(S):
     )
 
     Psimax = da.where(cnd1, Psimax, Psimax + da.pi / 2.0)
-    Psimax = da.mod(Psimax, 2.0 * da.pi)
+    Psimax = da.fmod(Psimax, 2.0 * da.pi)
 
     zr = z.real
     zi = z.imag
@@ -1410,12 +1410,22 @@ def _compute_cameron(S):
     cls_tau = cls_tau.astype(da.int32)
 
     # --- case where tau >= pi/8
-    c_hel_g = da.abs(Shh - Svv + 2j * Shv) / (2.0 * norm_S)
-    c_hel_d = da.abs(Shh - Svv - 2j * Shv) / (2.0 * norm_S)
+
+    norm_S = da.where(norm_S > eps, norm_S, eps)
+
+    p_r = Shh.real + 2*Shv.imag - Svv.real 
+    p_i = -Shh.imag + 2*Shv.real - Svv.imag 
+    c_hel_g = da.sqrt(p_r**2 + p_i**2) / (2 * norm_S)
+
+
+    p_r = Shh.real - 2*Shv.imag - Svv.real 
+    p_i = -Shh.imag - 2*Shv.real - Svv.imag 
+    c_hel_d = da.sqrt(p_r**2 + p_i**2) / (2 * norm_S)
 
     cls_hel = da.where(c_hel_g > c_hel_d, da.int32(7), da.int32(8))
 
     # --- combining the two possible cases
+
     out = da.zeros_like(cls_tau, dtype=da.int32)
     mask_tau = tau < (da.pi / 8.0)
     out = da.where(mask_tau, cls_tau, cls_hel)

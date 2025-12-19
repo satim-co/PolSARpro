@@ -1286,7 +1286,7 @@ def cameron(
             description="Results of the Cameron decomposition.",
         ),
         coords=input_data.coords,
-    ).where(~mask)
+    )#.where(~mask)
 
 
 def _compute_cameron(S):
@@ -1407,12 +1407,13 @@ def _compute_cameron(S):
     )
 
     cls_tau = da.argmax(stack, axis=0) + 1
+    cls_tau = cls_tau.astype(da.int32)
 
     # --- case where tau >= pi/8
     c_hel_g = da.abs(Shh - Svv + 2j * Shv) / (2.0 * norm_S)
     c_hel_d = da.abs(Shh - Svv - 2j * Shv) / (2.0 * norm_S)
 
-    cls_hel = da.where(c_hel_g > c_hel_d, 7, 8)
+    cls_hel = da.where(c_hel_g > c_hel_d, da.int32(7), da.int32(8))
 
     # --- combining the two possible cases
     out = da.zeros_like(Shh, dtype=da.int32)

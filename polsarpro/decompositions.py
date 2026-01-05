@@ -515,7 +515,6 @@ def vanzyl(
 
 # below this line, functions are not meant to be called directly
 
-
 def _compute_h_a_alpha_parameters_C2(l, v, flags):
 
     eps = 1e-30

@@ -512,6 +512,34 @@ def _boxcar_core(img: np.ndarray, dim_az: int, dim_rg: int) -> np.ndarray:
 #     return res
 
 
+def multilook(input_data: xr.Dataset, dim_az: int = 2, dim_rg: int = 2) -> xr.Dataset:
+    """Apply multilooking to polarimetric matrices.
+    Args:
+        input_data (xr.Dataset): Input PolSARpro Dataset.
+        dim_az (int): Multilook dimension in azimuth.
+        dim_rg (int): Multilook dimension in range.
+    Returns:
+        xr.Dataset: Multilooked PolSARpro Dataset.
+    Note:
+        The input dataset must be in the SAR geometry (i.e. have 'y' and 'x' coordinates).
+    """
+
+    if type(dim_az) != int and type(dim_rg) != int:
+        raise ValueError("dimaz and dimrg must be integers")
+
+    if (dim_az < 1) or (dim_rg < 1):
+        raise ValueError("dimaz and dimrg must be strictly positive")
+
+    if not {"y", "x"}.issubset(set(input_data.coords)):
+        raise ValueError(
+            "Multilooking requires images in the SAR geometry. 'y' and 'x' must be present in the coordinates. For geocoded data, please use xarray.coarsen."
+        )
+
+    allowed_poltypes = ("C2", "C3", "C4", "T3", "T4")
+    validate_dataset(input_data, allowed_poltypes=allowed_poltypes)
+    return input_data.coarsen(y=dim_az, x=dim_rg, boundary="trim").mean()
+
+
 def plot_h_alpha_plane(ds, bins=500, min_pts=5):
     """Plot H-Alpha 2D histogram.
 
@@ -586,3 +614,50 @@ def plot_h_alpha_plane(ds, bins=500, min_pts=5):
     ax.set_title("H-Alpha plane")
 
     return ax, fig
+
+
+def pauli_rgb(input_data: xr.Dataset, q: float = 0.98) -> xr.DataArray:
+    """Compute Pauli RGB representation from polarimetric data.
+    Args:
+        input_data (xr.Dataset): Input PolSARpro Dataset.
+        q (float): Quantile for dynamic range clipping (between 0 and 1).
+    Returns:
+        xr.DataArray: RGB representation with 'band' dimension.
+    """
+    allowed_poltypes = ("S", "C3", "T3")
+    validate_dataset(input_data, allowed_poltypes=allowed_poltypes)
+
+    def pauli_from_S(S):
+        r = abs(S.hh - S.vv) ** 2
+        g = abs(0.5 * (S.hv + S.vh)) ** 2
+        b = abs(S.hh + S.vv) ** 2
+        return r, g, b
+
+    def pauli_from_T3(T3):
+        r = T3.m22
+        g = T3.m33
+        b = T3.m11
+        return r, g, b
+
+    def pauli_from_C3(C3):
+        T3 = C3_to_T3(C3)
+        return pauli_from_T3(T3)
+
+    if input_data.poltype == "S":
+        r, g, b = pauli_from_S(input_data)
+    elif input_data.poltype == "C3":
+        r, g, b = pauli_from_C3(input_data)
+    elif input_data.poltype == "T3":
+        r, g, b = pauli_from_T3(input_data)
+
+    rgb = xr.concat([r, g, b], dim="band").rename("Pauli RGB").chunk("auto")
+
+    # resampling may introduce negative values
+    rgb = xr.where(rgb < 0, 0, rgb)
+    rgb = np.sqrt(rgb)
+
+    # compute clipping values to handle the high dynamic range
+    clip_val = rgb.quantile(dim=("x", "y"), q=q).drop_vars("quantile")
+
+    # clip and normalize
+    return rgb.clip(max=clip_val) / clip_val

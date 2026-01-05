@@ -34,6 +34,40 @@ from polsarpro.util import boxcar, C3_to_T3, S_to_C3, S_to_T3, C4_to_T4, T3_to_C
 from polsarpro.auxil import validate_dataset
 
 
+def cameron(
+    input_data: xr.Dataset,
+) -> xr.Dataset:
+    """Applies the Cameron decomposition.
+
+    Args:
+        input_data (xr.Dataset): Input image of type Sinclair (S) matrix.
+
+    Returns:
+        xr.Dataset: Mechanism class.
+    """
+
+    allowed_poltypes = "S"
+    poltype = validate_dataset(input_data, allowed_poltypes=allowed_poltypes)
+
+    in_ = input_data.astype("complex64", copy=False)
+
+    # remove NaNs
+    eps = 1e-30
+    mask = in_.to_array().isnull().any("variable")
+    in_ = in_.fillna(eps)
+
+    out = _compute_cameron(in_)
+    return xr.Dataset(
+        # add dimension names
+        {k: (tuple(input_data.dims), v) for k, v in out.items()},
+        attrs=dict(
+            poltype="cameron",
+            description="Results of the Cameron decomposition.",
+        ),
+        coords=input_data.coords,
+    )  # .where(~mask)
+
+
 def freeman(
     input_data: xr.Dataset,
     boxcar_size: list[int, int] = [3, 3],
@@ -1255,47 +1289,12 @@ def _compute_vanzyl_components(C3):
     return {"odd": Ps, "double": Pd, "volume": Pv}
 
 
-def cameron(
-    input_data: xr.Dataset,
-) -> xr.Dataset:
-    """Applies the Cameron decomposition.
-
-    Args:
-        input_data (xr.Dataset): Input image of type Sinclair (S) matrix.
-
-    Returns:
-        xr.Dataset: Mechanism class.
-    """
-
-    allowed_poltypes = "S"
-    poltype = validate_dataset(input_data, allowed_poltypes=allowed_poltypes)
-
-    in_ = input_data.astype("complex64", copy=False)
-
-    # remove NaNs
-    eps = 1e-30
-    mask = in_.to_array().isnull().any("variable")
-    in_ = in_.fillna(eps)
-
-    out = _compute_cameron(in_)
-    return xr.Dataset(
-        # add dimension names
-        {k: (tuple(input_data.dims), v) for k, v in out.items()},
-        attrs=dict(
-            poltype="cameron",
-            description="Results of the Cameron decomposition.",
-        ),
-        coords=input_data.coords,
-    )  # .where(~mask)
-
-
 def _compute_cameron(S):
     eps = 1e-30
     Shh = S.hh.data
     Svv = S.vv.data
     Shv = 0.5 * (S.hv.data + S.vh.data)
 
-    # TODO better variable names
     r2 = da.sqrt(2)
 
     alpha = (Shh + Svv) / r2
@@ -1410,13 +1409,12 @@ def _compute_cameron(S):
 
     norm_S = da.where(norm_S > eps, norm_S, eps)
 
-    p_r = Shh.real + 2*Shv.imag - Svv.real 
-    p_i = -Shh.imag + 2*Shv.real - Svv.imag 
+    p_r = Shh.real + 2 * Shv.imag - Svv.real
+    p_i = -Shh.imag + 2 * Shv.real - Svv.imag
     c_hel_g = da.sqrt(p_r**2 + p_i**2) / (2 * norm_S)
 
-
-    p_r = Shh.real - 2*Shv.imag - Svv.real 
-    p_i = -Shh.imag - 2*Shv.real - Svv.imag 
+    p_r = Shh.real - 2 * Shv.imag - Svv.real
+    p_i = -Shh.imag - 2 * Shv.real - Svv.imag
     c_hel_d = da.sqrt(p_r**2 + p_i**2) / (2 * norm_S)
 
     cls_hel = da.where(c_hel_g > c_hel_d, da.int32(7), da.int32(8))

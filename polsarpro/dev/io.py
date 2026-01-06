@@ -2,6 +2,7 @@ import logging
 import numpy as np
 import xarray as xr
 from pathlib import Path
+import rioxarray as riox
 
 log = logging.getLogger(__name__)
 
@@ -157,3 +158,27 @@ def read_psp_bin(file_name: str, dtype: str = "float32"):
     nrg = int(cfg["Ncol"])
 
     return np.fromfile(file_path, dtype=dtype, count=naz * nrg).reshape((naz, nrg))
+
+# WARNING: This is a not a full-featured product reader, only use for development
+def open_biomass_l1_product(input_path):
+
+    str_tiff_abs = f"**/measurement/*_abs.tiff"
+    str_tiff_phase = f"**/measurement/*_phase.tiff"
+    tiff_abs = list(input_path.glob(str_tiff_abs))[0]
+    tiff_phase = list(input_path.glob(str_tiff_phase))[0]
+
+    amp = riox.open_rasterio(tiff_abs, chunks={})
+    phi = riox.open_rasterio(tiff_phase, chunks={})
+    slc = amp * np.exp(1j * phi)
+
+    dims = ("y", "x")
+    return xr.Dataset(
+        {
+            "hh": (dims, slc[0].data),
+            "hv": (dims, slc[1].data),
+            "vh": (dims, slc[2].data),
+            "vv": (dims, slc[3].data),
+        },
+        coords={"y": np.arange(slc.shape[1]), "x": np.arange(slc.shape[2])},
+        attrs={"poltype": "S", "description": "Scattering matrix"},
+    ).chunk("auto")

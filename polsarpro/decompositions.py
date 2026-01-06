@@ -37,17 +37,17 @@ from polsarpro.auxil import validate_dataset
 def cameron(
     input_data: xr.Dataset,
 ) -> xr.Dataset:
-    """Applies the Cameron decomposition.
+    """Applies the Cameron decomposition to the S matrix.
 
     Args:
-        input_data (xr.Dataset): Input image of type Sinclair (S) matrix.
+        input_data (xr.Dataset): Input image of S matrices.
 
     Returns:
-        xr.Dataset: Mechanism class.
+        xr.Dataset: Output class (1: plane, 2: dihedral, 3: dipole, 4: cylinder, 5: narrow diplane, 6: 1/4 wave, 7: left helix, 8: right helix).
     """
 
     allowed_poltypes = "S"
-    poltype = validate_dataset(input_data, allowed_poltypes=allowed_poltypes)
+    _ = validate_dataset(input_data, allowed_poltypes=allowed_poltypes)
 
     in_ = input_data.astype("complex64", copy=False)
 

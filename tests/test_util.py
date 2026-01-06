@@ -1,3 +1,4 @@
+import pytest
 import numpy as np
 import xarray as xr
 from polsarpro.util import vec_to_mat
@@ -6,6 +7,8 @@ from polsarpro.util import S_to_T3, S_to_T4
 from polsarpro.util import T3_to_C3, T4_to_C4
 from polsarpro.util import C3_to_T3, C4_to_T4
 from polsarpro.util import boxcar
+from polsarpro.util import multilook
+from polsarpro.util import pauli_rgb
 
 
 def test_vec_to_mat():
@@ -19,10 +22,13 @@ def test_vec_to_mat():
     assert np.allclose(M.transpose((0, 1, 3, 2)), M.conj())
     assert np.allclose(M.diagonal(axis1=2, axis2=3).imag, 0)
 
+
 def test_S_to_C2():
 
     N = 128
-    S = (np.random.rand(N, N, 2, 2) + 1j * np.random.rand(N, N, 2, 2)).astype("complex64")
+    S = (np.random.rand(N, N, 2, 2) + 1j * np.random.rand(N, N, 2, 2)).astype(
+        "complex64"
+    )
 
     dims = ("y", "x")
     S_dict = dict(
@@ -40,10 +46,13 @@ def test_S_to_C2():
     assert all(C2x[var].dtype == "float32" for var in ["m11", "m22"])
     assert all(C2x[var].dtype == "complex64" for var in ["m12"])
 
+
 def test_S_to_C3():
 
     N = 128
-    S = (np.random.rand(N, N, 2, 2) + 1j * np.random.rand(N, N, 2, 2)).astype("complex64")
+    S = (np.random.rand(N, N, 2, 2) + 1j * np.random.rand(N, N, 2, 2)).astype(
+        "complex64"
+    )
 
     dims = ("y", "x")
     S_dict = dict(
@@ -61,10 +70,13 @@ def test_S_to_C3():
     assert all(C3x[var].dtype == "float32" for var in ["m11", "m22", "m33"])
     assert all(C3x[var].dtype == "complex64" for var in ["m12", "m13", "m23"])
 
+
 def test_S_to_C4():
 
     N = 128
-    S = (np.random.rand(N, N, 2, 2) + 1j * np.random.rand(N, N, 2, 2)).astype("complex64")
+    S = (np.random.rand(N, N, 2, 2) + 1j * np.random.rand(N, N, 2, 2)).astype(
+        "complex64"
+    )
 
     dims = ("y", "x")
     S_dict = dict(
@@ -86,9 +98,10 @@ def test_S_to_C4():
 def test_S_to_T3():
 
     N = 128
-    S = (np.random.rand(N, N, 2, 2) + 1j * np.random.rand(N, N, 2, 2)).astype("complex64")
+    S = (np.random.rand(N, N, 2, 2) + 1j * np.random.rand(N, N, 2, 2)).astype(
+        "complex64"
+    )
 
-    # Xarray version
     dims = ("y", "x")
     S_dict = dict(
         hh=xr.DataArray(S[..., 0, 0], dims=dims),
@@ -105,10 +118,13 @@ def test_S_to_T3():
     assert all(T3x[var].dtype == "float32" for var in ["m11", "m22", "m33"])
     assert all(T3x[var].dtype == "complex64" for var in ["m12", "m13", "m23"])
 
+
 def test_S_to_T4():
 
     N = 128
-    S = (np.random.rand(N, N, 2, 2) + 1j * np.random.rand(N, N, 2, 2)).astype("complex64")
+    S = (np.random.rand(N, N, 2, 2) + 1j * np.random.rand(N, N, 2, 2)).astype(
+        "complex64"
+    )
     # Xarray version
     dims = ("y", "x")
     S_dict = dict(
@@ -126,6 +142,7 @@ def test_S_to_T4():
     assert all(T4x[var].dtype == "float32" for var in ["m11", "m22", "m33"])
     assert all(T4x[var].dtype == "complex64" for var in ["m12", "m13", "m23"])
 
+
 def test_T3_to_C3():
 
     N = 128
@@ -134,7 +151,6 @@ def test_T3_to_C3():
     # fake T3 matrix
     T3 = vec_to_mat(v)
 
-    # Xarray version
     dims = ("y", "x")
     T3_dict = dict(
         m11=xr.DataArray(T3[..., 0, 0].real.astype("float32"), dims=dims),
@@ -151,6 +167,7 @@ def test_T3_to_C3():
     assert all(C3x[var].shape == (N, N) for var in C3x.data_vars)
     assert all(C3x[var].dtype == "float32" for var in ["m11", "m22", "m33"])
     assert all(C3x[var].dtype == "complex64" for var in ["m12", "m13", "m23"])
+
 
 def test_T4_to_C4():
 
@@ -180,7 +197,11 @@ def test_T4_to_C4():
     assert C4x.poltype == "C4"
     assert all(C4x[var].shape == (N, N) for var in C4x.data_vars)
     assert all(C4x[var].dtype == "float32" for var in ["m11", "m22", "m33", "m44"])
-    assert all(C4x[var].dtype == "complex64" for var in ["m12", "m13", "m14", "m23", "m23", "m34"])
+    assert all(
+        C4x[var].dtype == "complex64"
+        for var in ["m12", "m13", "m14", "m23", "m23", "m34"]
+    )
+
 
 def test_C3_to_T3():
 
@@ -207,6 +228,7 @@ def test_C3_to_T3():
     assert all(T3x[var].shape == (N, N) for var in T3x.data_vars)
     assert all(T3x[var].dtype == "float32" for var in ["m11", "m22", "m33"])
     assert all(T3x[var].dtype == "complex64" for var in ["m12", "m13", "m23"])
+
 
 def test_C4_to_T4():
 
@@ -236,7 +258,11 @@ def test_C4_to_T4():
     assert T4x.poltype == "T4"
     assert all(T4x[var].shape == (N, N) for var in T4x.data_vars)
     assert all(T4x[var].dtype == "float32" for var in ["m11", "m22", "m33", "m44"])
-    assert all(T4x[var].dtype == "complex64" for var in ["m12", "m13", "m14", "m23", "m23", "m34"])
+    assert all(
+        T4x[var].dtype == "complex64"
+        for var in ["m12", "m13", "m14", "m23", "m23", "m34"]
+    )
+
 
 def test_boxcar():
 
@@ -264,3 +290,22 @@ def test_boxcar():
     assert all(M_box[var].shape == (N, N) for var in Mx.data_vars)
     assert all(M_box[var].dtype == "float32" for var in ["m11", "m22", "m33"])
     assert all(M_box[var].dtype == "complex64" for var in ["m12", "m13", "m23"])
+
+
+@pytest.mark.parametrize(
+    "synthetic_poldata", ["C2", "C3", "C4", "T3", "T4"], indirect=True
+)
+def test_multilook(synthetic_poldata):
+    input_data = synthetic_poldata
+    dim_az = 5
+    dim_rg = 2
+    for _, ds in input_data.items():
+        input_data = ds.chunk(x=64, y=64)
+        res = multilook(input_data=input_data, dim_az=dim_az, dim_rg=dim_rg)
+        var = "hh" if "hh" in ds.data_vars else "m11"
+        for var in input_data.data_vars:
+            shp = ds[var].shape
+            naz_out = shp[0] // dim_az
+            nrg_out = shp[1] // dim_rg
+            assert res[var].shape == (naz_out, nrg_out)
+            assert res[var].dtype == input_data[var].dtype

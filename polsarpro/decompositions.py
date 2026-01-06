@@ -44,6 +44,9 @@ def cameron(
 
     Returns:
         xr.Dataset: Output class (1: plane, 2: dihedral, 3: dipole, 4: cylinder, 5: narrow diplane, 6: 1/4 wave, 7: left helix, 8: right helix).
+    
+    Notes:
+        This decomposition is only applicable to Sinclair matrices (S). Therefore it may not be applied to geocoded data since resampling the S matrix may result in a loss of polarimetric information.
     """
 
     allowed_poltypes = "S"

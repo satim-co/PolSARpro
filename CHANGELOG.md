@@ -1,3 +1,13 @@
+# 2026.1.0
+## New features 
+- Cameron decomposition 
+- Pauli RGB visualization for S, C3 and T3 matrices (`util.pauli_rgb`)
+- Multilooking operator (`util.multilook`) for all C and T matrices 
+- Updated docs 
+## Other improvements 
+- Moved the legacy PSP bin reading functions to the `dev` module
+- Created `conftest.py` to share fake data generation across all unit tests 
+
 # 2025.12.2
 ## Features
 - Freeman-Durden decomposition

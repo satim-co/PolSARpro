@@ -121,71 +121,6 @@ def pwf(
     ).where(~mask)
 
 
-# below this line, functions are not meant to be called directly
-
-
-# this is a convenience function to give eigh the right data format
-def _reconstruct_matrix_from_ds(ds):
-
-    eps = 1e-30
-
-    if {"y", "x"}.issubset(ds.dims):
-        new_dims = ("y", "x")
-    elif {"lat", "lon"}.issubset(ds.dims):
-        new_dims = ("lat", "lon")
-    else:
-        ValueError(
-            "Input data does not have valid dimension names. ('y', 'x') or ('lat', 'lon') allowed."
-        )
-
-    new_dims_array = new_dims + ("i", "j")
-    if ds.poltype == "C2":
-        # build each line of the T3 matrix
-        M2_l1 = xr.concat((ds.m11, ds.m12), dim="j")
-        M2_l2 = xr.concat((ds.m12.conj(), ds.m22), dim="j")
-
-        # Concatenate all lines into a 2x2 matrix
-        return (
-            xr.concat((M2_l1, M2_l2), dim="i")
-            .transpose(*new_dims_array)
-            .chunk({new_dims[0]: "auto", new_dims[1]: "auto", "i": 2, "j": 2})
-            + eps
-        )
-    if ds.poltype in ["T3", "C3"]:
-        # build each line of the T3 matrix
-        M3_l1 = xr.concat((ds.m11, ds.m12, ds.m13), dim="j")
-        M3_l2 = xr.concat((ds.m12.conj(), ds.m22, ds.m23), dim="j")
-        M3_l3 = xr.concat((ds.m13.conj(), ds.m23.conj(), ds.m33), dim="j")
-
-        # Concatenate all lines into a 3x3 matrix
-        return (
-            xr.concat((M3_l1, M3_l2, M3_l3), dim="i")
-            .transpose(*new_dims_array)
-            .chunk({new_dims[0]: "auto", new_dims[1]: "auto", "i": 3, "j": 3})
-            + eps
-        )
-    elif ds.poltype in ["T4", "C4"]:
-        # build each line of the T4 matrix
-        M4_l1 = xr.concat((ds.m11, ds.m12, ds.m13, ds.m14), dim="j")
-        M4_l2 = xr.concat((ds.m12.conj(), ds.m22, ds.m23, ds.m24), dim="j")
-        M4_l3 = xr.concat((ds.m13.conj(), ds.m23.conj(), ds.m33, ds.m34), dim="j")
-        M4_l4 = xr.concat(
-            (ds.m14.conj(), ds.m24.conj(), ds.m34.conj(), ds.m44), dim="j"
-        )
-
-        # concatenate all lines into a 4x4 matrix
-        return (
-            xr.concat((M4_l1, M4_l2, M4_l3, M4_l4), dim="i")
-            .transpose(*new_dims_array)
-            .chunk({new_dims[0]: "auto", new_dims[1]: "auto", "i": 4, "j": 4})
-            + eps
-        )
-    else:
-        raise NotImplementedError(
-            "Implemented only for C2, C3, T3 and C4 and T4 poltypes."
-        )
-
-
 def refined_lee(
     input_data: xr.Dataset, window_size: int = 7, num_looks: int = 1
 ) -> xr.Dataset:
@@ -273,7 +208,69 @@ def refined_lee(
     )
 
 
-# functions for internal computations -- do not use directly
+# below this line, functions are not meant to be called directly
+
+
+# this is a convenience function to give eigh the right data format
+def _reconstruct_matrix_from_ds(ds):
+
+    eps = 1e-30
+
+    if {"y", "x"}.issubset(ds.dims):
+        new_dims = ("y", "x")
+    elif {"lat", "lon"}.issubset(ds.dims):
+        new_dims = ("lat", "lon")
+    else:
+        ValueError(
+            "Input data does not have valid dimension names. ('y', 'x') or ('lat', 'lon') allowed."
+        )
+
+    new_dims_array = new_dims + ("i", "j")
+    if ds.poltype == "C2":
+        # build each line of the T3 matrix
+        M2_l1 = xr.concat((ds.m11, ds.m12), dim="j")
+        M2_l2 = xr.concat((ds.m12.conj(), ds.m22), dim="j")
+
+        # Concatenate all lines into a 2x2 matrix
+        return (
+            xr.concat((M2_l1, M2_l2), dim="i")
+            .transpose(*new_dims_array)
+            .chunk({new_dims[0]: "auto", new_dims[1]: "auto", "i": 2, "j": 2})
+            + eps
+        )
+    if ds.poltype in ["T3", "C3"]:
+        # build each line of the T3 matrix
+        M3_l1 = xr.concat((ds.m11, ds.m12, ds.m13), dim="j")
+        M3_l2 = xr.concat((ds.m12.conj(), ds.m22, ds.m23), dim="j")
+        M3_l3 = xr.concat((ds.m13.conj(), ds.m23.conj(), ds.m33), dim="j")
+
+        # Concatenate all lines into a 3x3 matrix
+        return (
+            xr.concat((M3_l1, M3_l2, M3_l3), dim="i")
+            .transpose(*new_dims_array)
+            .chunk({new_dims[0]: "auto", new_dims[1]: "auto", "i": 3, "j": 3})
+            + eps
+        )
+    elif ds.poltype in ["T4", "C4"]:
+        # build each line of the T4 matrix
+        M4_l1 = xr.concat((ds.m11, ds.m12, ds.m13, ds.m14), dim="j")
+        M4_l2 = xr.concat((ds.m12.conj(), ds.m22, ds.m23, ds.m24), dim="j")
+        M4_l3 = xr.concat((ds.m13.conj(), ds.m23.conj(), ds.m33, ds.m34), dim="j")
+        M4_l4 = xr.concat(
+            (ds.m14.conj(), ds.m24.conj(), ds.m34.conj(), ds.m44), dim="j"
+        )
+
+        # concatenate all lines into a 4x4 matrix
+        return (
+            xr.concat((M4_l1, M4_l2, M4_l3, M4_l4), dim="i")
+            .transpose(*new_dims_array)
+            .chunk({new_dims[0]: "auto", new_dims[1]: "auto", "i": 4, "j": 4})
+            + eps
+        )
+    else:
+        raise NotImplementedError(
+            "Implemented only for C2, C3, T3 and C4 and T4 poltypes."
+        )
 
 
 def _compute_mask_index(span: np.array, off: int) -> np.array:

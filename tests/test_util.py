@@ -309,3 +309,15 @@ def test_multilook(synthetic_poldata):
             nrg_out = shp[1] // dim_rg
             assert res[var].shape == (naz_out, nrg_out)
             assert res[var].dtype == input_data[var].dtype
+
+
+@pytest.mark.parametrize("synthetic_poldata", ["S", "C3", "T3"], indirect=True)
+def test_pauli_rgb(synthetic_poldata):
+    input_data = synthetic_poldata
+    for _, ds in input_data.items():
+        input_data = ds.chunk(x=64, y=64)
+        res = pauli_rgb(input_data=input_data)
+        var = "hh" if "hh" in ds.data_vars else "m11"
+        shp = ds[var].shape
+        assert res.shape == (3,) + shp
+        assert res.dtype == "float32"

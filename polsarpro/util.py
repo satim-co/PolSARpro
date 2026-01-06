@@ -659,7 +659,7 @@ def pauli_rgb(input_data: xr.Dataset, q: float = 0.98) -> xr.DataArray:
     rgb = np.sqrt(rgb)
 
     # compute clipping values to handle the high dynamic range
-    clip_val = rgb.quantile(dim=("x", "y"), q=q).drop_vars("quantile")
+    clip_val = rgb.quantile(dim=("x", "y"), q=q).astype("float32").drop_vars("quantile")
 
     # clip and normalize
     return rgb.clip(max=clip_val) / clip_val

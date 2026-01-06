@@ -34,6 +34,43 @@ from polsarpro.util import boxcar, C3_to_T3, S_to_C3, S_to_T3, C4_to_T4, T3_to_C
 from polsarpro.auxil import validate_dataset
 
 
+def cameron(
+    input_data: xr.Dataset,
+) -> xr.Dataset:
+    """Applies the Cameron decomposition to the S matrix.
+
+    Args:
+        input_data (xr.Dataset): Input image of S matrices.
+
+    Returns:
+        xr.Dataset: Output class (1: plane, 2: dihedral, 3: dipole, 4: cylinder, 5: narrow diplane, 6: 1/4 wave, 7: left helix, 8: right helix).
+    
+    Notes:
+        This decomposition is only applicable to Sinclair matrices (S). Therefore it may not be applied to geocoded data since resampling the S matrix may result in a loss of polarimetric information.
+    """
+
+    allowed_poltypes = "S"
+    _ = validate_dataset(input_data, allowed_poltypes=allowed_poltypes)
+
+    in_ = input_data.astype("complex64", copy=False)
+
+    # remove NaNs
+    eps = 1e-30
+    mask = in_.to_array().isnull().any("variable")
+    in_ = in_.fillna(eps)
+
+    out = _compute_cameron(in_)
+    return xr.Dataset(
+        # add dimension names
+        {k: (tuple(input_data.dims), v) for k, v in out.items()},
+        attrs=dict(
+            poltype="cameron",
+            description="Results of the Cameron decomposition.",
+        ),
+        coords=input_data.coords,
+    )  # .where(~mask)
+
+
 def freeman(
     input_data: xr.Dataset,
     boxcar_size: list[int, int] = [3, 3],
@@ -480,7 +517,6 @@ def vanzyl(
 
 
 # below this line, functions are not meant to be called directly
-
 
 def _compute_h_a_alpha_parameters_C2(l, v, flags):
 
@@ -1253,3 +1289,142 @@ def _compute_vanzyl_components(C3):
     Pd = da.where(Pd <= min_span, min_span, da.where(Pd > max_span, max_span, Pd))
     Pv = da.where(Pv <= min_span, min_span, da.where(Pv > max_span, max_span, Pv))
     return {"odd": Ps, "double": Pd, "volume": Pv}
+
+
+def _compute_cameron(S):
+    eps = 1e-30
+    Shh = S.hh.data
+    Svv = S.vv.data
+    Shv = 0.5 * (S.hv.data + S.vh.data)
+
+    r2 = da.sqrt(2)
+
+    alpha = (Shh + Svv) / r2
+    beta = (Shh - Svv) / r2
+    gamma = Shv * r2
+
+    pow_alpha = (alpha * alpha.conj()).real
+    pow_beta = (beta * beta.conj()).real
+    pow_gamma = (gamma * gamma.conj()).real
+
+    real = 2 * (beta.real * gamma.real + beta.imag * gamma.imag)
+    diff_abs = pow_beta - pow_gamma
+
+    tol = (pow_alpha + pow_beta + pow_gamma) * eps
+
+    # magnitude used several times
+    den = da.sqrt(real**2 + diff_abs**2)
+    den = da.where(den > eps, den, eps)
+
+    # primary condition
+    is_zero = (da.fabs(real) < tol) & (da.fabs(diff_abs) < tol)
+
+    sin_xi = real / den
+    cos_xi = diff_abs / den
+
+    # angle when not zero
+    xi_nonzero = da.where(
+        cos_xi > 0,
+        da.arcsin(sin_xi),
+        da.pi - da.arcsin(sin_xi),
+    )
+
+    # final Xi
+    xi = da.where(is_zero, 0.0, xi_nonzero)
+
+    c = da.cos(xi / 2.0)
+    s = da.sin(xi / 2.0)
+
+    epsilon = (1.0 / r2) * (c * (Shh - Svv) + s * 2.0 * Shv)
+
+    SMhh = (1.0 / r2) * (alpha + c * epsilon)
+    SMvv = (1.0 / r2) * (alpha - c * epsilon)
+    SMhv = (1.0 / r2) * (s * epsilon)
+
+    psi_max = -xi / 4.0
+
+    # norms of S and SM
+    norm_S = da.sqrt(da.abs(Shh) ** 2 + 2.0 * da.abs(Shv) ** 2 + da.abs(Svv) ** 2)
+    norm_SM = da.sqrt(da.abs(SMhh) ** 2 + 2.0 * da.abs(SMhv) ** 2 + da.abs(SMvv) ** 2)
+    norm = norm_S * norm_SM
+    norm = da.where(norm > eps, norm, eps)
+
+    # complex scalar product <S, SM>
+    prod = Shh * da.conj(SMhh) + 2.0 * Shv * da.conj(SMhv) + Svv * da.conj(SMvv)
+
+    # avoid invalid values in arccos
+    arg_acos = da.clip(da.abs(prod) / norm, -1, 1)
+    # angle tau
+    tau = da.arccos(arg_acos)
+
+    # --- case tau < pi/8
+    cp = np.cos(psi_max)
+    sp = np.sin(psi_max)
+    s2p = np.sin(2 * psi_max)
+
+    ssm1 = cp**2 * SMhh - s2p * Shv + sp**2 * SMvv
+    ssm2 = sp**2 * SMhh + s2p * Shv + cp**2 * SMvv
+
+    pow_ssm1 = da.real(ssm1 * ssm1.conj())
+    pow_ssm2 = da.real(ssm2 * ssm2.conj())
+
+    cnd1 = pow_ssm1 >= pow_ssm2
+
+    z = da.where(
+        cnd1,
+        ssm2 * da.conj(ssm1) / pow_ssm1,
+        ssm1 * da.conj(ssm2) / pow_ssm2,
+    )
+
+    psi_max = da.where(cnd1, psi_max, psi_max + da.pi / 2.0)
+    psi_max = da.fmod(psi_max, 2.0 * da.pi)
+
+    zr = z.real
+    zi = z.imag
+    pow_z = da.real(z * z.conj())
+    den2 = 1.0 + pow_z
+
+    plane = da.sqrt((1 + zr) ** 2 + zi**2) / da.sqrt(2 * den2)
+    dihedral = da.sqrt((1 - zr) ** 2 + zi**2) / da.sqrt(2 * den2)
+    dipole = 1.0 / da.sqrt(den2)
+    cylinder = da.sqrt((1 - zr / 2) ** 2 + zi**2 / 4) / da.sqrt(5 / 4 * den2)
+    narrow_dip = da.sqrt((1 + zr / 2) ** 2 + zi**2 / 4) / da.sqrt(5 / 4 * den2)
+    quartp = da.sqrt((1 + zi) ** 2 + zr**2) / da.sqrt(2 * den2)
+    quartm = da.sqrt((1 - zi) ** 2 + zr**2) / da.sqrt(2 * den2)
+
+    # mechanism classification
+    stack = da.stack(
+        [
+            plane,
+            dihedral,
+            dipole,
+            cylinder,
+            narrow_dip,
+            da.maximum(quartp, quartm),
+        ]
+    )
+
+    cls_tau = da.argmax(stack, axis=0) + 1
+    cls_tau = cls_tau.astype(da.int32)
+
+    # --- case where tau >= pi/8
+
+    norm_S = da.where(norm_S > eps, norm_S, eps)
+
+    p_r = Shh.real + 2 * Shv.imag - Svv.real
+    p_i = -Shh.imag + 2 * Shv.real - Svv.imag
+    c_hel_g = da.sqrt(p_r**2 + p_i**2) / (2 * norm_S)
+
+    p_r = Shh.real - 2 * Shv.imag - Svv.real
+    p_i = -Shh.imag - 2 * Shv.real - Svv.imag
+    c_hel_d = da.sqrt(p_r**2 + p_i**2) / (2 * norm_S)
+
+    cls_hel = da.where(c_hel_g > c_hel_d, da.int32(7), da.int32(8))
+
+    # --- combining the two possible cases
+
+    out = da.zeros_like(cls_tau, dtype=da.int32)
+    mask_tau = tau < (da.pi / 8.0)
+    out = da.where(mask_tau, cls_tau, cls_hel)
+
+    return {"cameron": out}

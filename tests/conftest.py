@@ -40,7 +40,11 @@ def synthetic_poldata(request):
             vh=xr.DataArray(S[..., 1, 0], dims=dims),
             vv=xr.DataArray(S[..., 1, 1], dims=dims),
         )
-        result["S"] = xr.Dataset(S_dict, attrs=dict(poltype="S"))
+        result["S"] = xr.Dataset(
+            S_dict,
+            attrs=dict(poltype="S"),
+            coords={"y": np.arange(N), "x": np.arange(N)},
+        )
 
     if any(t in requested for t in ("C3", "T3")):
         # Only generate v/vp when needed
@@ -54,7 +58,9 @@ def synthetic_poldata(request):
                 m12=xr.DataArray(C2[..., 0, 1], dims=dims),
             )
             result["C2"] = xr.Dataset(
-                C2_dict, attrs=dict(poltype="C2", description="...")
+                C2_dict,
+                attrs=dict(poltype="C2", description="..."),
+                coords={"y": np.arange(N), "x": np.arange(N)},
             )
         if "C3" in requested:
             C3 = vec_to_mat(v).astype("complex64")
@@ -67,7 +73,9 @@ def synthetic_poldata(request):
                 m23=xr.DataArray(C3[..., 1, 2], dims=dims),
             )
             result["C3"] = xr.Dataset(
-                C3_dict, attrs=dict(poltype="C3", description="...")
+                C3_dict,
+                attrs=dict(poltype="C3", description="..."),
+                coords={"y": np.arange(N), "x": np.arange(N)},
             )
         if "C4" in requested:
             v = np.random.randn(N, N, 4) + 1j * np.random.randn(N, N, 4)
@@ -85,7 +93,9 @@ def synthetic_poldata(request):
                 m34=xr.DataArray(C4[..., 2, 3], dims=dims),
             )
             result["C4"] = xr.Dataset(
-                C4_dict, attrs=dict(poltype="C4", description="...")
+                C4_dict,
+                attrs=dict(poltype="C4", description="..."),
+                coords={"y": np.arange(N), "x": np.arange(N)},
             )
         if "T3" in requested:
             T3 = vec_to_mat(vp).astype("complex64")
@@ -98,7 +108,9 @@ def synthetic_poldata(request):
                 m23=xr.DataArray(T3[..., 1, 2], dims=dims),
             )
             result["T3"] = xr.Dataset(
-                T3_dict, attrs=dict(poltype="T3", description="...")
+                T3_dict,
+                attrs=dict(poltype="T3", description="..."),
+                coords={"y": np.arange(N), "x": np.arange(N)},
             )
         if "T4" in requested:
             v = np.random.randn(N, N, 4) + 1j * np.random.randn(N, N, 4)
@@ -116,7 +128,9 @@ def synthetic_poldata(request):
                 m34=xr.DataArray(T4[..., 2, 3], dims=dims),
             )
             result["T4"] = xr.Dataset(
-                T4_dict, attrs=dict(poltype="T4", description="...")
+                T4_dict,
+                attrs=dict(poltype="T4", description="..."),
+                coords={"y": np.arange(N), "x": np.arange(N)},
             )
 
     return result

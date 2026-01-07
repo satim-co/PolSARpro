@@ -6,6 +6,7 @@ import rioxarray as riox
 
 log = logging.getLogger(__name__)
 
+
 def read_T3_psp(input_dir: str):
     """Reads a T3 matrix in the PolSARPro format.
 
@@ -159,8 +160,10 @@ def read_psp_bin(file_name: str, dtype: str = "float32"):
 
     return np.fromfile(file_path, dtype=dtype, count=naz * nrg).reshape((naz, nrg))
 
+
 # WARNING: This is a not a full-featured product reader, only use for development
 def open_biomass_l1_product(input_path):
+    eps = 1e-30
 
     str_tiff_abs = f"**/measurement/*_abs.tiff"
     str_tiff_phase = f"**/measurement/*_phase.tiff"
@@ -170,6 +173,9 @@ def open_biomass_l1_product(input_path):
     amp = riox.open_rasterio(tiff_abs, chunks={})
     phi = riox.open_rasterio(tiff_phase, chunks={})
     slc = amp * np.exp(1j * phi)
+    slc = xr.where(slc.real != 0, slc.real, eps).astype("float32") + 1j * xr.where(
+        slc.imag != 0, slc.imag, eps
+    ).astype("float32")
 
     dims = ("y", "x")
     return xr.Dataset(

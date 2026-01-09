@@ -7,10 +7,14 @@ name = "polsarpro"
 version = "2025.12.1"
 description = "Re-implementation of selected PolSARpro functions in Python, following the scientific recommendations of PolInSAR 2021."
 requires-python = ">=3.12" 
-dependencies = ["gdal", "rasterio", "geopandas", "pandas", "xarray", "netcdf4", "rioxarray", "dask", "bottleneck", "jupyter", "zarr", "pyyaml"]
+dependencies = ["pandas", "xarray", "dask", "scipy"]
 [[project.authors]]
 name = "Olivier D'Hondt"
 email = "dhondt.olivier@gmail.com"
+
+[project.optional-dependencies]
+netcdf = ["netcdf4"]
+plotting = ["matplotlib"]
 
 [tool.setuptools]
 packages = [ "polsarpro"]

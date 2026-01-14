@@ -18,6 +18,7 @@ def synthetic_poldata(request):
     """
     N = 128
     D = 3
+    C = 16
     dims = ("y", "x")
 
     # Parse requested types
@@ -44,7 +45,7 @@ def synthetic_poldata(request):
             S_dict,
             attrs=dict(poltype="S"),
             coords={"y": np.arange(N), "x": np.arange(N)},
-        )
+        ).chunk(x=C, y=C)
 
     if any(t in requested for t in ("C3", "T3")):
         # Only generate v/vp when needed
@@ -61,7 +62,7 @@ def synthetic_poldata(request):
                 C2_dict,
                 attrs=dict(poltype="C2", description="..."),
                 coords={"y": np.arange(N), "x": np.arange(N)},
-            )
+            ).chunk(x=2, y=2)
         if "C3" in requested:
             C3 = vec_to_mat(v).astype("complex64")
             C3_dict = dict(
@@ -76,7 +77,7 @@ def synthetic_poldata(request):
                 C3_dict,
                 attrs=dict(poltype="C3", description="..."),
                 coords={"y": np.arange(N), "x": np.arange(N)},
-            )
+            ).chunk(x=C, y=C)
         if "C4" in requested:
             v = np.random.randn(N, N, 4) + 1j * np.random.randn(N, N, 4)
             C4 = vec_to_mat(v).astype("complex64")
@@ -96,7 +97,7 @@ def synthetic_poldata(request):
                 C4_dict,
                 attrs=dict(poltype="C4", description="..."),
                 coords={"y": np.arange(N), "x": np.arange(N)},
-            )
+            ).chunk(x=C, y=C)
         if "T3" in requested:
             T3 = vec_to_mat(vp).astype("complex64")
             T3_dict = dict(
@@ -111,7 +112,7 @@ def synthetic_poldata(request):
                 T3_dict,
                 attrs=dict(poltype="T3", description="..."),
                 coords={"y": np.arange(N), "x": np.arange(N)},
-            )
+            ).chunk(x=C, y=C)
         if "T4" in requested:
             v = np.random.randn(N, N, 4) + 1j * np.random.randn(N, N, 4)
             T4 = vec_to_mat(v).astype("complex64")
@@ -131,6 +132,6 @@ def synthetic_poldata(request):
                 T4_dict,
                 attrs=dict(poltype="T4", description="..."),
                 coords={"y": np.arange(N), "x": np.arange(N)},
-            )
+            ).chunk(x=C, y=C)
 
     return result

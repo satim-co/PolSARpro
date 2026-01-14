@@ -223,6 +223,10 @@ def polmat_to_netcdf(ds: xarray.Dataset, file_path: str | Path):
         data_out["q_HH"] = ds.hh.imag
         data_out["i_HV"] = ds.hv.real
         data_out["q_HV"] = ds.hv.imag
+        data_out["i_VH"] = ds.vh.real
+        data_out["q_VH"] = ds.vh.imag
+        data_out["i_VV"] = ds.vv.real
+        data_out["q_VV"] = ds.vv.imag
     else:
         # automatically extract data for T and C matrices
         n = int(poltype[-1])
@@ -238,7 +242,7 @@ def polmat_to_netcdf(ds: xarray.Dataset, file_path: str | Path):
 
     # make a new dataset with PolSARpro metadata
     # Preserve chunking when writing
-    encoding = {var: {"chunksizes": data_out[var].data.chunksize} for var in data_out}
+    encoding = {var: {"chunksizes": data_out[var].data.chunksize, "zlib": True} for var in data_out}
     ds_out = xr.Dataset(
         # extract dask arrays and dims from xarray data
         {k: (ds.dims, v.data) for k, v in data_out.items()},

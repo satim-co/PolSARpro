@@ -144,7 +144,7 @@ def test_polmat_to_netcdf(tmp_path, poltype):
     assert "description" in ds_out.attrs
 
     if poltype == "S":
-        expected_vars = {"i_HH", "q_HH", "i_HV", "q_HV"}
+        expected_vars = {"i_HH", "q_HH", "i_HV", "q_HV", "i_VH", "q_VH", "i_VV", "q_VV"}
     elif poltype == "C2":
         expected_vars = {"C11", "C12_real", "C12_imag", "C22"}
     else:  # T3

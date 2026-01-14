@@ -246,7 +246,7 @@ def polmat_to_netcdf(ds: xarray.Dataset, file_path: str | Path):
     ds_out = xr.Dataset(
         # extract dask arrays and dims from xarray data
         {k: (ds.dims, v.data) for k, v in data_out.items()},
-        attrs={"poltype": poltype, "description": ds.description},
+        # attrs={"poltype": poltype, "description": ds.description},
         coords=ds.coords,
     )
     ds_out.to_netcdf(file_path, encoding=encoding)

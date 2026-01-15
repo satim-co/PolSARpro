@@ -1,5 +1,5 @@
 # 2026.1.1
-# New feature
+## New feature
 - Tutorial notebook to process BIOMASS data on the MAAP platform
 
 ## Bugfix and improvements 

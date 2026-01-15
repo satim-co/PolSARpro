@@ -514,12 +514,15 @@ def _boxcar_core(img: np.ndarray, dim_az: int, dim_rg: int) -> np.ndarray:
 
 def multilook(input_data: xr.Dataset, dim_az: int = 2, dim_rg: int = 2) -> xr.Dataset:
     """Apply multilooking to polarimetric matrices.
+
     Args:
         input_data (xr.Dataset): Input PolSARpro Dataset.
         dim_az (int): Multilook dimension in azimuth.
         dim_rg (int): Multilook dimension in range.
+
     Returns:
         xr.Dataset: Multilooked PolSARpro Dataset.
+
     Note:
         The input dataset must be in the SAR geometry (i.e. have 'y' and 'x' coordinates).
     """
@@ -618,9 +621,11 @@ def plot_h_alpha_plane(ds, bins=500, min_pts=5):
 
 def pauli_rgb(input_data: xr.Dataset, q: float = 0.98) -> xr.DataArray:
     """Compute Pauli RGB representation from polarimetric data.
+
     Args:
         input_data (xr.Dataset): Input PolSARpro Dataset.
         q (float): Quantile for dynamic range clipping (between 0 and 1).
+    
     Returns:
         xr.DataArray: RGB representation with 'band' dimension.
     """

@@ -77,4 +77,6 @@ docker compose down
 Read the tutorial:  
 https://polsarpro.readthedocs.io/en/latest/quickstart-tutorial/
 
-Or open the tutorial notebook in the `notebooks/` directory.
+Tutorial notebooks may be downloaded from the [notebooks](https://github.com/satim-co/PolSARpro/tree/main/notebooks) directory on Github.
+
+The ALOS-1 image used in the tutorials may be downloaded [here](https://step.esa.int/auxdata/PolSARpro/SAN_FRANCISCO_ALOS1_slc.nc).

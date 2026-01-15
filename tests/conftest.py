@@ -43,7 +43,7 @@ def synthetic_poldata(request):
         )
         result["S"] = xr.Dataset(
             S_dict,
-            attrs=dict(poltype="S"),
+            attrs=dict(poltype="S", description="..."),
             coords={"y": np.arange(N), "x": np.arange(N)},
         ).chunk(x=C, y=C)
 

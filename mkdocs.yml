@@ -16,6 +16,8 @@ nav:
     - Speckle filters:
       - refined-lee: refined-lee-tutorial.ipynb
       - pwf: pwf-tutorial.ipynb
+    - Advanced usage:
+      - biomass-maap: maap-biomass-stac-api.ipynb
   - API reference: 
     - Decompositions: decompositions.md
     - Speckle Filters: speckle_filters.md

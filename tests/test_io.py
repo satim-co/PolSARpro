@@ -96,72 +96,99 @@ def test_invalid_vars(tmp_netcdf):
         open_netcdf_beam(file_path)
 
 
-@pytest.mark.parametrize("poltype", ["S", "C2", "T3"])
-def test_polmat_to_netcdf(tmp_path, poltype):
-    shape = (15, 10)
-    coords = {"y": np.arange(shape[0]), "x": np.arange(shape[1])}
+@pytest.mark.parametrize(
+    "synthetic_poldata",
+    ["S", "C2", "C3", "C4", "T3", "T4"],
+    indirect=True,
+)
+def test_polmat_to_netcdf(synthetic_poldata, tmp_path):
 
-    if poltype == "S":
-        ds = xr.Dataset(
-            {
-                "hh": (("y", "x"), np.ones(shape, dtype=np.complex64) * (1 + 2j)),
-                "hv": (("y", "x"), np.ones(shape, dtype=np.complex64) * (3 + 4j)),
-                "vh": (("y", "x"), np.ones(shape, dtype=np.complex64) * (3 + 4j)),
-                "vv": (("y", "x"), np.ones(shape, dtype=np.complex64) * (5 + 6j)),
-            },
-            coords=coords,
-            attrs={"poltype": "S", "description": "Test S matrix"},
-        ).chunk(x=2, y=2)
-    elif poltype == "C2":
-        ds = xr.Dataset(
-            {
-                "m11": (("y", "x"), np.ones(shape, dtype=np.float32)),
-                "m12": (("y", "x"), np.ones(shape, dtype=np.complex64) * (2 + 3j)),
-                "m22": (("y", "x"), np.ones(shape, dtype=np.float32) * 4),
-            },
-            coords=coords,
-            attrs={"poltype": "C2", "description": "Test C2 matrix"},
-        ).chunk(x=2, y=2)
-    else:  # T3
-        ds = xr.Dataset(
-            {
-                "m11": (("y", "x"), np.ones(shape, dtype=np.float32)),
-                "m12": (("y", "x"), np.ones(shape, dtype=np.complex64) * (2 + 2j)),
-                "m13": (("y", "x"), np.ones(shape, dtype=np.complex64) * (3 + 3j)),
-                "m22": (("y", "x"), np.ones(shape, dtype=np.float32) * 4),
-                "m23": (("y", "x"), np.ones(shape, dtype=np.complex64) * (5 + 1j)),
-                "m33": (("y", "x"), np.ones(shape, dtype=np.float32) * 6),
-            },
-            coords=coords,
-            attrs={"poltype": "T3", "description": "Test T3 matrix"},
-        ).chunk(x=2, y=2)
+    input_data = synthetic_poldata
+    for _, ds in input_data.items():
+        poltype = ds.poltype
+        out_file = tmp_path / f"test_{poltype}.nc"
+        polmat_to_netcdf(ds, out_file)
 
-    out_file = tmp_path / f"test_{poltype}.nc"
-    polmat_to_netcdf(ds, out_file)
+        ds_out = xr.open_dataset(out_file)
 
-    ds_out = xr.open_dataset(out_file)
-    assert ds_out.attrs["poltype"] == poltype
-    assert "description" in ds_out.attrs
-
-    if poltype == "S":
-        expected_vars = {"i_HH", "q_HH", "i_HV", "q_HV"}
-    elif poltype == "C2":
-        expected_vars = {"C11", "C12_real", "C12_imag", "C22"}
-    else:  # T3
-        expected_vars = {
-            "T11",
-            "T12_real",
-            "T12_imag",
-            "T13_real",
-            "T13_imag",
-            "T22",
-            "T23_real",
-            "T23_imag",
-            "T33",
-        }
-
-    assert set(ds_out.data_vars.keys()) == expected_vars
-    for var in expected_vars:
-        assert ds_out[var].shape == shape
-        assert not np.isnan(ds_out[var].values).any()
-    ds_out.close()
+        if poltype == "S":
+            expected_vars = {
+                "i_HH",
+                "q_HH",
+                "i_HV",
+                "q_HV",
+                "i_VH",
+                "q_VH",
+                "i_VV",
+                "q_VV",
+            }
+        elif poltype == "C2":
+            expected_vars = {"C11", "C12_real", "C12_imag", "C22"}
+        elif poltype == "T3":
+            expected_vars = {
+                "T11",
+                "T12_real",
+                "T12_imag",
+                "T13_real",
+                "T13_imag",
+                "T22",
+                "T23_real",
+                "T23_imag",
+                "T33",
+            }
+        elif poltype == "C3":
+            expected_vars = {
+                "C11",
+                "C12_real",
+                "C12_imag",
+                "C13_real",
+                "C13_imag",
+                "C22",
+                "C23_real",
+                "C23_imag",
+                "C33",
+            }
+        elif poltype == "T4":
+            expected_vars = {
+                "T11",
+                "T12_real",
+                "T12_imag",
+                "T13_real",
+                "T13_imag",
+                "T14_real",
+                "T14_imag",
+                "T22",
+                "T23_real",
+                "T23_imag",
+                "T24_real",
+                "T24_imag",
+                "T33",
+                "T34_real",
+                "T34_imag",
+                "T44",
+            }
+        elif poltype == "C4":
+            expected_vars = {
+                "C11",
+                "C12_real",
+                "C12_imag",
+                "C13_real",
+                "C13_imag",
+                "C14_real",
+                "C14_imag",
+                "C22",
+                "C23_real",
+                "C23_imag",
+                "C24_real",
+                "C24_imag",
+                "C33",
+                "C34_real",
+                "C34_imag",
+                "C44",
+            }
+        assert set(ds_out.data_vars.keys()) == expected_vars
+        var = "hh" if "hh" in ds.data_vars else "m11"
+        shp = ds[var].shape
+        for var in expected_vars:
+            assert ds_out[var].shape == shp
+            assert not np.isnan(ds_out[var].values).any()

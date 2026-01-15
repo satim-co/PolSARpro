@@ -4,6 +4,8 @@ _"Re-implementation of selected PolSARpro functions in Python, following the sci
 
 - [Source code](https://github.com/satim-co/PolSARpro/)
 - [Documentation](https://polsarpro.readthedocs.io/)
+- [Sample data](https://step.esa.int/auxdata/PolSARpro/SAN_FRANCISCO_ALOS1_slc.nc) The original data used for this product have been supplied by JAXA’s ALOS-2 sample product.
+
 
 [![Conda Version](https://img.shields.io/conda/vn/conda-forge/polsarpro.svg)](https://anaconda.org/conda-forge/polsarpro) [![Conda Downloads](https://img.shields.io/conda/dn/conda-forge/polsarpro.svg)](https://anaconda.org/conda-forge/polsarpro)  
 

@@ -1,3 +1,14 @@
+# 2026.1.1
+# New feature
+- Tutorial notebook to process BIOMASS data on the MAAP platform
+
+## Bugfix and improvements 
+- Added some missing S matrix channels in `polmat_to_netcdf`
+- Updated the unit test accordingly
+- Improved the unit test by using simulated data 
+- Simulated data fixture now returns chunked datasets 
+- Added a link to the sample dataset in the docs 
+
 # 2026.1.0
 ## New features 
 - Cameron decomposition 

@@ -1,3 +1,7 @@
+<p float="left">
+    <img src="https://raw.githubusercontent.com/satim-co/PolSARpro/c0d7a46fb6043f5cd350f34ff5faa2fdb4df1897/docs/polsarpro_logo_dark.svg" width="300">
+</p>
+
 # (Py)PolSARPro
 
 _"Re-implementation of selected PolSARpro functions in Python, following the scientific recommendations of PolInSAR 2021 (Work In Progress)."_

@@ -1,5 +1,5 @@
 <p float="left">
-    <img src="https://raw.githubusercontent.com/satim-co/PolSARpro/c0d7a46fb6043f5cd350f34ff5faa2fdb4df1897/docs/polsarpro_logo_dark.svg" width="360">
+    <img src="https://raw.githubusercontent.com/satim-co/PolSARpro/refs/heads/main/docs/polsarpro_logo_dark.svg" width="360">
 </p>
 
 # PyPolSARPro

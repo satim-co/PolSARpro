@@ -37,6 +37,8 @@ from polsarpro.auxil import validate_dataset
 
 log = logging.getLogger(__name__)
 
+SLC_NO_TAG = ""
+ALLOWED_SLC_TAGS = ("S1", "S2", "S3")
 
 def open_netcdf_beam(file_path: str | Path) -> xarray.Dataset:
     """Open data in the NetCDF-BEAM format exported by SNAP and create a valid python PolSARpro Dataset. Also works for complex matrix datasets written with polmat_to_netcdf.
@@ -62,10 +64,6 @@ def open_netcdf_beam(file_path: str | Path) -> xarray.Dataset:
         # check if image is in the SAR geometry or in geographic coordinates
         is_geocoded = bool(meta["Abstracted_Metadata:is_terrain_corrected"])
 
-    # Scattering matrix
-    pol_list = ("H", "V")
-    # construct the set of all i_HH, q_HH, i_HV...
-    S_vars = {f"{x}_{p1}{p2}" for p1 in pol_list for p2 in pol_list for x in ("i", "q")}
     T3_vars = {
         "T11",
         "T22",
@@ -117,16 +115,13 @@ def open_netcdf_beam(file_path: str | Path) -> xarray.Dataset:
         }
     )
 
+    # S matrix - SLC is a special case as band names may vary
+    tag = _parse_slc_bands(var_names)
+
     # infers polarimetric type from dataset variable names
     data = {}
-    if S_vars.issubset(var_names):
-        poltype = "S"
-        description = "Scattering matrix"
-        data["hh"] = ds.i_HH + 1j * ds.q_HH
-        data["hv"] = ds.i_HV + 1j * ds.q_HV
-        data["vv"] = ds.i_VV + 1j * ds.q_VV
-        data["vh"] = ds.i_VH + 1j * ds.q_VH
-    elif C4_vars.issubset(var_names):
+
+    if C4_vars.issubset(var_names):
         poltype = "C4"
         description = "Covariance matrix (4x4)"
         data["m11"] = ds.C11
@@ -176,6 +171,19 @@ def open_netcdf_beam(file_path: str | Path) -> xarray.Dataset:
         data["m12"] = ds.T12_real + 1j * ds.T12_imag
         data["m13"] = ds.T13_real + 1j * ds.T13_imag
         data["m23"] = ds.T23_real + 1j * ds.T23_imag
+    elif tag is not None:
+        poltype = "S"
+        description = "Scattering matrix"
+        if tag == SLC_NO_TAG: # Usual SNAP band names
+            data["hh"] = ds.i_HH + 1j * ds.q_HH
+            data["hv"] = ds.i_HV + 1j * ds.q_HV
+            data["vh"] = ds.i_VH + 1j * ds.q_VH
+            data["vv"] = ds.i_VV + 1j * ds.q_VV
+        else: # BIOMASS data
+            data["hh"] = ds[f"i_{tag}_HH"] + 1j * ds[f"q_{tag}_HH"]
+            data["hv"] = ds[f"i_{tag}_HV"] + 1j * ds[f"q_{tag}_HV"]
+            data["vh"] = ds[f"i_{tag}_VH"] + 1j * ds[f"q_{tag}_VH"]
+            data["vv"] = ds[f"i_{tag}_VV"] + 1j * ds[f"q_{tag}_VV"]
     else:
         raise ValueError(
             "Polarimetric type not recognized. Possible types are 'S', 'C2', 'C3', 'T3', 'C4', 'T4' matrices."
@@ -250,3 +258,32 @@ def polmat_to_netcdf(ds: xarray.Dataset, file_path: str | Path):
         coords=ds.coords,
     )
     ds_out.to_netcdf(file_path, encoding=encoding)
+
+# --- helper functions not to be called outside of the module
+
+def _parse_slc_bands(var_names: set[str]) -> str | None:
+    pol_list = ("HH", "HV", "VH", "VV")
+    tags = ("S1", "S2", "S3")
+
+    # Legacy SNAP-style SLC (no tag)
+    base_set = {f"{x}_{p}" for p in pol_list for x in ("i", "q")}
+    if base_set.issubset(var_names):
+        return SLC_NO_TAG
+
+    # Tagged SLC variants
+    found_tags = []
+    for tag in tags:
+        tagged_set = {f"{x}_{tag}_{p}" for p in pol_list for x in ("i", "q")}
+        if tagged_set.issubset(var_names):
+            found_tags.append(tag)
+
+    if len(found_tags) > 1:
+        raise ValueError(
+            f"Multiple SLC tags found: {found_tags}"
+        )
+
+    if found_tags:
+        return found_tags[0]
+
+    # Not an SLC dataset
+    return None

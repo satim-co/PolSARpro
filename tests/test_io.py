@@ -3,7 +3,7 @@ import numpy as np
 import xarray as xr
 from pathlib import Path
 
-from polsarpro.io import open_netcdf_beam, polmat_to_netcdf
+from polsarpro.io import open_netcdf_beam, polmat_to_netcdf, _parse_slc_bands
 
 
 @pytest.fixture
@@ -34,6 +34,21 @@ def test_s_matrix(tmp_netcdf):
     # Create S matrix dataset
     S_vars = [
         f"{x}_{p1}{p2}" for p1 in ("H", "V") for p2 in ("H", "V") for x in ("i", "q")
+    ]
+    file_path = tmp_netcdf(S_vars, geocoded=False)
+
+    ds_out = open_netcdf_beam(file_path)
+
+    assert set(ds_out.data_vars) == {"hh", "hv", "vh", "vv"}
+    assert ds_out.attrs["poltype"] == "S"
+    assert "description" in ds_out.attrs
+    assert "y" in ds_out.coords and "x" in ds_out.coords
+
+def test_s_matrix_biomass(tmp_netcdf):
+    # Create S matrix dataset
+    tag = "S1"
+    S_vars = [
+        f"{x}_{tag}_{p1}{p2}" for p1 in ("H", "V") for p2 in ("H", "V") for x in ("i", "q")
     ]
     file_path = tmp_netcdf(S_vars, geocoded=False)
 
@@ -192,3 +207,65 @@ def test_polmat_to_netcdf(synthetic_poldata, tmp_path):
         for var in expected_vars:
             assert ds_out[var].shape == shp
             assert not np.isnan(ds_out[var].values).any()
+
+
+def test_parse_slc_bands():
+    tag = "S3"
+    var_names = {
+        f"i_{tag}_HH",
+        f"q_{tag}_HH",
+        f"i_{tag}_HV",
+        f"q_{tag}_HV",
+        f"i_{tag}_VH",
+        f"q_{tag}_VH",
+        f"i_{tag}_VV",
+        f"q_{tag}_VV",
+    }
+    pol_list = ("H", "V")
+    var_names_no_tags = {
+        f"{x}_{p1}{p2}" for p1 in pol_list for p2 in pol_list for x in ("i", "q")
+    }
+    var_names_miss = {
+        f"i_{tag}_HH",
+        f"q_{tag}_HH",
+        f"i_{tag}_HV",
+        f"q_{tag}_VH",
+        f"i_{tag}_VV",
+    }
+    var_names_bad_prefix = {
+        f"i_{tag}_HH",
+        f"q_{tag}_HH",
+        f"{tag}_HV",
+        f"q_{tag}_HV",
+        f"i_{tag}_VH",
+        f"q_{tag}_VH",
+        f"i_{tag}_VV",
+        f"q_{tag}_VV",
+    }
+    var_names_bad_pol = {
+        f"i_{tag}_HH",
+        f"q_{tag}_HH",
+        f"i_{tag}_HV",
+        f"q_{tag}_HV",
+        f"i_{tag}_GG",
+        f"q_{tag}_VH",
+        f"i_{tag}_VV",
+        f"q_{tag}_VV",
+    }
+    tagx = "Sx"
+    var_names_bad_tag = {
+        f"i_{tagx}_HH",
+        f"q_{tagx}_HH",
+        f"i_{tagx}_HV",
+        f"q_{tagx}_HV",
+        f"i_{tagx}_VH",
+        f"q_{tagx}_VH",
+        f"i_{tagx}_VV",
+        f"q_{tagx}_VV",
+    }
+    assert _parse_slc_bands(var_names=var_names) == tag
+    assert _parse_slc_bands(var_names=var_names_no_tags) == ""
+    assert _parse_slc_bands(var_names=var_names_miss) is None
+    assert _parse_slc_bands(var_names=var_names_bad_prefix) is None
+    assert _parse_slc_bands(var_names=var_names_bad_pol) is None
+    assert _parse_slc_bands(var_names=var_names_bad_tag) is None

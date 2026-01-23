@@ -1,3 +1,11 @@
+# 2026.1.2
+
+## New feature
+- `open_netcdf_beam` is now able to read calibrated BIOMASS files exported from SNAP.
+
+## Bugfix
+- `pauli_rgb` replicates input dimensions instead of looking for y and x. It now works with geocoded data too.
+
 # 2026.1.1
 ## New feature
 - Tutorial notebook to process BIOMASS data on the MAAP platform

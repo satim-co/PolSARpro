@@ -1,5 +1,4 @@
 # 2026.1.2
-
 ## New feature
 - `open_netcdf_beam` is now able to read calibrated BIOMASS files exported from SNAP.
 

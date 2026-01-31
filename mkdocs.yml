@@ -27,8 +27,8 @@ nav:
 
 theme:
   name: material
-  logo: psp_temp_logo.png
-  favicon: psp_temp_logo.png
+  logo: polsarpro_icon.svg
+  favicon: polsarpro_icon.svg
   highlightjs: true
   hljslanguages:
     - python

@@ -8,7 +8,7 @@ _"Re-implementation of selected PolSARpro functions in Python, following the sci
 
 - [Source code](https://github.com/satim-co/PolSARpro/)
 - [Documentation](https://polsarpro.readthedocs.io/)
-- [Sample data](https://step.esa.int/auxdata/PolSARpro/SAN_FRANCISCO_ALOS1_slc.nc) The original data used for this product have been supplied by JAXA’s ALOS-2 sample product.
+- [Sample data](https://step.esa.int/auxdata/PolSARpro/SAN_FRANCISCO_ALOS1_slc.nc) — The original data used for this product have been supplied by JAXA’s ALOS-2 sample product.
 
 
 [![Conda Version](https://img.shields.io/conda/vn/conda-forge/polsarpro.svg)](https://anaconda.org/conda-forge/polsarpro) [![Conda Downloads](https://img.shields.io/conda/dn/conda-forge/polsarpro.svg)](https://anaconda.org/conda-forge/polsarpro)  
@@ -78,9 +78,8 @@ docker compose down
 
 ## Getting Started
 
-Read the tutorial:  
-https://polsarpro.readthedocs.io/en/latest/quickstart-tutorial/
+Read this [tutorial](https://polsarpro.readthedocs.io/en/latest/quickstart-tutorial/).
 
 Tutorial notebooks may be downloaded from the [notebooks](https://github.com/satim-co/PolSARpro/tree/main/notebooks) directory on Github.
 
-The ALOS-1 image used in the tutorials may be downloaded [here](https://step.esa.int/auxdata/PolSARpro/SAN_FRANCISCO_ALOS1_slc.nc).
+The ALOS-1 image used in the tutorials may be downloaded [here](https://step.esa.int/auxdata/PolSARpro/SAN_FRANCISCO_ALOS1_slc.nc). The original data used for this product have been supplied by JAXA’s ALOS-2 sample product.

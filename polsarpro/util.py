@@ -33,7 +33,6 @@ from scipy.ndimage import convolve
 import dask.array as da
 import xarray as xr
 import xarray
-import matplotlib.pyplot as plt
 from polsarpro.auxil import validate_dataset
 
 log = logging.getLogger(__name__)
@@ -551,10 +550,11 @@ def plot_h_alpha_plane(ds, bins=500, min_pts=5):
         bins (int): Number of bins along each dimension.
         min_pts (int): If the number of points in one bin is less than this value, display is omitted.
     """
+    import matplotlib.pyplot as plt
 
     if not ds.poltype == "h_a_alpha":
         raise ValueError("Input must be a valid PolSARpro H/A/Alpha result.")
-    
+
     if not {"entropy", "alpha"}.issubset(ds.data_vars):
         raise ValueError("Entropy or Alpha is missing from the input data.")
 

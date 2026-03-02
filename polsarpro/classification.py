@@ -55,48 +55,58 @@ def wishart_h_a_alpha(input_data, boxcar_size=[5, 5]):
     # distance to all classes
     # use hardcoded product trace -> make a _trace{3,4}_hm1hm2 function
 
-def _h_alpha_classifier(ds_ha): 
-
-    # TODO: use variables entropy and alpha from input ds_ha to
-    # compute a label map (class)
-
-    # alpha = ds_ha.alpha.data
-    # H = ds_ha.entropy.data 
-
-    # TODO: use this code extracted from C as a guide.
-    # use dask array logic functions
-
-    # boundaries -  adapt to dask array
-    #define lim_al1 55.  /* H and alpha decision boundaries */
-    #define lim_al2 50.
-    #define lim_al3 48.
-    #define lim_al4 42.
-    #define lim_al5 40.
-    #define lim_H1  0.9
-    #define lim_H2  0.5
-
-    # thresholds -  adapt to dask array
-    # a1 = (M_prm_al[lig][col] <= lim_al1);
-    # a2 = (M_prm_al[lig][col] <= lim_al2);
-    # a3 = (M_prm_al[lig][col] <= lim_al3);
-    # a4 = (M_prm_al[lig][col] <= lim_al4);
-    # a5 = (M_prm_al[lig][col] <= lim_al5);
-
-    # h1 = (M_prm_H[lig][col] <= lim_H1);
-    # h2 = (M_prm_H[lig][col] <= lim_H2);
-
-    # regions - adapt to dask array
-    # r1 = !a3 * h2;
-    # r2 = a3 * !a4 * h2;
-    # r3 = a4 * h2;
-    # r4 = !a2 * h1 * !h2;
-    # r5 = a2 * !a5 * h1 * !h2;
-    # r6 = a5 * h1 * !h2;
-    # r7 = !a1 * !h1;
-    # r8 = a1 * !a5 * !h1;
-    # r9 = a5 * !h1; // Non feasible region
-
-    # use class instead of area - adapt to dask array
-    # area = (int) (r1 + 2 * r2 + 3 * r3 + 4 * r4 + 5 * r5 + 6 * r6 + 7 * r7 + 8 * r8 + 9 * r9);
-
-    # return image of ints
+def _h_alpha_classifier(ds_ha):
+    """
+    Classify pixels based on H-Alpha decomposition using decision boundaries.
+    
+    Parameters
+    ----------
+    ds_ha : xarray.Dataset
+        Dataset containing 'entropy' and 'alpha' variables.
+    
+    Returns
+    -------
+    dask.array.Array
+        Classification map with integer class labels (1-9).
+    """
+    alpha = ds_ha.alpha.data
+    H = ds_ha.entropy.data
+    
+    # Decision boundaries
+    lim_al1 = 55.0
+    lim_al2 = 50.0
+    lim_al3 = 48.0
+    lim_al4 = 42.0
+    lim_al5 = 40.0
+    lim_H1 = 0.9
+    lim_H2 = 0.5
+    
+    # Thresholds (C boolean logic: 0 is false, non-zero is true)
+    # In Python/dask: True=1, False=0, so we use direct boolean operations
+    a1 = (alpha <= lim_al1)
+    a2 = (alpha <= lim_al2)
+    a3 = (alpha <= lim_al3)
+    a4 = (alpha <= lim_al4)
+    a5 = (alpha <= lim_al5)
+    
+    h1 = (H <= lim_H1)
+    h2 = (H <= lim_H2)
+    
+    # Regions
+    # In Python/dask: ~ for NOT, & for AND, | for OR
+    r1 = (~a3) & h2
+    r2 = a3 & (~a4) & h2
+    r3 = a4 & h2
+    r4 = (~a2) & h1 & (~h2)
+    r5 = a2 & (~a5) & h1 & (~h2)
+    r6 = a5 & h1 & (~h2)
+    r7 = (~a1) & (~h1)
+    r8 = a1 & (~a5) & (~h1)
+    r9 = a5 & (~h1)  # Non feasible region
+    
+    # Compute class labels (1-9)
+    # Each region contributes its class number where the region is True
+    class_map = (1 * r1 + 2 * r2 + 3 * r3 + 4 * r4 + 
+                 5 * r5 + 6 * r6 + 7 * r7 + 8 * r8 + 9 * r9)
+    
+    return class_map

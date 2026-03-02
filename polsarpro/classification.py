@@ -34,18 +34,18 @@ from polsarpro.util import boxcar, C3_to_T3, S_to_C3, S_to_T3, C4_to_T4, T3_to_C
 from polsarpro.auxil import validate_dataset
 from polsarpro.decompositions import h_a_alpha
 
-def wishart_h_a_alpha(input_data):
+def wishart_h_a_alpha(input_data, boxcar_size=[5, 5]):
 
     poltype = validate_dataset(input_data, allowed_poltypes=("C3", "T3", "C4", "T4", "S", "h_a_alpha"))
-    return poltype
 
-    # If input == S, C3, T3 -> (S_to_C3) -> compute h_a_alpha
+
+    # If input == S, C3, T3 -> (S_to_C3) -> boxcar -> compute ds_ha = h_a_alpha with flags=("entropy", "anisotropy", "alpha")
 
     # If input == h_a_alpha, check if H A Alpha are present
-
-    # Define areas 
+    # ds_ha = input_data
 
     # classify using areas (assign)
+    # _h_alpha_classifier(ds_ha)
 
     # until no change
     # use for loops on class indices
@@ -54,4 +54,49 @@ def wishart_h_a_alpha(input_data):
     # compute log(det) of centers
     # distance to all classes
     # use hardcoded product trace -> make a _trace{3,4}_hm1hm2 function
-    pass
+
+def _h_alpha_classifier(ds_ha): 
+
+    # TODO: use variables entropy and alpha from input ds_ha to
+    # compute a label map (class)
+
+    # alpha = ds_ha.alpha.data
+    # H = ds_ha.entropy.data 
+
+    # TODO: use this code extracted from C as a guide.
+    # use dask array logic functions
+
+    # boundaries -  adapt to dask array
+    #define lim_al1 55.  /* H and alpha decision boundaries */
+    #define lim_al2 50.
+    #define lim_al3 48.
+    #define lim_al4 42.
+    #define lim_al5 40.
+    #define lim_H1  0.9
+    #define lim_H2  0.5
+
+    # thresholds -  adapt to dask array
+    # a1 = (M_prm_al[lig][col] <= lim_al1);
+    # a2 = (M_prm_al[lig][col] <= lim_al2);
+    # a3 = (M_prm_al[lig][col] <= lim_al3);
+    # a4 = (M_prm_al[lig][col] <= lim_al4);
+    # a5 = (M_prm_al[lig][col] <= lim_al5);
+
+    # h1 = (M_prm_H[lig][col] <= lim_H1);
+    # h2 = (M_prm_H[lig][col] <= lim_H2);
+
+    # regions - adapt to dask array
+    # r1 = !a3 * h2;
+    # r2 = a3 * !a4 * h2;
+    # r3 = a4 * h2;
+    # r4 = !a2 * h1 * !h2;
+    # r5 = a2 * !a5 * h1 * !h2;
+    # r6 = a5 * h1 * !h2;
+    # r7 = !a1 * !h1;
+    # r8 = a1 * !a5 * !h1;
+    # r9 = a5 * !h1; // Non feasible region
+
+    # use class instead of area - adapt to dask array
+    # area = (int) (r1 + 2 * r2 + 3 * r3 + 4 * r4 + 5 * r5 + 6 * r6 + 7 * r7 + 8 * r8 + 9 * r9);
+
+    # return image of ints

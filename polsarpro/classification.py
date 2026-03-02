@@ -32,8 +32,13 @@ import xarray as xr
 import dask.array as da
 from polsarpro.util import boxcar, C3_to_T3, S_to_C3, S_to_T3, C4_to_T4, T3_to_C3
 from polsarpro.auxil import validate_dataset
+from polsarpro.decompositions import h_a_alpha
 
 def wishart_h_a_alpha(input_data):
+
+    poltype = validate_dataset(input_data, allowed_poltypes=("C3", "T3", "C4", "T4", "S", "h_a_alpha"))
+    return poltype
+
     # If input == S, C3, T3 -> (S_to_C3) -> compute h_a_alpha
 
     # If input == h_a_alpha, check if H A Alpha are present

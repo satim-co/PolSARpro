@@ -2,6 +2,7 @@ import pytest
 import numpy as np
 import xarray as xr
 from polsarpro.util import vec_to_mat
+from polsarpro.decompositions import h_a_alpha
 
 
 @pytest.fixture(scope="function")
@@ -133,5 +134,27 @@ def synthetic_poldata(request):
                 attrs=dict(poltype="T4", description="..."),
                 coords={"y": np.arange(N), "x": np.arange(N)},
             ).chunk(x=C, y=C)
+
+        if "h_a_alpha" in requested:
+            S = (np.random.randn(N, N, 2, 2) + 1j * np.random.randn(N, N, 2, 2)).astype(
+                "complex64"
+            )
+            S_dict = dict(
+                hh=xr.DataArray(S[..., 0, 0], dims=dims),
+                hv=xr.DataArray(S[..., 0, 1], dims=dims),
+                vh=xr.DataArray(S[..., 1, 0], dims=dims),
+                vv=xr.DataArray(S[..., 1, 1], dims=dims),
+            )
+            ds = xr.Dataset(
+                S_dict,
+                attrs=dict(poltype="S", description="..."),
+                coords={"y": np.arange(N), "x": np.arange(N)},
+            ).chunk(x=C, y=C)
+
+            result["h_a_alpha"] = h_a_alpha(
+                input_data=ds,
+                boxcar_size=[5, 5],
+                flags=("entropy", "alpha", "anisotropy"),
+            )
 
     return result

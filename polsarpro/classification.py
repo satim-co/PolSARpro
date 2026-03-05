@@ -27,6 +27,10 @@ limitations under the License.
 
 """
 
+from __future__ import annotations
+
+from typing import Optional
+
 import numpy as np
 import xarray as xr
 import dask.array as da
@@ -34,7 +38,12 @@ from polsarpro.util import boxcar, C3_to_T3, S_to_C3, S_to_T3, C4_to_T4, T3_to_C
 from polsarpro.auxil import validate_dataset
 from polsarpro.decompositions import h_a_alpha
 
-def wishart_h_a_alpha(input_data, boxcar_size=[5, 5], h_a_alpha_result=None):
+
+def wishart_h_a_alpha(
+    input_data: xr.Dataset,
+    boxcar_size: list[int] = [5, 5],
+    h_a_alpha_result: Optional[xr.Dataset] = None,
+) -> xr.Dataset:
     """
     Performs the Wishart H/A/Alpha classification on polarimetric SAR data.
 
@@ -119,13 +128,42 @@ def wishart_h_a_alpha(input_data, boxcar_size=[5, 5], h_a_alpha_result=None):
     # Iterative Wishart classification
     # Maximum iterations
     max_iter = 3
+    nclass = 9
+    n = M.shape[-1]  # 3 for T3, 4 for T4
 
     for iteration in range(max_iter):
-        # Compute class centers (coherency matrix averages per class)
-        class_centers = _compute_class_centers(M, class_map)
+        dist_min = da.full_like(in_.m11, fill_value=da.inf)
+        label_min = class_map.copy()
 
-        # Compute distance to all classes and reclassify
-        class_map = _wishart_classify(M, class_centers)
+        for i in range(1, nclass + 1):
+            # Compute class center
+            mask = class_map == i
+            npts = mask.sum()
+            center = xr.where(class_map == i, in_, 0).sum() / npts
+
+            # Reconstruct matrix and regularize
+            if n == 3:
+                M_center = _reconstruct_matrix_from_ds(center).rechunk("auto") + 1e-12 * da.eye(3)
+            else:
+                M_center = _reconstruct_matrix_from_ds(center).rechunk("auto") + 1e-12 * da.eye(4)
+
+            # Compute inverse and determinant
+            meta = (np.array([], dtype="complex64").reshape((0, 0)),)
+            M_inv = da.apply_gufunc(np.linalg.inv, "(i,j)->(i,j)", M_center, meta=meta)
+            M_det = da.apply_gufunc(np.linalg.det, "(i,j)->()", M_center, meta=meta)
+
+            # Compute Wishart distance
+            if n == 3:
+                dist = da.log(M_det.real) + _trace_product_3(M_inv, in_)
+            else:
+                dist = da.log(M_det.real) + _trace_product_4(M_inv, in_)
+
+            # Update classification where distance is smaller
+            is_smaller = dist < dist_min
+            label_min = da.where(is_smaller, i, label_min)
+            dist_min = da.where(is_smaller, dist, dist_min)
+
+        class_map = label_min
 
     # Build output dataset
     result = xr.Dataset(
@@ -140,7 +178,7 @@ def wishart_h_a_alpha(input_data, boxcar_size=[5, 5], h_a_alpha_result=None):
     return result
 
 
-def _reconstruct_matrix_from_ds(ds):
+def _reconstruct_matrix_from_ds(ds: xr.Dataset) -> da.Array:
     """
     Reconstruct the coherency matrix from a T3/T4 dataset.
 
@@ -150,7 +188,7 @@ def _reconstruct_matrix_from_ds(ds):
     Returns:
         Dask array of shape (..., n, n) where n is 3 or 4
     """
-    if ds.poltype == "T3":
+    if ds.poltype in ("T3", "C3"):
         # Build 3x3 Hermitian matrix
         m11 = ds.m11.data
         m12 = ds.m12.data
@@ -165,7 +203,7 @@ def _reconstruct_matrix_from_ds(ds):
             da.stack([da.conj(m13), da.conj(m23), m33], axis=-1),
         ], axis=-2)
 
-    elif ds.poltype == "T4":
+    elif ds.poltype == ("T4", "C4"):
         # Build 4x4 Hermitian matrix
         m11 = ds.m11.data
         m12 = ds.m12.data
@@ -183,186 +221,95 @@ def _reconstruct_matrix_from_ds(ds):
             da.stack([da.conj(m12), m22, m23, m24], axis=-1),
             da.stack([da.conj(m13), da.conj(m23), m33, m34], axis=-1),
             da.stack([da.conj(m14), da.conj(m24), da.conj(m34), m44], axis=-1),
-        ], axis=-2)
+        ], axis=-2, chunks="auto")
     else:
         raise ValueError(f"Unsupported poltype: {ds.poltype}. Expected T3 or T4.")
 
     return M
 
 
-def _compute_class_centers(M, class_map, num_classes=9):
+def _trace_product_3(M_inv: da.Array, cov_ds: xr.Dataset) -> da.Array:
     """
-    Compute the average coherency matrix for each class.
+    Compute Tr(M_inv @ C3) for 3x3 covariance/coherency matrices.
+
+    Uses direct element-wise computation for efficiency:
+    Tr(M_inv @ C3) = sum_ij M_inv[i,j] * C3[j,i]
 
     Args:
-        M: Coherency matrix array of shape (y, x, n, n)
-        class_map: Classification map of shape (y, x)
-        num_classes: Number of classes (default 9)
+        M_inv: Inverse matrix array of shape (3, 3)
+        cov_ds: Dataset containing covariance/coherency matrix elements
+            (m11, m12, m22, m13, m23, m33)
 
     Returns:
-        Dictionary mapping class labels to their center matrices
+        Trace of the product, same shape as cov_ds variables
     """
-    centers = {}
-    n = M.shape[-1]
+    m11 = cov_ds.m11.data
+    m12 = cov_ds.m12.data
+    m22 = cov_ds.m22.data
+    m13 = cov_ds.m13.data
+    m23 = cov_ds.m23.data
+    m33 = cov_ds.m33.data
 
-    for k in range(1, num_classes + 1):
-        # Create mask for class k
-        mask = (class_map == k)
+    trace = (M_inv[0, 0] * m11 +
+             M_inv[0, 1] * da.conj(m12) +
+             M_inv[0, 2] * da.conj(m13) +
+             M_inv[1, 0] * m12 +
+             M_inv[1, 1] * m22 +
+             M_inv[1, 2] * da.conj(m23) +
+             M_inv[2, 0] * m13 +
+             M_inv[2, 1] * m23 +
+             M_inv[2, 2] * m33)
 
-        # Compute mean of matrices in this class
-        # Sum all matrices in the class and divide by count
-        mask_expanded = mask[..., None, None]
-        masked_sum = da.sum(M * mask_expanded, axis=(0, 1))
-        count = da.sum(mask)
-
-        # Avoid division by zero - use a small regularization
-        count = da.maximum(count, 1)
-        center = masked_sum / count
-
-        # Regularize the center matrix to ensure it's non-singular
-        # Add a small value to the diagonal
-        reg = 1e-6
-        if n == 3:
-            center = center + reg * da.eye(3, dtype=center.dtype)
-        else:
-            center = center + reg * da.eye(4, dtype=center.dtype)
-
-        centers[k] = center
-
-    return centers
-
-
-def _trace3_hm1hm2(Hm1, Hm2):
-    """
-    Compute Tr(Hm1 * Hm2) for 3x3 matrices.
-
-    Args:
-        Hm1: First matrix array of shape (..., 3, 3)
-        Hm2: Second matrix array of shape (..., 3, 3)
-
-    Returns:
-        Trace of the product, shape (...)
-    """
-    # Matrix multiplication followed by trace
-    product = da.matmul(Hm1, Hm2)
-    trace = product[..., 0, 0] + product[..., 1, 1] + product[..., 2, 2]
     return trace
 
 
-def _trace4_hm1hm2(Hm1, Hm2):
+def _trace_product_4(M_inv: da.Array, cov_ds: xr.Dataset) -> da.Array:
     """
-    Compute Tr(Hm1 * Hm2) for 4x4 matrices.
+    Compute Tr(M_inv @ C4) for 4x4 covariance/coherency matrices.
+
+    Uses direct element-wise computation for efficiency:
+    Tr(M_inv @ C4) = sum_ij M_inv[i,j] * C4[j,i]
 
     Args:
-        Hm1: First matrix array of shape (..., 4, 4)
-        Hm2: Second matrix array of shape (..., 4, 4)
+        M_inv: Inverse matrix array of shape (4, 4)
+        cov_ds: Dataset containing covariance/coherency matrix elements
+            (m11, m12, m22, m13, m23, m33, m14, m24, m34, m44)
 
     Returns:
-        Trace of the product, shape (...)
+        Trace of the product, same shape as cov_ds variables
     """
-    # Matrix multiplication followed by trace
-    product = da.matmul(Hm1, Hm2)
-    trace = (product[..., 0, 0] + product[..., 1, 1] +
-             product[..., 2, 2] + product[..., 3, 3])
+    m11 = cov_ds.m11.data
+    m12 = cov_ds.m12.data
+    m22 = cov_ds.m22.data
+    m13 = cov_ds.m13.data
+    m23 = cov_ds.m23.data
+    m33 = cov_ds.m33.data
+    m14 = cov_ds.m14.data
+    m24 = cov_ds.m24.data
+    m34 = cov_ds.m34.data
+    m44 = cov_ds.m44.data
+
+    trace = (M_inv[0, 0] * m11 +
+             M_inv[0, 1] * da.conj(m12) +
+             M_inv[0, 2] * da.conj(m13) +
+             M_inv[0, 3] * da.conj(m14) +
+             M_inv[1, 0] * m12 +
+             M_inv[1, 1] * m22 +
+             M_inv[1, 2] * da.conj(m23) +
+             M_inv[1, 3] * da.conj(m24) +
+             M_inv[2, 0] * m13 +
+             M_inv[2, 1] * m23 +
+             M_inv[2, 2] * m33 +
+             M_inv[2, 3] * da.conj(m34) +
+             M_inv[3, 0] * m14 +
+             M_inv[3, 1] * m24 +
+             M_inv[3, 2] * m34 +
+             M_inv[3, 3] * m44)
+
     return trace
 
 
-def _wishart_distance(M, center, center_inv, logdet_center, n=3):
-    """
-    Compute the Wishart distance between a coherency matrix and a class center.
-
-    The Wishart distance is defined as:
-    d = ln(det(center)) + Tr(center^{-1} * M)
-
-    Args:
-        M: Coherency matrix array of shape (..., n, n)
-        center: Class center matrix of shape (n, n)
-        center_inv: Pre-computed inverse of center
-        logdet_center: Pre-computed log determinant of center
-        n: Matrix dimension (3 or 4)
-
-    Returns:
-        Distance array of shape (...)
-    """
-    # Compute trace term: Tr(center^{-1} * M)
-    if n == 3:
-        trace_term = _trace3_hm1hm2(M, center_inv)
-    else:  # n == 4
-        trace_term = _trace4_hm1hm2(M, center_inv)
-
-    # Wishart distance
-    distance = logdet_center + trace_term
-
-    return distance
-
-
-def _compute_logdet(center):
-    """
-    Compute log determinant of a small matrix using numpy via map_blocks.
-
-    Args:
-        center: Matrix array of shape (n, n)
-
-    Returns:
-        Log determinant value (scalar dask array)
-    """
-    # Use map_blocks to apply numpy slogdet
-    def _slogdet_block(x):
-        sign, logdet = np.linalg.slogdet(x)
-        return np.array(logdet, dtype=np.float64)
-
-    # Compute logdet - result is a scalar
-    logdet_da = da.map_blocks(_slogdet_block, center, drop_axis=[0, 1], dtype=np.float64)
-    return logdet_da
-
-
-def _wishart_classify(M, class_centers):
-    """
-    Classify each pixel based on minimum Wishart distance to class centers.
-
-    Args:
-        M: Coherency matrix array of shape (y, x, n, n)
-        class_centers: Dictionary mapping class labels to center matrices
-
-    Returns:
-        Classification map of shape (y, x)
-    """
-    n = M.shape[-1]
-
-    # Initialize with the first class
-    classes = list(class_centers.keys())
-    k0 = classes[0]
-    center0 = class_centers[k0]
-
-    # Compute inverse and log determinant for each center
-    center0_inv = da.linalg.inv(center0)
-    center0_logdet = _compute_logdet(center0)
-
-    # Compute distance to first class
-    if n == 3:
-        min_distance = _trace3_hm1hm2(M, center0_inv)
-    else:
-        min_distance = _trace4_hm1hm2(M, center0_inv)
-    min_distance = center0_logdet + min_distance
-
-    class_map = da.full(M.shape[:-2], k0, dtype=np.int32)
-
-    # Compare with other classes
-    for k in classes[1:]:
-        center = class_centers[k]
-        center_inv = da.linalg.inv(center)
-        center_logdet = _compute_logdet(center)
-        distance = _wishart_distance(M, center, center_inv, center_logdet, n=n)
-
-        # Update class map where this distance is smaller
-        mask = distance < min_distance
-        class_map = da.where(mask, k, class_map)
-        min_distance = da.where(mask, distance, min_distance)
-
-    return class_map
-
-
-def _h_alpha_classifier(ds_ha):
+def _h_alpha_classifier(ds_ha: xr.Dataset) -> da.Array:
     """
     Classify pixels based on H-Alpha decomposition using decision boundaries.
     

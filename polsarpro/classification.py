@@ -123,15 +123,25 @@ def wishart_h_a_alpha(
     class_map = _h_alpha_classifier(ds_ha)
 
     # Reconstruct matrix from dataset for Wishart iteration
-    M = _reconstruct_matrix_from_ds(in_)
+    # M = _reconstruct_matrix_from_ds(in_)
 
     # Iterative Wishart classification
     # Maximum iterations
+    # TODO: make a parameter
     max_iter = 3
-    nclass = 9
-    n = M.shape[-1]  # 3 for T3, 4 for T4
 
-    for iteration in range(max_iter):
+    # Non-feasible region is eliminated 
+    nclass = 8
+
+    # Matrix dimension
+    if poltype in ("S", "C3", "T3"):
+        n = 3
+    elif poltype in ("C4", "T4"):
+        n = 4
+    else:
+        raise ValueError("Invalid polarimetric type.")
+
+    for _ in range(max_iter):
         dist_min = da.full_like(in_.m11, fill_value=da.inf)
         label_min = class_map.copy()
 
@@ -139,13 +149,10 @@ def wishart_h_a_alpha(
             # Compute class center
             mask = class_map == i
             npts = mask.sum()
-            center = xr.where(class_map == i, in_, 0).sum() / npts
+            center = xr.where(mask, in_, 0).sum() / npts
 
             # Reconstruct matrix and regularize
-            if n == 3:
-                M_center = _reconstruct_matrix_from_ds(center).rechunk("auto") + 1e-12 * da.eye(3)
-            else:
-                M_center = _reconstruct_matrix_from_ds(center).rechunk("auto") + 1e-12 * da.eye(4)
+            M_center = _reconstruct_matrix_from_ds(center) + 1e-12 * da.eye(n)
 
             # Compute inverse and determinant
             meta = (np.array([], dtype="complex64").reshape((0, 0)),)
@@ -178,54 +185,45 @@ def wishart_h_a_alpha(
     return result
 
 
-def _reconstruct_matrix_from_ds(ds: xr.Dataset) -> da.Array:
-    """
-    Reconstruct the coherency matrix from a T3/T4 dataset.
+def _reconstruct_matrix_from_ds(ds):
 
-    Args:
-        ds: Dataset with m11, m12, m22, m13, m23, m33 (and m14, m24, m34, m44 for T4)
+    # eps = 1e-30
 
-    Returns:
-        Dask array of shape (..., n, n) where n is 3 or 4
-    """
-    if ds.poltype in ("T3", "C3"):
-        # Build 3x3 Hermitian matrix
-        m11 = ds.m11.data
-        m12 = ds.m12.data
-        m22 = ds.m22.data
-        m13 = ds.m13.data
-        m23 = ds.m23.data
-        m33 = ds.m33.data
+    new_dims_array = ("i", "j")
 
-        M = da.stack([
-            da.stack([m11, m12, m13], axis=-1),
-            da.stack([da.conj(m12), m22, m23], axis=-1),
-            da.stack([da.conj(m13), da.conj(m23), m33], axis=-1),
-        ], axis=-2)
+    if ds.poltype in ["T3", "C3"]:
+        # build each line of the T3 matrix
+        M3_l1 = xr.concat((ds.m11, ds.m12, ds.m13), dim="j")
+        M3_l2 = xr.concat((ds.m12.conj(), ds.m22, ds.m23), dim="j")
+        M3_l3 = xr.concat((ds.m13.conj(), ds.m23.conj(), ds.m33), dim="j")
 
-    elif ds.poltype == ("T4", "C4"):
-        # Build 4x4 Hermitian matrix
-        m11 = ds.m11.data
-        m12 = ds.m12.data
-        m13 = ds.m13.data
-        m14 = ds.m14.data
-        m22 = ds.m22.data
-        m23 = ds.m23.data
-        m24 = ds.m24.data
-        m33 = ds.m33.data
-        m34 = ds.m34.data
-        m44 = ds.m44.data
+        # Concatenate all lines into a 3x3 matrix
+        return (
+            xr.concat((M3_l1, M3_l2, M3_l3), dim="i")
+            .transpose(*new_dims_array)
+            .chunk({"i": 3, "j": 3})
+            # + eps
+        )
+    elif ds.poltype in ["T4", "C4"]:
+        # build each line of the T4 matrix
+        M4_l1 = xr.concat((ds.m11, ds.m12, ds.m13, ds.m14), dim="j")
+        M4_l2 = xr.concat((ds.m12.conj(), ds.m22, ds.m23, ds.m24), dim="j")
+        M4_l3 = xr.concat((ds.m13.conj(), ds.m23.conj(), ds.m33, ds.m34), dim="j")
+        M4_l4 = xr.concat(
+            (ds.m14.conj(), ds.m24.conj(), ds.m34.conj(), ds.m44), dim="j"
+        )
 
-        M = da.stack([
-            da.stack([m11, m12, m13, m14], axis=-1),
-            da.stack([da.conj(m12), m22, m23, m24], axis=-1),
-            da.stack([da.conj(m13), da.conj(m23), m33, m34], axis=-1),
-            da.stack([da.conj(m14), da.conj(m24), da.conj(m34), m44], axis=-1),
-        ], axis=-2, chunks="auto")
+        # concatenate all lines into a 4x4 matrix
+        return (
+            xr.concat((M4_l1, M4_l2, M4_l3, M4_l4), dim="i")
+            .transpose(*new_dims_array)
+            .chunk({"i": 4, "j": 4})
+            # + eps
+        )
     else:
-        raise ValueError(f"Unsupported poltype: {ds.poltype}. Expected T3 or T4.")
-
-    return M
+        raise NotImplementedError(
+            "Implemented only for C2, C3, T3 and C4 and T4 poltypes."
+        )
 
 
 def _trace_product_3(M_inv: da.Array, cov_ds: xr.Dataset) -> da.Array:

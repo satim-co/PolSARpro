@@ -14,15 +14,15 @@ def test_wishart_h_a_alpha(synthetic_poldata):
         assert isinstance(result, type(ds)), f"Output should be {type(ds)}, got {type(result)}"
         
         # Check output shape matches input spatial dimensions
-        assert result['class'].shape == ds.m11.shape if 'm11' in ds else ds.hh.shape, \
-            f"Output shape {result['class'].shape} should match input spatial shape"
+        assert result['label'].shape == ds.m11.shape if 'm11' in ds else ds.hh.shape, \
+            f"Output shape {result['label'].shape} should match input spatial shape"
         
         # Check class values are integers in range [1, 9]
-        class_data = result['class'].values
+        class_data = result['label'].values
         assert np.issubdtype(class_data.dtype, np.integer), \
             f"Class values should be integers, got {class_data.dtype}"
         assert class_data.min() >= 1, f"Min class value should be >= 1, got {class_data.min()}"
-        assert class_data.max() <= 9, f"Max class value should be <= 9, got {class_data.max()}"
+        assert class_data.max() <= 8, f"Max class value should be <= 8, got {class_data.max()}"
         
         # Check attributes
         assert result.attrs.get('poltype') == 'wishart_h_a_alpha', \
@@ -47,11 +47,11 @@ def test_wishart_h_a_alpha_with_ha_result(synthetic_poldata):
         assert isinstance(result, type(ds)), f"Output should be {type(ds)}, got {type(result)}"
         
         # Check output shape matches input spatial dimensions
-        assert result['class'].shape == ds.m11.shape if 'm11' in ds else ds.hh.shape, \
-            f"Output shape {result['class'].shape} should match input spatial shape"
+        assert result['label'].shape == ds.m11.shape if 'm11' in ds else ds.hh.shape, \
+            f"Output shape {result['label'].shape} should match input spatial shape"
         
         # Check class values are integers in range [1, 9]
-        class_data = result['class'].values
+        class_data = result['label'].values
         assert np.issubdtype(class_data.dtype, np.integer), \
             f"Class values should be integers, got {class_data.dtype}"
         assert class_data.min() >= 1, f"Min class value should be >= 1, got {class_data.min()}"

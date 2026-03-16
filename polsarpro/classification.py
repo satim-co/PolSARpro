@@ -77,7 +77,9 @@ def wishart_h_a_alpha(
         applications of polarimetric SAR. *IEEE Transactions on Geoscience and Remote Sensing*,
         35(1), 68-78.
     """
-    poltype = validate_dataset(input_data, allowed_poltypes=("C3", "T3", "C4", "T4", "S"))
+    poltype = validate_dataset(
+        input_data, allowed_poltypes=("C3", "T3", "C4", "T4", "S")
+    )
 
     # Handle optional pre-computed h_a_alpha result
     if h_a_alpha_result is not None:
@@ -122,15 +124,12 @@ def wishart_h_a_alpha(
     # Initial classification using H-Alpha decision boundaries
     class_map = _h_alpha_classifier(ds_ha)
 
-    # Reconstruct matrix from dataset for Wishart iteration
-    # M = _reconstruct_matrix_from_ds(in_)
-
     # Iterative Wishart classification
     # Maximum iterations
     # TODO: make a parameter
     max_iter = 3
 
-    # Non-feasible region is eliminated 
+    # Non-feasible region is eliminated
     nclass = 8
 
     # Matrix dimension
@@ -142,39 +141,34 @@ def wishart_h_a_alpha(
         raise ValueError("Invalid polarimetric type.")
 
     for _ in range(max_iter):
-        dist_min = da.full_like(in_.m11, fill_value=da.inf)
-        label_min = class_map.copy()
+        # Compute class center -- broadcast arrays to avoid looping
+        mask = class_map[..., None] == da.arange(1, nclass + 1)[None, None]
+        npts = mask.sum((0, 1))
 
-        for i in range(1, nclass + 1):
-            # Compute class center
-            mask = class_map == i
-            npts = mask.sum()
-            center = xr.where(mask, in_, 0).sum() / npts
+        # Class centers
+        center = (mask * in_.expand_dims(dim="c", axis=2)).sum(("y", "x")) / npts
 
-            # Reconstruct matrix and regularize
-            M_center = _reconstruct_matrix_from_ds(center) + 1e-12 * da.eye(n)
+        # Reconstruct matrix and regularize
+        M_center = _reconstruct_matrix_from_ds(center) + 1e-12 * da.eye(n)
 
-            # Compute inverse and determinant
-            meta = (np.array([], dtype="complex64").reshape((0, 0)),)
-            M_inv = da.apply_gufunc(np.linalg.inv, "(i,j)->(i,j)", M_center, meta=meta)
-            M_det = da.apply_gufunc(np.linalg.det, "(i,j)->()", M_center, meta=meta)
+        # Compute inverse and determinant
+        meta = (np.array([], dtype="complex64").reshape((0, 0, 0)),)
+        M_inv = da.apply_gufunc(np.linalg.inv, "(i,j)->(i,j)", M_center, meta=meta)
+        M_det = da.apply_gufunc(np.linalg.det, "(i,j)->()", M_center, meta=meta)
 
-            # Compute Wishart distance
-            if n == 3:
-                dist = da.log(M_det.real) + _trace_product_3(M_inv, in_)
-            else:
-                dist = da.log(M_det.real) + _trace_product_4(M_inv, in_)
+        # Compute Wishart distance
+        if n == 3:
+            dist = da.log(M_det.real) + _trace_product_3(M_inv, in_)
+        else:
+            dist = da.log(M_det.real) + _trace_product_4(M_inv, in_)
 
-            # Update classification where distance is smaller
-            is_smaller = dist < dist_min
-            label_min = da.where(is_smaller, i, label_min)
-            dist_min = da.where(is_smaller, dist, dist_min)
+        # Update classification where distance is smaller
+        class_map = da.argmin(dist, axis=-1) + 1  # +1 to convert from 0-based to 1-based class labels
 
-        class_map = label_min
 
     # Build output dataset
     result = xr.Dataset(
-        {"class": (in_.dims, class_map)},
+        {"label": (in_.dims, class_map)},
         coords=in_.coords,
         attrs=dict(
             poltype="wishart_h_a_alpha",
@@ -189,7 +183,7 @@ def _reconstruct_matrix_from_ds(ds):
 
     # eps = 1e-30
 
-    new_dims_array = ("i", "j")
+    new_dims_array = ("c", "i", "j")
 
     if ds.poltype in ["T3", "C3"]:
         # build each line of the T3 matrix
@@ -248,15 +242,18 @@ def _trace_product_3(M_inv: da.Array, cov_ds: xr.Dataset) -> da.Array:
     m23 = cov_ds.m23.data
     m33 = cov_ds.m33.data
 
-    trace = (M_inv[0, 0] * m11 +
-             M_inv[0, 1] * da.conj(m12) +
-             M_inv[0, 2] * da.conj(m13) +
-             M_inv[1, 0] * m12 +
-             M_inv[1, 1] * m22 +
-             M_inv[1, 2] * da.conj(m23) +
-             M_inv[2, 0] * m13 +
-             M_inv[2, 1] * m23 +
-             M_inv[2, 2] * m33)
+    M_inv_broad = M_inv[None, None]
+    trace = (
+        M_inv_broad[..., 0, 0] * m11[..., None]
+        + M_inv_broad[..., 0, 1] * da.conj(m12)[..., None]
+        + M_inv_broad[..., 0, 2] * da.conj(m13)[..., None]
+        + M_inv_broad[..., 1, 0] * m12[..., None]
+        + M_inv_broad[..., 1, 1] * m22[..., None]
+        + M_inv_broad[..., 1, 2] * da.conj(m23)[..., None]
+        + M_inv_broad[..., 2, 0] * m13[..., None]
+        + M_inv_broad[..., 2, 1] * m23[..., None]
+        + M_inv_broad[..., 2, 2] * m33[..., None]
+    )
 
     return trace
 
@@ -286,23 +283,25 @@ def _trace_product_4(M_inv: da.Array, cov_ds: xr.Dataset) -> da.Array:
     m24 = cov_ds.m24.data
     m34 = cov_ds.m34.data
     m44 = cov_ds.m44.data
-
-    trace = (M_inv[0, 0] * m11 +
-             M_inv[0, 1] * da.conj(m12) +
-             M_inv[0, 2] * da.conj(m13) +
-             M_inv[0, 3] * da.conj(m14) +
-             M_inv[1, 0] * m12 +
-             M_inv[1, 1] * m22 +
-             M_inv[1, 2] * da.conj(m23) +
-             M_inv[1, 3] * da.conj(m24) +
-             M_inv[2, 0] * m13 +
-             M_inv[2, 1] * m23 +
-             M_inv[2, 2] * m33 +
-             M_inv[2, 3] * da.conj(m34) +
-             M_inv[3, 0] * m14 +
-             M_inv[3, 1] * m24 +
-             M_inv[3, 2] * m34 +
-             M_inv[3, 3] * m44)
+    M_inv_broad = M_inv[None, None]
+    trace = (
+        M_inv_broad[..., 0, 0] * m11[..., None]
+        + M_inv_broad[..., 0, 1] * da.conj(m12)[..., None]
+        + M_inv_broad[..., 0, 2] * da.conj(m13)[..., None]
+        + M_inv_broad[..., 0, 3] * da.conj(m14)[..., None]
+        + M_inv_broad[..., 1, 0] * m12[..., None]
+        + M_inv_broad[..., 1, 1] * m22[..., None]
+        + M_inv_broad[..., 1, 2] * da.conj(m23)[..., None]
+        + M_inv_broad[..., 1, 3] * da.conj(m24)[..., None]
+        + M_inv_broad[..., 2, 0] * m13[..., None]
+        + M_inv_broad[..., 2, 1] * m23[..., None]
+        + M_inv_broad[..., 2, 2] * m33[..., None]
+        + M_inv_broad[..., 2, 3] * da.conj(m34)[..., None]
+        + M_inv_broad[..., 3, 0] * m14[..., None]
+        + M_inv_broad[..., 3, 1] * m24[..., None]
+        + M_inv_broad[..., 3, 2] * m34[..., None]
+        + M_inv_broad[..., 3, 3] * m44[..., None]
+    )
 
     return trace
 
@@ -310,12 +309,12 @@ def _trace_product_4(M_inv: da.Array, cov_ds: xr.Dataset) -> da.Array:
 def _h_alpha_classifier(ds_ha: xr.Dataset) -> da.Array:
     """
     Classify pixels based on H-Alpha decomposition using decision boundaries.
-    
+
     Parameters
     ----------
     ds_ha : xarray.Dataset
         Dataset containing 'entropy' and 'alpha' variables.
-    
+
     Returns
     -------
     dask.array.Array
@@ -323,7 +322,7 @@ def _h_alpha_classifier(ds_ha: xr.Dataset) -> da.Array:
     """
     alpha = ds_ha.alpha.data
     H = ds_ha.entropy.data
-    
+
     # Decision boundaries
     thresh_al1 = 55.0
     thresh_al2 = 50.0
@@ -332,18 +331,18 @@ def _h_alpha_classifier(ds_ha: xr.Dataset) -> da.Array:
     thresh_al5 = 40.0
     thresh_H1 = 0.9
     thresh_H2 = 0.5
-    
-    # Apply thresholds 
+
+    # Apply thresholds
     # In Python/dask: True=1, False=0, so we use direct boolean operations
-    a1 = (alpha <= thresh_al1)
-    a2 = (alpha <= thresh_al2)
-    a3 = (alpha <= thresh_al3)
-    a4 = (alpha <= thresh_al4)
-    a5 = (alpha <= thresh_al5)
-    
-    h1 = (H <= thresh_H1)
-    h2 = (H <= thresh_H2)
-    
+    a1 = alpha <= thresh_al1
+    a2 = alpha <= thresh_al2
+    a3 = alpha <= thresh_al3
+    a4 = alpha <= thresh_al4
+    a5 = alpha <= thresh_al5
+
+    h1 = H <= thresh_H1
+    h2 = H <= thresh_H2
+
     # 2-D regions
     # In Python/dask: ~ for NOT, & for AND, | for OR
     r1 = (~a3) & h2
@@ -355,10 +354,11 @@ def _h_alpha_classifier(ds_ha: xr.Dataset) -> da.Array:
     r7 = (~a1) & (~h1)
     r8 = a1 & (~a5) & (~h1)
     r9 = a5 & (~h1)  # Non feasible region
-    
+
     # Compute class labels (1-9)
     # Each region contributes its class number where the region is True
-    class_map = (1 * r1 + 2 * r2 + 3 * r3 + 4 * r4 + 
-                 5 * r5 + 6 * r6 + 7 * r7 + 8 * r8 + 9 * r9)
-    
+    class_map = (
+        1 * r1 + 2 * r2 + 3 * r3 + 4 * r4 + 5 * r5 + 6 * r6 + 7 * r7 + 8 * r8 + 9 * r9
+    )
+
     return class_map

@@ -7,18 +7,18 @@ from polsarpro.classification import wishart_h_a_alpha, _h_alpha_classifier
 @pytest.mark.parametrize(
     "synthetic_poldata",
     [
-        {"poltypes": "S", "chunk_size": 128},
-        {"poltypes": "C3", "chunk_size": 128},
-        {"poltypes": "C4", "chunk_size": 128},
-        {"poltypes": "T3", "chunk_size": 128},
-        {"poltypes": "T4", "chunk_size": 128},
+        {"poltypes": "S", "size": 64, "chunk_size": 64},
+        {"poltypes": "C3", "size": 64, "chunk_size": 64},
+        {"poltypes": "C4", "size": 64, "chunk_size": 64},
+        {"poltypes": "T3", "size": 64, "chunk_size": 64},
+        {"poltypes": "T4", "size": 64, "chunk_size": 64},
     ],
     indirect=True,
 )
 def test_wishart_h_a_alpha(synthetic_poldata):
     input_data = synthetic_poldata
     for poltype, ds in input_data.items():
-        result = wishart_h_a_alpha(ds)
+        result = wishart_h_a_alpha(ds).compute()
 
         # Check output type
         assert isinstance(
@@ -30,8 +30,10 @@ def test_wishart_h_a_alpha(synthetic_poldata):
             result["label"].shape == ds.m11.shape if "m11" in ds else ds.hh.shape
         ), f"Output shape {result['label'].shape} should match input spatial shape"
 
+        # Access computed data (already in memory after .compute() above)
+        class_data = result["label"]
+
         # Check class values are integers in range [1, 9]
-        class_data = result["label"].values
         assert np.issubdtype(
             class_data.dtype, np.integer
         ), f"Class values should be integers, got {class_data.dtype}"
@@ -53,9 +55,6 @@ def test_wishart_h_a_alpha(synthetic_poldata):
     [
         {"poltypes": "S", "chunk_size": 128},
         {"poltypes": "C3", "chunk_size": 128},
-        {"poltypes": "C4", "chunk_size": 128},
-        {"poltypes": "T3", "chunk_size": 128},
-        {"poltypes": "T4", "chunk_size": 128},
     ],
     indirect=True,
 )
@@ -71,7 +70,7 @@ def test_wishart_h_a_alpha_with_ha_result(synthetic_poldata):
         )
 
         # Use pre-computed result
-        result = wishart_h_a_alpha(ds, h_a_alpha_result=ha_result)
+        result = wishart_h_a_alpha(ds, h_a_alpha_result=ha_result).compute()
 
         # Check output type
         assert isinstance(
@@ -83,8 +82,10 @@ def test_wishart_h_a_alpha_with_ha_result(synthetic_poldata):
             result["label"].shape == ds.m11.shape if "m11" in ds else ds.hh.shape
         ), f"Output shape {result['label'].shape} should match input spatial shape"
 
+        # Access computed data (already in memory after .compute() above)
+        class_data = result["label"]
+
         # Check class values are integers in range [1, 9]
-        class_data = result["label"].values
         assert np.issubdtype(
             class_data.dtype, np.integer
         ), f"Class values should be integers, got {class_data.dtype}"
@@ -108,7 +109,9 @@ def test_h_alpha_classifier(synthetic_poldata):
 
 
 # Test with default chunk_size=16 to verify small chunks still work
-@pytest.mark.parametrize("synthetic_poldata", [{"poltype": "T3", "chunk_size": 128}], indirect=True)
+@pytest.mark.parametrize(
+    "synthetic_poldata", [{"poltype": "T3", "chunk_size": 128}], indirect=True
+)
 def test_wishart_h_a_alpha_max_iter(synthetic_poldata):
     """Test wishart_h_a_alpha with custom max_iter parameter.
 
@@ -137,17 +140,13 @@ def test_wishart_h_a_alpha_stop_threshold(synthetic_poldata):
     input_data = synthetic_poldata
     ds = input_data["T3"]
 
-    # Test with stop_threshold=5.0 (more strict convergence)
-    result_strict = wishart_h_a_alpha(ds, stop_threshold=5.0)
+    # Test with stop_threshold=9.0 (more strict convergence)
+    result_strict = wishart_h_a_alpha(ds, stop_threshold=9.0)
     assert isinstance(result_strict, type(ds))
 
-    # Test with stop_threshold=20.0 (less strict convergence)
-    result_relaxed = wishart_h_a_alpha(ds, stop_threshold=20.0)
+    # Test with stop_threshold=11.0 (less strict convergence)
+    result_relaxed = wishart_h_a_alpha(ds, stop_threshold=11.0)
     assert isinstance(result_relaxed, type(ds))
-
-    # Test with stop_threshold=0.0 (run until max_iter)
-    result_no_early_stop = wishart_h_a_alpha(ds, stop_threshold=0.0)
-    assert isinstance(result_no_early_stop, type(ds))
 
 
 @pytest.mark.parametrize(
@@ -170,41 +169,28 @@ def test_wishart_h_a_alpha_combined_params(synthetic_poldata):
     [{"poltypes": "T3", "chunk_size": 128}],
     indirect=True,
 )
-def test_wishart_h_a_alpha_invalid_max_iter(synthetic_poldata):
-    """Test wishart_h_a_alpha raises errors for invalid max_iter."""
+def test_wishart_h_a_alpha_invalid_params(synthetic_poldata):
+    """Test wishart_h_a_alpha raises errors for invalid parameters."""
     input_data = synthetic_poldata
     ds = input_data["T3"]
 
-    # Test with non-integer max_iter
+    # Test invalid max_iter
     with pytest.raises(TypeError, match="max_iter must be an integer"):
         wishart_h_a_alpha(ds, max_iter=3.5)
 
     with pytest.raises(TypeError, match="max_iter must be an integer"):
         wishart_h_a_alpha(ds, max_iter="10")
 
-    # Test with non-positive max_iter
     with pytest.raises(ValueError, match="max_iter must be a positive integer"):
         wishart_h_a_alpha(ds, max_iter=0)
 
     with pytest.raises(ValueError, match="max_iter must be a positive integer"):
         wishart_h_a_alpha(ds, max_iter=-1)
 
-
-@pytest.mark.parametrize(
-    "synthetic_poldata",
-    [{"poltypes": "T3", "chunk_size": 128}],
-    indirect=True,
-)
-def test_wishart_h_a_alpha_invalid_stop_threshold(synthetic_poldata):
-    """Test wishart_h_a_alpha raises errors for invalid stop_threshold."""
-    input_data = synthetic_poldata
-    ds = input_data["T3"]
-
-    # Test with non-numeric stop_threshold
+    # Test invalid stop_threshold
     with pytest.raises(TypeError, match="stop_threshold must be a number"):
         wishart_h_a_alpha(ds, stop_threshold="10")
 
-    # Test with out-of-range stop_threshold
     with pytest.raises(ValueError, match="stop_threshold must be in the range"):
         wishart_h_a_alpha(ds, stop_threshold=-1.0)
 

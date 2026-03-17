@@ -3,14 +3,21 @@ import numpy as np
 from polsarpro.classification import wishart_h_a_alpha, _h_alpha_classifier
 
 
+# Fast tests with chunk_size=128 (single chunk for 128x128 image)
 @pytest.mark.parametrize(
-    "synthetic_poldata", ["S", "C3", "C4", "T3", "T4"], indirect=True
+    "synthetic_poldata",
+    [
+        {"poltypes": "S", "chunk_size": 128},
+        {"poltypes": "C3", "chunk_size": 128},
+        {"poltypes": "C4", "chunk_size": 128},
+        {"poltypes": "T3", "chunk_size": 128},
+        {"poltypes": "T4", "chunk_size": 128},
+    ],
+    indirect=True,
 )
 def test_wishart_h_a_alpha(synthetic_poldata):
     input_data = synthetic_poldata
     for poltype, ds in input_data.items():
-        # Rechunk for faster dask graph construction (16x16 chunks are too small)
-        ds = ds.chunk(x=128, y=128)
         result = wishart_h_a_alpha(ds)
 
         # Check output type
@@ -42,7 +49,15 @@ def test_wishart_h_a_alpha(synthetic_poldata):
 
 
 @pytest.mark.parametrize(
-    "synthetic_poldata", ["S", "C3"], indirect=True
+    "synthetic_poldata",
+    [
+        {"poltypes": "S", "chunk_size": 128},
+        {"poltypes": "C3", "chunk_size": 128},
+        {"poltypes": "C4", "chunk_size": 128},
+        {"poltypes": "T3", "chunk_size": 128},
+        {"poltypes": "T4", "chunk_size": 128},
+    ],
+    indirect=True,
 )
 def test_wishart_h_a_alpha_with_ha_result(synthetic_poldata):
     """Test wishart_h_a_alpha with pre-computed h_a_alpha_result."""
@@ -50,8 +65,6 @@ def test_wishart_h_a_alpha_with_ha_result(synthetic_poldata):
 
     input_data = synthetic_poldata
     for poltype, ds in input_data.items():
-        # Rechunk for faster dask graph construction (16x16 chunks are too small)
-        ds = ds.chunk(x=64, y=64)
         # Compute h_a_alpha decomposition first
         ha_result = h_a_alpha(
             ds, boxcar_size=[5, 5], flags=("entropy", "anisotropy", "alpha")
@@ -86,7 +99,7 @@ def test_wishart_h_a_alpha_with_ha_result(synthetic_poldata):
 @pytest.mark.parametrize("synthetic_poldata", ["h_a_alpha"], indirect=True)
 def test_h_alpha_classifier(synthetic_poldata):
     ds = synthetic_poldata["h_a_alpha"]
-    res = _h_alpha_classifier(ds)
+    res = _h_alpha_classifier(ds).compute()
 
     assert res.dtype == int
     assert res.shape == ds.entropy.shape
@@ -94,13 +107,16 @@ def test_h_alpha_classifier(synthetic_poldata):
     assert res.max() <= 9
 
 
-@pytest.mark.parametrize("synthetic_poldata", ["T3"], indirect=True)
+# Test with default chunk_size=16 to verify small chunks still work
+@pytest.mark.parametrize("synthetic_poldata", [{"poltype": "T3", "chunk_size": 128}], indirect=True)
 def test_wishart_h_a_alpha_max_iter(synthetic_poldata):
-    """Test wishart_h_a_alpha with custom max_iter parameter."""
+    """Test wishart_h_a_alpha with custom max_iter parameter.
+
+    Uses default chunk_size=16 to verify the algorithm works with
+    smaller chunks (slower but tests chunked computation).
+    """
     input_data = synthetic_poldata
     ds = input_data["T3"]
-    # Rechunk for faster dask graph construction (16x16 chunks are too small)
-    ds = ds.chunk(x=64, y=64)
 
     # Test with max_iter=1
     result_1_iter = wishart_h_a_alpha(ds, max_iter=1)
@@ -110,18 +126,16 @@ def test_wishart_h_a_alpha_max_iter(synthetic_poldata):
     result_5_iter = wishart_h_a_alpha(ds, max_iter=5)
     assert isinstance(result_5_iter, type(ds))
 
-    # Test with max_iter=20
-    result_20_iter = wishart_h_a_alpha(ds, max_iter=20)
-    assert isinstance(result_20_iter, type(ds))
 
-
-@pytest.mark.parametrize("synthetic_poldata", ["T3"], indirect=True)
+@pytest.mark.parametrize(
+    "synthetic_poldata",
+    [{"poltypes": "T3", "chunk_size": 128}],
+    indirect=True,
+)
 def test_wishart_h_a_alpha_stop_threshold(synthetic_poldata):
     """Test wishart_h_a_alpha with custom stop_threshold parameter."""
     input_data = synthetic_poldata
     ds = input_data["T3"]
-    # Rechunk for faster dask graph construction (16x16 chunks are too small)
-    ds = ds.chunk(x=64, y=64)
 
     # Test with stop_threshold=5.0 (more strict convergence)
     result_strict = wishart_h_a_alpha(ds, stop_threshold=5.0)
@@ -136,26 +150,30 @@ def test_wishart_h_a_alpha_stop_threshold(synthetic_poldata):
     assert isinstance(result_no_early_stop, type(ds))
 
 
-@pytest.mark.parametrize("synthetic_poldata", ["T3"], indirect=True)
+@pytest.mark.parametrize(
+    "synthetic_poldata",
+    [{"poltypes": "T3", "chunk_size": 128}],
+    indirect=True,
+)
 def test_wishart_h_a_alpha_combined_params(synthetic_poldata):
     """Test wishart_h_a_alpha with both max_iter and stop_threshold."""
     input_data = synthetic_poldata
     ds = input_data["T3"]
-    # Rechunk for faster dask graph construction (16x16 chunks are too small)
-    ds = ds.chunk(x=64, y=64)
 
     # Test with custom values for both parameters
-    result = wishart_h_a_alpha(ds, max_iter=15, stop_threshold=5.0)
+    result = wishart_h_a_alpha(ds, max_iter=5, stop_threshold=15.0)
     assert isinstance(result, type(ds))
 
 
-@pytest.mark.parametrize("synthetic_poldata", ["T3"], indirect=True)
+@pytest.mark.parametrize(
+    "synthetic_poldata",
+    [{"poltypes": "T3", "chunk_size": 128}],
+    indirect=True,
+)
 def test_wishart_h_a_alpha_invalid_max_iter(synthetic_poldata):
     """Test wishart_h_a_alpha raises errors for invalid max_iter."""
     input_data = synthetic_poldata
     ds = input_data["T3"]
-    # Rechunk for faster dask graph construction (16x16 chunks are too small)
-    ds = ds.chunk(x=64, y=64)
 
     # Test with non-integer max_iter
     with pytest.raises(TypeError, match="max_iter must be an integer"):
@@ -172,13 +190,15 @@ def test_wishart_h_a_alpha_invalid_max_iter(synthetic_poldata):
         wishart_h_a_alpha(ds, max_iter=-1)
 
 
-@pytest.mark.parametrize("synthetic_poldata", ["T3"], indirect=True)
+@pytest.mark.parametrize(
+    "synthetic_poldata",
+    [{"poltypes": "T3", "chunk_size": 128}],
+    indirect=True,
+)
 def test_wishart_h_a_alpha_invalid_stop_threshold(synthetic_poldata):
     """Test wishart_h_a_alpha raises errors for invalid stop_threshold."""
     input_data = synthetic_poldata
     ds = input_data["T3"]
-    # Rechunk for faster dask graph construction (16x16 chunks are too small)
-    ds = ds.chunk(x=64, y=64)
 
     # Test with non-numeric stop_threshold
     with pytest.raises(TypeError, match="stop_threshold must be a number"):

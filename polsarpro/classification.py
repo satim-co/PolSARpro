@@ -44,7 +44,7 @@ def wishart_h_a_alpha(
     boxcar_size: list[int] = [5, 5],
     h_a_alpha_result: Optional[xr.Dataset] = None,
     max_iter: int = 10,
-    stop_threshold: float = 10.0,
+    tol_pct: float = 10.0,
 ) -> xr.Dataset:
     """
     Performs the Wishart H/A/Alpha classification on polarimetric SAR data.
@@ -71,7 +71,7 @@ def wishart_h_a_alpha(
             the H/A/Alpha decomposition is computed from input_data.
         max_iter (int, optional): Maximum number of iterations for the classification
             refinement loop. Must be a positive integer. Defaults to 10.
-        stop_threshold (float, optional): Threshold for early stopping based on the
+        tol_pct (float, optional): Threshold for early stopping based on the
             percentage of pixels changing class between iterations. When the percentage
             of pixels that switch class is less than this value, the algorithm stops.
             Must be in the range [0.0, 100.0]. Defaults to 10.0 (i.e., 10%).
@@ -79,11 +79,6 @@ def wishart_h_a_alpha(
     Returns:
         xr.Dataset: Dataset containing the classification map with variable 'label'
             containing integer labels (1-9) corresponding to the 9 H-Alpha zones.
-
-    Raises:
-        TypeError: If max_iter is not an integer, or if stop_threshold is not a number.
-        ValueError: If max_iter is not positive, or if stop_threshold is outside the
-            valid range [0.0, 100.0].
 
     References:
         Cloude, S. R., & Pottier, E. (1997). An entropy based classification scheme for land
@@ -97,13 +92,13 @@ def wishart_h_a_alpha(
         raise ValueError(f"max_iter must be a positive integer, got {max_iter}.")
 
     # Validate stop_threshold parameter
-    if not isinstance(stop_threshold, (int, float)):
+    if not isinstance(tol_pct, (int, float)):
         raise TypeError(
-            f"stop_threshold must be a number, got {type(stop_threshold).__name__}."
+            f"stop_threshold must be a number, got {type(tol_pct).__name__}."
         )
-    if stop_threshold < 0.0 or stop_threshold > 100.0:
+    if tol_pct < 0.0 or tol_pct > 100.0:
         raise ValueError(
-            f"stop_threshold must be in the range [0.0, 100.0], got {stop_threshold}."
+            f"stop_threshold must be in the range [0.0, 100.0], got {tol_pct}."
         )
     poltype = validate_dataset(
         input_data, allowed_poltypes=("C3", "T3", "C4", "T4", "S")
@@ -151,6 +146,7 @@ def wishart_h_a_alpha(
 
     # Initial classification using H-Alpha decision boundaries
     class_map = _h_alpha_classifier(ds_ha)
+    class_map_16 = da.where(ds_ha.anisotropy <= 0.5, class_map, class_map + 8)
 
     # Iterative Wishart classification
     # Non-feasible region is eliminated
@@ -201,7 +197,7 @@ def wishart_h_a_alpha(
         if total_pixels > 0:
             changed_pixels = (class_map != class_map_prev).sum()
             percent_changed = (changed_pixels / total_pixels) * 100.0
-            if percent_changed < stop_threshold:
+            if percent_changed < tol_pct:
                 break
 
     # Build output dataset

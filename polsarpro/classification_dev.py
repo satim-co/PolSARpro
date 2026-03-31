@@ -194,9 +194,9 @@ def wishart_h_a_alpha(
 
         # Compute Wishart distance
         if n == 3:
-            dist = da.log(M_det.real) + _trace_product_3(M_inv, M)
+            dist = da.log(da.abs(M_det)) + _trace_product_3(M_inv, M)
         else:
-            dist = da.log(M_det.real) + _trace_product_4(M_inv, M)
+            dist = da.log(da.abs(M_det)) + _trace_product_4(M_inv, M)
 
         # Update classification where distance is smaller
         class_map = (

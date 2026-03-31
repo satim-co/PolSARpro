@@ -398,7 +398,7 @@ def _update_wishart_class_centers(input_data, class_map, nclass):
     center = (mask * input_data.expand_dims(dim="c", axis=2)).sum(("y", "x")) / npts
 
     # Reconstruct matrix and regularize
-    M_center = _reconstruct_matrix_from_ds(center) + 1e-30 * da.eye(n)
+    M_center = _reconstruct_matrix_from_ds(center) # + 1e-30 * da.eye(n)
     return M_center
 
 
@@ -410,9 +410,13 @@ def _update_wishart_class_map(in_, M_center):
 
     # Compute Wishart distance
     if M_center.shape[1] == 3:
-        dist = da.log(M_det.real) + _trace_product_3(M_inv, in_)
+        dist = da.log(da.abs(M_det)) + _trace_product_3(M_inv, in_)
     else:
-        dist = da.log(M_det.real) + _trace_product_4(M_inv, in_)
+        dist = da.log(da.abs(M_det)) + _trace_product_4(M_inv, in_)
+
+    # As in C version, let's clip the determinant
+    eps = 1e-30
+    M_det = M_det.real.clip(eps) + 1j* M_det.imag.clip(eps)
 
     # Assign class numbers
     # +1 to convert from 0-based to 1-based class labels

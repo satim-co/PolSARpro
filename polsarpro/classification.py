@@ -34,6 +34,7 @@ from typing import Optional
 import numpy as np
 import xarray as xr
 import dask.array as da
+from dask.distributed import print
 from polsarpro.util import boxcar, C3_to_T3, S_to_C3, S_to_T3, C4_to_T4, T3_to_C3
 from polsarpro.auxil import validate_dataset
 from polsarpro.decompositions import h_a_alpha
@@ -44,7 +45,7 @@ def wishart_h_a_alpha(
     boxcar_size: list[int] = [5, 5],
     h_a_alpha_result: Optional[xr.Dataset] = None,
     max_iter: int = 10,
-    tol_pct: float = 10.0,
+    tol_pct: float = None,
 ) -> xr.Dataset:
     """
     Performs the Wishart H/A/Alpha classification on polarimetric SAR data.
@@ -71,19 +72,23 @@ def wishart_h_a_alpha(
             the H/A/Alpha decomposition is computed from input_data.
         max_iter (int, optional): Maximum number of iterations for the classification
             refinement loop. Must be a positive integer. Defaults to 10.
-        tol_pct (float, optional): Threshold for early stopping based on the
-            percentage of pixels changing class between iterations. When the percentage
+        tol_pct (float or None, optional): Threshold for early stopping based on the
+            percentage of pixels changing class between iterations. This parameter is kept only for compatibility with the C version (see notes below). When the percentage
             of pixels that switch class is less than this value, the algorithm stops.
-            Must be in the range [0.0, 100.0]. Defaults to 10.0 (i.e., 10%).
+            If set, must be in the range [0.0, 100.0]. Defaults to None.
 
     Returns:
         xr.Dataset: Dataset containing the classification map with variable 'label'
-            containing integer labels (1-9) corresponding to the 9 H-Alpha zones.
+            containing integer labels (1-8) corresponding to the 8 H-Alpha zones.
 
     References:
         Cloude, S. R., & Pottier, E. (1997). An entropy based classification scheme for land
         applications of polarimetric SAR. *IEEE Transactions on Geoscience and Remote Sensing*,
         35(1), 68-78.
+
+    Notes:
+        It is recommended to leave the tol_pct parameter to its default None state to take advantage of Dask's lazy processing. Setting this parameter to a value might result in a performance loss. It has been observed that without early termination the python implementation is faster than the legacy version.
+
     """
     # Validate max_iter parameter
     if not isinstance(max_iter, int):
@@ -92,11 +97,11 @@ def wishart_h_a_alpha(
         raise ValueError(f"max_iter must be a positive integer, got {max_iter}.")
 
     # Validate stop_threshold parameter
-    if not isinstance(tol_pct, (int, float)):
+    if not isinstance(tol_pct, (int, float)) and tol_pct is not None:
         raise TypeError(
-            f"stop_threshold must be a number, got {type(tol_pct).__name__}."
+            f"stop_threshold must be a number or None, got {type(tol_pct).__name__}."
         )
-    if tol_pct < 0.0 or tol_pct > 100.0:
+    if tol_pct is not None and (tol_pct < 0.0 or tol_pct > 100.0):
         raise ValueError(
             f"stop_threshold must be in the range [0.0, 100.0], got {tol_pct}."
         )
@@ -146,63 +151,43 @@ def wishart_h_a_alpha(
 
     # Initial classification using H-Alpha decision boundaries
     class_map = _h_alpha_classifier(ds_ha)
-    class_map_16 = da.where(ds_ha.anisotropy <= 0.5, class_map, class_map + 8)
 
     # Iterative Wishart classification
-    # Non-feasible region is eliminated
     nclass = 8
-
-    # Matrix dimension
-    if poltype in ("S", "C3", "T3"):
-        n = 3
-    elif poltype in ("C4", "T4"):
-        n = 4
+    if tol_pct is None:
+        # lazy computation for a faster execution
+        class_map, percent_changed = _wishart_classifier_without_early_stop(
+            in_, class_map, nclass, max_iter
+        )
     else:
-        raise ValueError("Invalid polarimetric type.")
+        # in this case results are computed on the fly
+        class_map, percent_changed = _wishart_classifier_with_early_stop(
+            in_, class_map, nclass, max_iter, tol_pct
+        )
 
-    # Compute total number of pixels for convergence check
-    total_pixels = class_map.shape[0] * class_map.shape[1]
+    # Initial classification using H-A-Alpha decision boundaries
+    class_map_16 = da.where(ds_ha.anisotropy.data <= 0.5, class_map, class_map + 8)
 
-    for iteration in range(max_iter):
-        # Store previous classification for convergence check
-        class_map_prev = class_map.copy()
-
-        # Compute class center -- broadcast arrays to avoid looping
-        mask = class_map[..., None] == da.arange(1, nclass + 1)[None, None]
-        npts = mask.sum((0, 1))
-
-        # Class centers
-        center = (mask * in_.expand_dims(dim="c", axis=2)).sum(("y", "x")) / npts
-
-        # Reconstruct matrix and regularize
-        M_center = _reconstruct_matrix_from_ds(center) + 1e-12 * da.eye(n)
-
-        # Compute inverse and determinant
-        meta = (np.array([], dtype="complex64").reshape((0, 0, 0)),)
-        M_inv = da.apply_gufunc(np.linalg.inv, "(i,j)->(i,j)", M_center, meta=meta)
-        M_det = da.apply_gufunc(np.linalg.det, "(i,j)->()", M_center, meta=meta)
-
-        # Compute Wishart distance
-        if n == 3:
-            dist = da.log(M_det.real) + _trace_product_3(M_inv, in_)
-        else:
-            dist = da.log(M_det.real) + _trace_product_4(M_inv, in_)
-
-        # Update classification where distance is smaller
-        class_map = (
-            da.argmin(dist, axis=-1) + 1
-        )  # +1 to convert from 0-based to 1-based class labels
-
-        # Check for convergence based on percentage of pixels changing class
-        if total_pixels > 0:
-            changed_pixels = (class_map != class_map_prev).sum()
-            percent_changed = (changed_pixels / total_pixels) * 100.0
-            if percent_changed < tol_pct:
-                break
+    nclass = 16
+    if tol_pct is None:
+        # lazy computation for a faster execution
+        class_map_16, percent_changed_16 = _wishart_classifier_without_early_stop(
+            in_, class_map_16, nclass, max_iter
+        )
+    else:
+        # in this case results are computed on the fly
+        class_map_16, percent_changed_16 = _wishart_classifier_with_early_stop(
+            in_, class_map_16, nclass, max_iter, tol_pct
+        )
 
     # Build output dataset
     result = xr.Dataset(
-        {"label": (in_.dims, class_map)},
+        {
+            "wishart_h_alpha_class": (in_.dims, class_map),
+            "wishart_h_alpha_percent_change": percent_changed,
+            "wishart_h_a_alpha_class": (in_.dims, class_map_16),
+            "wishart_h_a_alpha_percent_change": percent_changed_16,
+        },
         coords=in_.coords,
         attrs=dict(
             poltype="wishart_h_a_alpha",
@@ -396,3 +381,79 @@ def _h_alpha_classifier(ds_ha: xr.Dataset) -> da.Array:
     )
 
     return class_map
+
+
+def _update_wishart_class_centers(input_data, class_map, nclass):
+
+    # Compute class center -- broadcast arrays to avoid looping
+    mask = class_map[..., None] == da.arange(1, nclass + 1)[None, None]
+    npts = mask.sum((0, 1))
+
+    # Matrix dims
+    n = 3 if input_data.poltype in ("C3", "T3") else 4
+
+    # Class centers
+    center = (mask * input_data.expand_dims(dim="c", axis=2)).sum(("y", "x")) / npts
+
+    # Reconstruct matrix and regularize
+    M_center = _reconstruct_matrix_from_ds(center) + 1e-12 * da.eye(n)
+    return M_center
+
+
+def _update_wishart_class_map(in_, M_center):
+    # Compute inverse and determinant
+    meta = (np.array([], dtype="complex64").reshape((0, 0, 0)),)
+    M_inv = da.apply_gufunc(np.linalg.inv, "(i,j)->(i,j)", M_center, meta=meta)
+    M_det = da.apply_gufunc(np.linalg.det, "(i,j)->()", M_center, meta=meta)
+
+    # Compute Wishart distance
+    if M_center.shape[1] == 3:
+        dist = da.log(M_det.real) + _trace_product_3(M_inv, in_)
+    else:
+        dist = da.log(M_det.real) + _trace_product_4(M_inv, in_)
+
+    # Assign class numbers
+    # +1 to convert from 0-based to 1-based class labels
+    class_map = da.argmin(dist, axis=-1) + 1
+    return class_map
+
+
+def _wishart_classifier_with_early_stop(in_, class_map, nclass, max_iter, tol_pct):
+    total_pixels = class_map.shape[0] * class_map.shape[1]
+    for iteration in range(max_iter):
+        print(f"Iteration #{iteration+1}")
+        # Store previous classification for convergence check
+        class_map_prev = class_map
+
+        # Returns class centers as a dask array with shape (nclass, n, n)
+        M_center = _update_wishart_class_centers(in_, class_map, nclass).persist()
+
+        # Assign new classes, use persist to avoid recomputing
+        class_map = _update_wishart_class_map(in_, M_center).persist()
+
+        # Check for convergence based on percentage of pixels changing class
+        changed_pixels = (class_map != class_map_prev).sum()
+        percent_changed = (changed_pixels / total_pixels) * 100.0
+        percent_changed = percent_changed.compute()
+        if percent_changed < tol_pct:
+            break
+    return class_map, percent_changed
+
+
+def _wishart_classifier_without_early_stop(in_, class_map, nclass, max_iter):
+    total_pixels = class_map.shape[0] * class_map.shape[1]
+    for iteration in range(max_iter):
+        # Store previous classification for convergence check
+        class_map_prev = class_map
+
+        # Returns class centers as a dask array with shape (nclass, n, n)
+        M_center = _update_wishart_class_centers(in_, class_map, nclass)
+
+        # Assign new classes
+        class_map = _update_wishart_class_map(in_, M_center)
+
+        # Check for convergence based on percentage of pixels changing class
+        changed_pixels = (class_map != class_map_prev).sum()
+        percent_changed = (changed_pixels / total_pixels) * 100.0
+
+    return class_map, percent_changed

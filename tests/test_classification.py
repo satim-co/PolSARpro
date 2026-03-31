@@ -27,11 +27,11 @@ def test_wishart_h_a_alpha(synthetic_poldata):
 
         # Check output shape matches input spatial dimensions
         assert (
-            result["label"].shape == ds.m11.shape if "m11" in ds else ds.hh.shape
-        ), f"Output shape {result['label'].shape} should match input spatial shape"
+            result["wishart_h_alpha_class"].shape == ds.m11.shape if "m11" in ds else ds.hh.shape
+        ), f"Output shape {result['wishart_h_alpha_class'].shape} should match input spatial shape"
 
         # Access computed data (already in memory after .compute() above)
-        class_data = result["label"]
+        class_data = result["wishart_h_alpha_class"]
 
         # Check class values are integers in range [1, 9]
         assert np.issubdtype(
@@ -43,6 +43,20 @@ def test_wishart_h_a_alpha(synthetic_poldata):
         assert (
             class_data.max() <= 8
         ), f"Max class value should be <= 8, got {class_data.max()}"
+
+        class_data = result["wishart_h_a_alpha_class"]
+
+        # Check class values are integers in range [1, 9]
+        assert np.issubdtype(
+            class_data.dtype, np.integer
+        ), f"Class values should be integers, got {class_data.dtype}"
+        assert (
+            class_data.min() >= 1
+        ), f"Min class value should be >= 1, got {class_data.min()}"
+        assert (
+            class_data.max() <= 16
+        ), f"Max class value should be <= 8, got {class_data.max()}"
+
 
         # Check attributes
         assert (
@@ -79,11 +93,11 @@ def test_wishart_h_a_alpha_with_ha_result(synthetic_poldata):
 
         # Check output shape matches input spatial dimensions
         assert (
-            result["label"].shape == ds.m11.shape if "m11" in ds else ds.hh.shape
-        ), f"Output shape {result['label'].shape} should match input spatial shape"
+            result["wishart_h_alpha_class"].shape == ds.m11.shape if "m11" in ds else ds.hh.shape
+        ), f"Output shape {result['wishart_h_alpha_class'].shape} should match input spatial shape"
 
         # Access computed data (already in memory after .compute() above)
-        class_data = result["label"]
+        class_data = result["wishart_h_alpha_class"]
 
         # Check class values are integers in range [1, 9]
         assert np.issubdtype(
@@ -135,17 +149,17 @@ def test_wishart_h_a_alpha_max_iter(synthetic_poldata):
     [{"poltypes": "T3", "chunk_size": 128}],
     indirect=True,
 )
-def test_wishart_h_a_alpha_stop_threshold(synthetic_poldata):
-    """Test wishart_h_a_alpha with custom stop_threshold parameter."""
+def test_wishart_h_a_alpha_tol_pct(synthetic_poldata):
+    """Test wishart_h_a_alpha with custom tol_pct parameter."""
     input_data = synthetic_poldata
     ds = input_data["T3"]
 
-    # Test with stop_threshold=9.0 (more strict convergence)
-    result_strict = wishart_h_a_alpha(ds, stop_threshold=9.0)
+    # Test with tol_pct=9.0 (more strict convergence)
+    result_strict = wishart_h_a_alpha(ds, tol_pct=9.0)
     assert isinstance(result_strict, type(ds))
 
-    # Test with stop_threshold=11.0 (less strict convergence)
-    result_relaxed = wishart_h_a_alpha(ds, stop_threshold=11.0)
+    # Test with tol_pct=11.0 (less strict convergence)
+    result_relaxed = wishart_h_a_alpha(ds, tol_pct=11.0)
     assert isinstance(result_relaxed, type(ds))
 
 
@@ -155,12 +169,12 @@ def test_wishart_h_a_alpha_stop_threshold(synthetic_poldata):
     indirect=True,
 )
 def test_wishart_h_a_alpha_combined_params(synthetic_poldata):
-    """Test wishart_h_a_alpha with both max_iter and stop_threshold."""
+    """Test wishart_h_a_alpha with both max_iter and tol_pct."""
     input_data = synthetic_poldata
     ds = input_data["T3"]
 
     # Test with custom values for both parameters
-    result = wishart_h_a_alpha(ds, max_iter=5, stop_threshold=15.0)
+    result = wishart_h_a_alpha(ds, max_iter=5, tol_pct=15.0)
     assert isinstance(result, type(ds))
 
 
@@ -187,12 +201,12 @@ def test_wishart_h_a_alpha_invalid_params(synthetic_poldata):
     with pytest.raises(ValueError, match="max_iter must be a positive integer"):
         wishart_h_a_alpha(ds, max_iter=-1)
 
-    # Test invalid stop_threshold
-    with pytest.raises(TypeError, match="stop_threshold must be a number"):
-        wishart_h_a_alpha(ds, stop_threshold="10")
+    # Test invalid tol_pct
+    with pytest.raises(TypeError, match="tol_pct must be a number"):
+        wishart_h_a_alpha(ds, tol_pct="10")
 
-    with pytest.raises(ValueError, match="stop_threshold must be in the range"):
-        wishart_h_a_alpha(ds, stop_threshold=-1.0)
+    with pytest.raises(ValueError, match="tol_pct must be in the range"):
+        wishart_h_a_alpha(ds, tol_pct=-1.0)
 
-    with pytest.raises(ValueError, match="stop_threshold must be in the range"):
-        wishart_h_a_alpha(ds, stop_threshold=101.0)
+    with pytest.raises(ValueError, match="tol_pct must be in the range"):
+        wishart_h_a_alpha(ds, tol_pct=101.0)

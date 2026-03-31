@@ -87,7 +87,7 @@ def wishart_h_a_alpha(
         35(1), 68-78.
 
     Notes:
-        It is recommended to leave the tol_pct parameter to its default None state to take advantage of Dask's lazy processing. Setting this parameter to a value might result in a performance loss. It has been observed that without early termination the python implementation is faster than the legacy version.
+        It is recommended to leave the tol_pct parameter to its default None state to take advantage of Dask lazy processing. Setting this parameter to a value might result in a performance loss. It has been observed that without early termination the python implementation is faster than the legacy version.
 
     """
     # Validate max_iter parameter
@@ -99,11 +99,11 @@ def wishart_h_a_alpha(
     # Validate stop_threshold parameter
     if not isinstance(tol_pct, (int, float)) and tol_pct is not None:
         raise TypeError(
-            f"stop_threshold must be a number or None, got {type(tol_pct).__name__}."
+            f"tol_pct must be a number or None, got {type(tol_pct).__name__}."
         )
     if tol_pct is not None and (tol_pct < 0.0 or tol_pct > 100.0):
         raise ValueError(
-            f"stop_threshold must be in the range [0.0, 100.0], got {tol_pct}."
+            f"tol_pct must be in the range [0.0, 100.0], got {tol_pct}."
         )
     poltype = validate_dataset(
         input_data, allowed_poltypes=("C3", "T3", "C4", "T4", "S")
@@ -150,42 +150,44 @@ def wishart_h_a_alpha(
         )
 
     # Initial classification using H-Alpha decision boundaries
-    class_map = _h_alpha_classifier(ds_ha)
+    class_map_init = _h_alpha_classifier(ds_ha)
 
     # Iterative Wishart classification
     nclass = 8
     if tol_pct is None:
         # lazy computation for a faster execution
         class_map, percent_changed = _wishart_classifier_without_early_stop(
-            in_, class_map, nclass, max_iter
+            in_, class_map_init, nclass, max_iter
         )
     else:
         # in this case results are computed on the fly
         class_map, percent_changed = _wishart_classifier_with_early_stop(
-            in_, class_map, nclass, max_iter, tol_pct
+            in_, class_map_init, nclass, max_iter, tol_pct
         )
 
     # Initial classification using H-A-Alpha decision boundaries
-    class_map_16 = da.where(ds_ha.anisotropy.data <= 0.5, class_map, class_map + 8)
+    class_map_init_16 = da.where(ds_ha.anisotropy.data <= 0.5, class_map, class_map + 8)
 
     nclass = 16
     if tol_pct is None:
         # lazy computation for a faster execution
         class_map_16, percent_changed_16 = _wishart_classifier_without_early_stop(
-            in_, class_map_16, nclass, max_iter
+            in_, class_map_init_16, nclass, max_iter
         )
     else:
         # in this case results are computed on the fly
         class_map_16, percent_changed_16 = _wishart_classifier_with_early_stop(
-            in_, class_map_16, nclass, max_iter, tol_pct
+            in_, class_map_init_16, nclass, max_iter, tol_pct
         )
 
     # Build output dataset
     result = xr.Dataset(
         {
             "wishart_h_alpha_class": (in_.dims, class_map),
+            # "h_alpha_class": (in_.dims, class_map_init),
             "wishart_h_alpha_percent_change": percent_changed,
             "wishart_h_a_alpha_class": (in_.dims, class_map_16),
+            # "h_a_alpha_class": (in_.dims, class_map_init_16),
             "wishart_h_a_alpha_percent_change": percent_changed_16,
         },
         coords=in_.coords,
@@ -396,7 +398,7 @@ def _update_wishart_class_centers(input_data, class_map, nclass):
     center = (mask * input_data.expand_dims(dim="c", axis=2)).sum(("y", "x")) / npts
 
     # Reconstruct matrix and regularize
-    M_center = _reconstruct_matrix_from_ds(center) + 1e-12 * da.eye(n)
+    M_center = _reconstruct_matrix_from_ds(center) + 1e-30 * da.eye(n)
     return M_center
 
 

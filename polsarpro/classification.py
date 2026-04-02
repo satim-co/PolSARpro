@@ -34,7 +34,6 @@ from typing import Optional
 import numpy as np
 import xarray as xr
 import dask.array as da
-from dask.distributed import print
 from polsarpro.util import boxcar, C3_to_T3, S_to_C3, S_to_T3, C4_to_T4, T3_to_C3
 from polsarpro.auxil import validate_dataset
 from polsarpro.decompositions import h_a_alpha
@@ -152,6 +151,12 @@ def wishart_h_a_alpha(
     # Initial classification using H-Alpha decision boundaries
     class_map_init = _h_alpha_classifier(ds_ha)
 
+    # import matplotlib.pyplot as plt
+    # plt.figure()
+    # plt.imshow(class_map_init[::4], interpolation="none", cmap="Dark2")
+    # plt.colorbar(fraction=0.046, pad=0.04)
+    # plt.title("c")
+
     # Iterative Wishart classification
     nclass = 8
     if tol_pct is None:
@@ -161,11 +166,11 @@ def wishart_h_a_alpha(
         )
     else:
         # in this case results are computed on the fly
-        class_map, percent_changed = _wishart_classifier_with_early_stop(
+        class_map, percent_changed, inv, det = _wishart_classifier_with_early_stop(
             in_, class_map_init, nclass, max_iter, tol_pct
         )
 
-    # Initial classification using H-A-Alpha decision boundaries
+    # Divide classes according to anisotropy
     class_map_init_16 = da.where(ds_ha.anisotropy.data <= 0.5, class_map, class_map + 8)
 
     nclass = 16
@@ -176,7 +181,7 @@ def wishart_h_a_alpha(
         )
     else:
         # in this case results are computed on the fly
-        class_map_16, percent_changed_16 = _wishart_classifier_with_early_stop(
+        class_map_16, percent_changed_16, inv16, det16 = _wishart_classifier_with_early_stop(
             in_, class_map_init_16, nclass, max_iter, tol_pct
         )
 
@@ -189,6 +194,10 @@ def wishart_h_a_alpha(
             "wishart_h_a_alpha_class": (in_.dims, class_map_16),
             # "h_a_alpha_class": (in_.dims, class_map_init_16),
             "wishart_h_a_alpha_percent_change": percent_changed_16,
+            # "inv": (("c1", "m", "n"), inv),
+            # "det": det,
+            # "inv16": (("c2", "m", "n"), inv16),
+            # "det16": det16,
         },
         coords=in_.coords,
         attrs=dict(
@@ -202,7 +211,7 @@ def wishart_h_a_alpha(
 
 def _reconstruct_matrix_from_ds(ds):
 
-    # eps = 1e-30
+    eps = 1e-30
 
     new_dims_array = ("c", "i", "j")
 
@@ -217,7 +226,7 @@ def _reconstruct_matrix_from_ds(ds):
             xr.concat((M3_l1, M3_l2, M3_l3), dim="i")
             .transpose(*new_dims_array)
             .chunk({"i": 3, "j": 3})
-            # + eps
+            + eps
         )
     elif ds.poltype in ["T4", "C4"]:
         # build each line of the T4 matrix
@@ -233,7 +242,7 @@ def _reconstruct_matrix_from_ds(ds):
             xr.concat((M4_l1, M4_l2, M4_l3, M4_l4), dim="i")
             .transpose(*new_dims_array)
             .chunk({"i": 4, "j": 4})
-            # + eps
+            + eps
         )
     else:
         raise NotImplementedError(
@@ -276,7 +285,7 @@ def _trace_product_3(M_inv: da.Array, cov_ds: xr.Dataset) -> da.Array:
         + M_inv_broad[..., 2, 2] * m33[..., None]
     )
 
-    return trace
+    return da.real(trace)
 
 
 def _trace_product_4(M_inv: da.Array, cov_ds: xr.Dataset) -> da.Array:
@@ -324,7 +333,7 @@ def _trace_product_4(M_inv: da.Array, cov_ds: xr.Dataset) -> da.Array:
         + M_inv_broad[..., 3, 3] * m44[..., None]
     )
 
-    return trace
+    return da.real(trace)
 
 
 def _h_alpha_classifier(ds_ha: xr.Dataset) -> da.Array:
@@ -382,7 +391,7 @@ def _h_alpha_classifier(ds_ha: xr.Dataset) -> da.Array:
         1 * r1 + 2 * r2 + 3 * r3 + 4 * r4 + 5 * r5 + 6 * r6 + 7 * r7 + 8 * r8 + 9 * r9
     )
 
-    return class_map
+    return class_map.astype("uint8")
 
 
 def _update_wishart_class_centers(input_data, class_map, nclass):
@@ -399,43 +408,62 @@ def _update_wishart_class_centers(input_data, class_map, nclass):
 
     # Reconstruct matrix and regularize
     M_center = _reconstruct_matrix_from_ds(center) # + 1e-30 * da.eye(n)
-    return M_center
+
+    # otherwise M_center type is complex128
+    return M_center.astype("complex64")
 
 
 def _update_wishart_class_map(in_, M_center):
+
+    # DBG
+    M_inv = inverse_hermitian_3x3(M_center.data)
+    M_det = det_hermitian_3x3(M_center.data)[None, None, :]
+    print("M_center", M_center)
+    print("M_center.data", M_center.data)
+    # print("Inverse", M_inv)
+    # print("Det", M_det)
+    # print("traceprod", _trace_product_3(M_inv, in_))
+
     # Compute inverse and determinant
-    meta = (np.array([], dtype="complex64").reshape((0, 0, 0)),)
-    M_inv = da.apply_gufunc(np.linalg.inv, "(i,j)->(i,j)", M_center, meta=meta)
-    M_det = da.apply_gufunc(np.linalg.det, "(i,j)->()", M_center, meta=meta)
+    # meta = (np.array([], dtype="complex64").reshape((0, 0, 0)),)
+    # M_inv = da.apply_gufunc(np.linalg.inv, "(i,j)->(i,j)", M_center, meta=meta)
+    # M_det = da.apply_gufunc(np.linalg.det, "(i,j)->()", M_center, meta=meta)
+
+    # As in C version, let's clip the determinant
+    # eps = 1e-30
+    # M_det = M_det.real.clip(eps) + 1j* M_det.imag.clip(eps)
 
     # Compute Wishart distance
     if M_center.shape[1] == 3:
-        dist = da.log(da.abs(M_det)) + _trace_product_3(M_inv, in_)
+        # DBG
+        # dist = da.log(da.abs(M_det)) + _trace_product_3(M_inv, in_)
+        dist = da.log(da.sqrt(M_det.real**2 + M_det.imag**2)) + _trace_product_3(M_inv, in_)
     else:
         dist = da.log(da.abs(M_det)) + _trace_product_4(M_inv, in_)
 
-    # As in C version, let's clip the determinant
-    eps = 1e-30
-    M_det = M_det.real.clip(eps) + 1j* M_det.imag.clip(eps)
+    print(dist)
+
 
     # Assign class numbers
     # +1 to convert from 0-based to 1-based class labels
     class_map = da.argmin(dist, axis=-1) + 1
-    return class_map
+    return class_map, M_inv, M_det
 
 
 def _wishart_classifier_with_early_stop(in_, class_map, nclass, max_iter, tol_pct):
     total_pixels = class_map.shape[0] * class_map.shape[1]
+
     for iteration in range(max_iter):
         print(f"Iteration #{iteration+1}")
         # Store previous classification for convergence check
         class_map_prev = class_map
 
         # Returns class centers as a dask array with shape (nclass, n, n)
-        M_center = _update_wishart_class_centers(in_, class_map, nclass).persist()
+        M_center = _update_wishart_class_centers(in_, class_map, nclass)#.persist()
 
         # Assign new classes, use persist to avoid recomputing
-        class_map = _update_wishart_class_map(in_, M_center).persist()
+        # class_map = _update_wishart_class_map(in_, M_center).persist()
+        class_map, inv, det = _update_wishart_class_map(in_, M_center)#.persist()
 
         # Check for convergence based on percentage of pixels changing class
         changed_pixels = (class_map != class_map_prev).sum()
@@ -443,7 +471,7 @@ def _wishart_classifier_with_early_stop(in_, class_map, nclass, max_iter, tol_pc
         percent_changed = percent_changed.compute()
         if percent_changed < tol_pct:
             break
-    return class_map, percent_changed
+    return class_map, percent_changed, inv, det
 
 
 def _wishart_classifier_without_early_stop(in_, class_map, nclass, max_iter):
@@ -463,3 +491,114 @@ def _wishart_classifier_without_early_stop(in_, class_map, nclass, max_iter):
         percent_changed = (changed_pixels / total_pixels) * 100.0
 
     return class_map, percent_changed
+
+def inverse_hermitian_3x3(M: da.Array) -> da.Array:
+    """
+    Invert a batch of 3x3 Hermitian matrices using explicit cofactor expansion.
+
+    Args:
+        M: Complex Dask array with shape (..., 3, 3)
+
+    Returns:
+        Complex Dask array with shape (..., 3, 3)
+    """
+
+    # --- Extract elements ---
+    m11 = M[..., 0, 0]
+    m12 = M[..., 0, 1]
+    m13 = M[..., 0, 2]
+    m21 = M[..., 1, 0]
+    m22 = M[..., 1, 1]
+    m23 = M[..., 1, 2]
+    m31 = M[..., 2, 0]
+    m32 = M[..., 2, 1]
+    m33 = M[..., 2, 2]
+
+    # --- Cofactors (adjugate before transpose, but already aligned) ---
+    c00 = m22 * m33 - m23 * m32
+    c01 = -(m12 * m33 - m13 * m32)
+    c02 = m12 * m23 - m22 * m13
+
+    c10 = -(m21 * m33 - m31 * m23)
+    c11 = m11 * m33 - m13 * m31
+    c12 = -(m11 * m23 - m13 * m21)
+
+    c20 = m21 * m32 - m22 * m31
+    c21 = -(m11 * m32 - m12 * m31)
+    c22 = m11 * m22 - m12 * m21
+
+    # --- Determinant ---
+    det = m11 * c00 + m21 * c01 + m31 * c02
+    eps = 1e-30
+    det_real = da.maximum(det.real, eps)
+    det_imag = da.maximum(det.imag, eps)
+    det = det_real + 1j * det_imag
+
+    # Optional safety (uncomment if needed)
+    # det = da.where(det == 0, da.nan, det)
+
+    inv_det = 1.0 / det
+
+    # --- Apply normalization ---
+    i00 = c00 * inv_det
+    i01 = c01 * inv_det
+    i02 = c02 * inv_det
+
+    i10 = c10 * inv_det
+    i11 = c11 * inv_det
+    i12 = c12 * inv_det
+
+    i20 = c20 * inv_det
+    i21 = c21 * inv_det
+    i22 = c22 * inv_det
+
+    # --- Stack back to matrix form ---
+    row0 = da.stack([i00, i01, i02], axis=-1)
+    row1 = da.stack([i10, i11, i12], axis=-1)
+    row2 = da.stack([i20, i21, i22], axis=-1)
+
+    M_inv = da.stack([row0, row1, row2], axis=-2)
+
+    return M_inv
+
+
+def det_hermitian_3x3(M: da.Array) -> da.Array:
+    """
+    Compute determinant of 3x3 Hermitian matrices using the same
+    method as the provided C implementation.
+
+    Args:
+        M: Complex Dask array with shape (..., 3, 3)
+
+    Returns:
+        Complex Dask array with shape (...)
+    """
+
+    # --- Extract elements ---
+    m11 = M[..., 0, 0]
+    m12 = M[..., 0, 1]
+    m13 = M[..., 0, 2]
+    m21 = M[..., 1, 0]
+    m22 = M[..., 1, 1]
+    m23 = M[..., 1, 2]
+    m31 = M[..., 2, 0]
+    m32 = M[..., 2, 1]
+    m33 = M[..., 2, 2]
+
+    # --- First row of cofactors (same as C: IHM[0][*]) ---
+    c00 = m22 * m33 - m23 * m32
+    c01 = -(m12 * m33 - m13 * m32)
+    c02 = m12 * m23 - m22 * m13
+
+    # --- Determinant (complex) ---
+    # C version does this in real/imag parts explicitly
+    det = m11 * c00 + m21 * c01 + m31 * c02
+
+    # --- Optional epsilon handling (mimics C behaviour) ---
+    # if eps is not None:
+    eps=1e-30
+    det_real = da.maximum(det.real, eps)
+    det_imag = da.maximum(det.imag, eps)
+    det = det_real + 1j * det_imag
+
+    return det

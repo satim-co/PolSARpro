@@ -101,9 +101,7 @@ def wishart_h_a_alpha(
             f"tol_pct must be a number or None, got {type(tol_pct).__name__}."
         )
     if tol_pct is not None and (tol_pct < 0.0 or tol_pct > 100.0):
-        raise ValueError(
-            f"tol_pct must be in the range [0.0, 100.0], got {tol_pct}."
-        )
+        raise ValueError(f"tol_pct must be in the range [0.0, 100.0], got {tol_pct}.")
     poltype = validate_dataset(
         input_data, allowed_poltypes=("C3", "T3", "C4", "T4", "S")
     )
@@ -151,12 +149,6 @@ def wishart_h_a_alpha(
     # Initial classification using H-Alpha decision boundaries
     class_map_init = _h_alpha_classifier(ds_ha)
 
-    # import matplotlib.pyplot as plt
-    # plt.figure()
-    # plt.imshow(class_map_init[::4], interpolation="none", cmap="Dark2")
-    # plt.colorbar(fraction=0.046, pad=0.04)
-    # plt.title("c")
-
     # Iterative Wishart classification
     nclass = 8
     if tol_pct is None:
@@ -166,7 +158,7 @@ def wishart_h_a_alpha(
         )
     else:
         # in this case results are computed on the fly
-        class_map, percent_changed, inv, det = _wishart_classifier_with_early_stop(
+        class_map, percent_changed = _wishart_classifier_with_early_stop(
             in_, class_map_init, nclass, max_iter, tol_pct
         )
 
@@ -181,7 +173,7 @@ def wishart_h_a_alpha(
         )
     else:
         # in this case results are computed on the fly
-        class_map_16, percent_changed_16, inv16, det16 = _wishart_classifier_with_early_stop(
+        class_map_16, percent_changed_16 = _wishart_classifier_with_early_stop(
             in_, class_map_init_16, nclass, max_iter, tol_pct
         )
 
@@ -189,15 +181,9 @@ def wishart_h_a_alpha(
     result = xr.Dataset(
         {
             "wishart_h_alpha_class": (in_.dims, class_map),
-            # "h_alpha_class": (in_.dims, class_map_init),
             "wishart_h_alpha_percent_change": percent_changed,
             "wishart_h_a_alpha_class": (in_.dims, class_map_16),
-            # "h_a_alpha_class": (in_.dims, class_map_init_16),
             "wishart_h_a_alpha_percent_change": percent_changed_16,
-            # "inv": (("c1", "m", "n"), inv),
-            # "det": det,
-            # "inv16": (("c2", "m", "n"), inv16),
-            # "det16": det16,
         },
         coords=in_.coords,
         attrs=dict(
@@ -407,7 +393,7 @@ def _update_wishart_class_centers(input_data, class_map, nclass):
     center = (mask * input_data.expand_dims(dim="c", axis=2)).sum(("y", "x")) / npts
 
     # Reconstruct matrix and regularize
-    M_center = _reconstruct_matrix_from_ds(center) # + 1e-30 * da.eye(n)
+    M_center = _reconstruct_matrix_from_ds(center)  + 1e-30 * da.eye(n)
 
     # otherwise M_center type is complex128
     return M_center.astype("complex64")
@@ -415,39 +401,25 @@ def _update_wishart_class_centers(input_data, class_map, nclass):
 
 def _update_wishart_class_map(in_, M_center):
 
-    # DBG
-    M_inv = inverse_hermitian_3x3(M_center.data)
-    M_det = det_hermitian_3x3(M_center.data)[None, None, :]
-    print("M_center", M_center)
-    print("M_center.data", M_center.data)
-    # print("Inverse", M_inv)
-    # print("Det", M_det)
-    # print("traceprod", _trace_product_3(M_inv, in_))
-
     # Compute inverse and determinant
-    # meta = (np.array([], dtype="complex64").reshape((0, 0, 0)),)
-    # M_inv = da.apply_gufunc(np.linalg.inv, "(i,j)->(i,j)", M_center, meta=meta)
-    # M_det = da.apply_gufunc(np.linalg.det, "(i,j)->()", M_center, meta=meta)
+    meta = (np.array([], dtype="complex64").reshape((0, 0, 0)),)
+    M_inv = da.apply_gufunc(np.linalg.inv, "(i,j)->(i,j)", M_center.data, meta=meta)
+    M_det = da.apply_gufunc(np.linalg.det, "(i,j)->()", M_center.data, meta=meta)
 
     # As in C version, let's clip the determinant
-    # eps = 1e-30
-    # M_det = M_det.real.clip(eps) + 1j* M_det.imag.clip(eps)
+    eps = 1e-30
+    M_det = M_det.real.clip(eps) + 1j * M_det.imag.clip(eps)
 
     # Compute Wishart distance
     if M_center.shape[1] == 3:
-        # DBG
-        # dist = da.log(da.abs(M_det)) + _trace_product_3(M_inv, in_)
-        dist = da.log(da.sqrt(M_det.real**2 + M_det.imag**2)) + _trace_product_3(M_inv, in_)
+        dist = da.log(da.abs(M_det)) + _trace_product_3(M_inv, in_)
     else:
         dist = da.log(da.abs(M_det)) + _trace_product_4(M_inv, in_)
-
-    print(dist)
-
 
     # Assign class numbers
     # +1 to convert from 0-based to 1-based class labels
     class_map = da.argmin(dist, axis=-1) + 1
-    return class_map, M_inv, M_det
+    return class_map
 
 
 def _wishart_classifier_with_early_stop(in_, class_map, nclass, max_iter, tol_pct):
@@ -459,11 +431,10 @@ def _wishart_classifier_with_early_stop(in_, class_map, nclass, max_iter, tol_pc
         class_map_prev = class_map
 
         # Returns class centers as a dask array with shape (nclass, n, n)
-        M_center = _update_wishart_class_centers(in_, class_map, nclass)#.persist()
+        M_center = _update_wishart_class_centers(in_, class_map, nclass).persist()
 
         # Assign new classes, use persist to avoid recomputing
-        # class_map = _update_wishart_class_map(in_, M_center).persist()
-        class_map, inv, det = _update_wishart_class_map(in_, M_center)#.persist()
+        class_map = _update_wishart_class_map(in_, M_center).persist()
 
         # Check for convergence based on percentage of pixels changing class
         changed_pixels = (class_map != class_map_prev).sum()
@@ -471,7 +442,7 @@ def _wishart_classifier_with_early_stop(in_, class_map, nclass, max_iter, tol_pc
         percent_changed = percent_changed.compute()
         if percent_changed < tol_pct:
             break
-    return class_map, percent_changed, inv, det
+    return class_map, percent_changed
 
 
 def _wishart_classifier_without_early_stop(in_, class_map, nclass, max_iter):
@@ -491,6 +462,7 @@ def _wishart_classifier_without_early_stop(in_, class_map, nclass, max_iter):
         percent_changed = (changed_pixels / total_pixels) * 100.0
 
     return class_map, percent_changed
+
 
 def inverse_hermitian_3x3(M: da.Array) -> da.Array:
     """
@@ -596,7 +568,7 @@ def det_hermitian_3x3(M: da.Array) -> da.Array:
 
     # --- Optional epsilon handling (mimics C behaviour) ---
     # if eps is not None:
-    eps=1e-30
+    eps = 1e-30
     det_real = da.maximum(det.real, eps)
     det_imag = da.maximum(det.imag, eps)
     det = det_real + 1j * det_imag

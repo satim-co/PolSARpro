@@ -116,7 +116,7 @@ def test_h_alpha_classifier(synthetic_poldata):
     ds = synthetic_poldata["h_a_alpha"]
     res = _h_alpha_classifier(ds).compute()
 
-    assert res.dtype == int
+    assert res.dtype == np.uint8
     assert res.shape == ds.entropy.shape
     assert res.min() >= 1
     assert res.max() <= 9

@@ -53,7 +53,9 @@ def wishart_h_a_alpha(
     the H/A/Alpha decomposition and the Wishart distance measure. The algorithm:
     1. Computes initial H/A/Alpha decomposition parameters
     2. Performs initial classification using the H-Alpha decision boundaries
-    3. Iteratively refines the classification using Wishart distance to class centers
+    3. Iteratively refines the classification using Wishart distance to 8 class centers
+    4. Split the 8 classes into 16 based on a 0.5 threshold on anisotropy
+    5. Apply Wishart iterations on these classes
 
     Args:
         input_data (xr.Dataset): Input polarimetric SAR dataset. Supported types are:
@@ -77,8 +79,7 @@ def wishart_h_a_alpha(
             If set, must be in the range [0.0, 100.0]. Defaults to None.
 
     Returns:
-        xr.Dataset: Dataset containing the classification map with variable 'label'
-            containing integer labels (1-8) corresponding to the 8 H-Alpha zones.
+        xr.Dataset: Dataset containing the 8 and 18 class maps.
 
     References:
         Cloude, S. R., & Pottier, E. (1997). An entropy based classification scheme for land

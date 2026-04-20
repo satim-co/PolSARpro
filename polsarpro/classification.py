@@ -38,6 +38,8 @@ from polsarpro.util import boxcar, C3_to_T3, S_to_C3, S_to_T3, C4_to_T4, T3_to_C
 from polsarpro.auxil import validate_dataset
 from polsarpro.decompositions import h_a_alpha
 
+from scipy.ndimage import label
+
 
 def wishart_h_a_alpha(
     input_data: xr.Dataset,
@@ -194,6 +196,71 @@ def wishart_h_a_alpha(
     )
 
     return result
+
+def wishart_supervised(
+    input_data: xr.Dataset,
+    training_labels: xr.DataArray,
+    boxcar_size: list[int] = [5, 5],
+) -> xr.Dataset:
+    """
+    Performs Wishart supervised classification based on user inputs.
+    Args:
+        input_data (xr.Dataset): Input polarimetric SAR dataset. Supported types are:
+            - "S": Sinclair scattering matrix
+            - "C3": Lexicographic covariance matrix (3x3)
+            - "T3": Pauli coherency matrix (3x3)
+            - "C4": 4x4 covariance matrix
+            - "T4": 4x4 coherency matrix
+        training_labels: (xr.DataArray): 2D array of the same spatial dimensions as input_data, containing integer class labels for training pixels. Class labels should be in the range [1, nclass], where nclass is the number of classes. Pixels with label 0 are considered unlabeled and are not used in training.
+        boxcar_size (list[int, int], optional): Size of the spatial averaging window
+            (boxcar filter) applied before decomposition. Defaults to [5, 5].
+
+    Returns:
+        xr.Dataset: Dataset containing the output classes.
+    """
+
+    poltype = validate_dataset(
+        input_data, allowed_poltypes=("C3", "T3", "C4", "T4", "S")
+    )
+
+    # Convert input to T3/T4 format for Wishart distance computation
+    if poltype == "S":
+        in_ = S_to_T3(input_data)
+    elif poltype == "C3":
+        in_ = C3_to_T3(input_data)
+    elif poltype == "T3":
+        in_ = input_data
+    elif poltype == "C4":
+        in_ = C4_to_T4(input_data)
+    elif poltype == "T4":
+        in_ = input_data
+
+
+    lab, nclass = label(training_labels.data)
+
+    # Apply boxcar filtering to the coherency matrix
+    in_ = boxcar(in_, dim_az=boxcar_size[0], dim_rg=boxcar_size[1])
+
+    centers = _update_wishart_class_centers(in_, lab, nclass=nclass)
+    class_map = _update_wishart_class_map(input_data=in_, M_center=centers)
+
+    # TODO: remap clusters
+    
+    # Build output dataset
+    result = xr.Dataset(
+        {
+            "wishart_supervised_class": (in_.dims, class_map),
+        },
+        coords=in_.coords,
+        attrs=dict(
+            poltype="wishart_supervised",
+            description="Wishart supervised classification result",
+        ),
+    )
+
+    return result
+
+
 
 
 def _reconstruct_matrix_from_ds(ds):

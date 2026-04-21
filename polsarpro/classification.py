@@ -211,7 +211,11 @@ def wishart_supervised(
             - "T3": Pauli coherency matrix (3x3)
             - "C4": 4x4 covariance matrix
             - "T4": 4x4 coherency matrix
-        training_labels: (xr.DataArray): 2D array of the same spatial dimensions as input_data, containing integer class labels for training pixels. Class labels should be in the range [1, nclass], where nclass is the number of classes. Pixels with label 0 are considered unlabeled and are not used in training.
+        training_labels: (xr.DataArray): 2D array of the same spatial dimensions
+            as input_data, containing integer class labels for training pixels.
+            Each connected region for a class is used as a separate training
+            cluster. Pixels with label 0 are considered unlabeled and are not
+            used in training.
         boxcar_size (list[int, int], optional): Size of the spatial averaging window
             (boxcar filter) applied before decomposition. Defaults to [5, 5].
 
@@ -236,19 +240,33 @@ def wishart_supervised(
         in_ = input_data
 
 
-    lab, nclass = label(training_labels.data)
+    if training_labels.ndim != 2:
+        raise ValueError("training_labels must be a 2D DataArray.")
+    if training_labels.shape != (input_data.sizes["y"], input_data.sizes["x"]):
+        raise ValueError(
+            "training_labels must have the same spatial shape as input_data."
+        )
+
+    training_labels_data = training_labels.data
+    if isinstance(training_labels_data, da.Array):
+        training_labels_data = training_labels_data.compute()
+    training_labels_data = np.asarray(training_labels_data)
+
+    lab, cluster_classes = _label_training_clusters(training_labels_data)
+    nclass = len(cluster_classes) - 1
 
     # Apply boxcar filtering to the coherency matrix
     in_ = boxcar(in_, dim_az=boxcar_size[0], dim_rg=boxcar_size[1])
 
     centers = _update_wishart_class_centers(in_, lab, nclass=nclass)
-    cluster_map = _update_wishart_class_map(input_data=in_, M_center=centers)
+    cluster_map = _update_wishart_class_map(in_=in_, M_center=centers)
 
-    # remap clusters to initial classes: 1 -> 1, 2 -> 1, 3 -> 2 
-    class_map = da.zeros_like(cluster_map)
-    for i in range(1, nclass + 1):
-        class_map = da.where(cluster_map == i, training_labels.data[cluster_map == i][0], class_map) 
-    
+    # Remap nearest training clusters back to their semantic class labels.
+    class_map = cluster_map.map_blocks(
+        lambda block: cluster_classes[block],
+        dtype=cluster_classes.dtype,
+    )
+
     # Build output dataset
     result = xr.Dataset(
         {
@@ -264,6 +282,36 @@ def wishart_supervised(
     return result
 
 
+def _label_training_clusters(
+    training_labels: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Label connected training regions and keep their semantic class labels."""
+    if not np.issubdtype(training_labels.dtype, np.integer):
+        raise TypeError("training_labels must contain integer class labels.")
+    if np.any(training_labels < 0):
+        raise ValueError("training_labels must contain non-negative class labels.")
+
+    lab = np.zeros(training_labels.shape, dtype=np.int32)
+    cluster_classes = [0]
+    cluster_id = 0
+
+    for class_value in np.unique(training_labels):
+        if class_value == 0:
+            continue
+
+        class_regions, nregions = label(training_labels == class_value)
+        if nregions == 0:
+            continue
+
+        region_mask = class_regions > 0
+        lab[region_mask] = class_regions[region_mask] + cluster_id
+        cluster_classes.extend([class_value] * nregions)
+        cluster_id += nregions
+
+    if cluster_id == 0:
+        raise ValueError("training_labels must contain at least one labeled pixel.")
+
+    return lab, np.asarray(cluster_classes, dtype=training_labels.dtype)
 
 
 def _reconstruct_matrix_from_ds(ds):

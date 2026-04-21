@@ -242,9 +242,12 @@ def wishart_supervised(
     in_ = boxcar(in_, dim_az=boxcar_size[0], dim_rg=boxcar_size[1])
 
     centers = _update_wishart_class_centers(in_, lab, nclass=nclass)
-    class_map = _update_wishart_class_map(input_data=in_, M_center=centers)
+    cluster_map = _update_wishart_class_map(input_data=in_, M_center=centers)
 
-    # TODO: remap clusters
+    # remap clusters to initial classes: 1 -> 1, 2 -> 1, 3 -> 2 
+    class_map = da.zeros_like(cluster_map)
+    for i in range(1, nclass + 1):
+        class_map = da.where(cluster_map == i, training_labels.data[cluster_map == i][0], class_map) 
     
     # Build output dataset
     result = xr.Dataset(

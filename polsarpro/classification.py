@@ -261,7 +261,7 @@ def wishart_supervised(
     centers = _update_wishart_class_centers(in_, lab, nclass=nclass)
     cluster_map = _update_wishart_class_map(in_=in_, M_center=centers)
 
-    # Remap nearest training clusters back to their semantic class labels.
+    # Remap training clusters back to their semantic class labels
     class_map = cluster_map.map_blocks(
         lambda block: cluster_classes[block],
         dtype=cluster_classes.dtype,
@@ -299,10 +299,12 @@ def _label_training_clusters(
         if class_value == 0:
             continue
 
+        # labeled connected regions for current class
         class_regions, nregions = label(training_labels == class_value)
         if nregions == 0:
             continue
-
+        
+        # update cluster -> class mapping list
         region_mask = class_regions > 0
         lab[region_mask] = class_regions[region_mask] + cluster_id
         cluster_classes.extend([class_value] * nregions)

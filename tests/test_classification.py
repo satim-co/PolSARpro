@@ -129,7 +129,9 @@ def test_h_alpha_classifier(synthetic_poldata):
     assert res.max() <= 9
 
 
-def test_label_training_clusters_keeps_disconnected_regions_per_class():
+def test_label_training_clusters():
+    # ensure that connected regions with 
+    # different classes are in different clusters
     training_labels = np.zeros((5, 5), dtype=np.uint8)
     training_labels[0, 0] = 1
     training_labels[0, 4] = 1
@@ -141,55 +143,40 @@ def test_label_training_clusters_keeps_disconnected_regions_per_class():
     assert cluster_classes.tolist() == [0, 1, 1, 2]
 
 
-def test_wishart_supervised_remaps_clusters_to_training_classes():
-    dims = ("y", "x")
-    coords = {"y": np.arange(4), "x": np.arange(4)}
-    m11 = np.ones((4, 4), dtype=np.float32)
-    m22 = np.ones((4, 4), dtype=np.float32)
-    m33 = np.ones((4, 4), dtype=np.float32)
-    m12 = np.zeros((4, 4), dtype=np.complex64)
-    m13 = np.zeros((4, 4), dtype=np.complex64)
-    m23 = np.zeros((4, 4), dtype=np.complex64)
-
-    m11[:2, :] = 10
-    m22[:2, :] = 1
-    m33[:2, :] = 1
-    m11[2:, :] = 1
-    m22[2:, :] = 10
-    m33[2:, :] = 1
-
-    ds = xr.Dataset(
+@pytest.mark.parametrize(
+    "synthetic_poldata",
+    [
         {
-            "m11": xr.DataArray(da.from_array(m11, chunks=(2, 2)), dims=dims),
-            "m22": xr.DataArray(da.from_array(m22, chunks=(2, 2)), dims=dims),
-            "m33": xr.DataArray(da.from_array(m33, chunks=(2, 2)), dims=dims),
-            "m12": xr.DataArray(da.from_array(m12, chunks=(2, 2)), dims=dims),
-            "m13": xr.DataArray(da.from_array(m13, chunks=(2, 2)), dims=dims),
-            "m23": xr.DataArray(da.from_array(m23, chunks=(2, 2)), dims=dims),
-        },
-        coords=coords,
-        attrs={"poltype": "T3"},
-    )
-    training_labels = xr.DataArray(
-        np.array(
-            [
-                [1, 0, 0, 1],
-                [0, 0, 0, 0],
-                [0, 0, 0, 0],
-                [0, 2, 0, 0],
-            ],
-            dtype=np.uint8,
-        ),
-        dims=dims,
-        coords=coords,
-    )
+            "poltypes": ["S", "C3", "C4", "T3", "T4"],
+            "size": 64,
+            "chunk_size": 16,
+        }
+    ],
+    indirect=True,
+)
+def test_wishart_supervised(synthetic_poldata):
+    fake_class_map = np.zeros((64, 64), dtype=np.uint8)
+    fake_class_map[1, 1] = 1
+    fake_class_map[1, 30] = 1
+    fake_class_map[30, 1] = 2
+    fake_class_map[30, 30] = 2
 
-    result = wishart_supervised(ds, training_labels, boxcar_size=[1, 1]).compute()
-    class_map = result.wishart_supervised_class.values
+    for poltype, ds in synthetic_poldata.items():
+        training_labels = xr.DataArray(
+            fake_class_map,
+            dims=("y", "x"),
+            coords={"y": ds.coords["y"], "x": ds.coords["x"]},
+        )
+        result = wishart_supervised(ds, training_labels, boxcar_size=[1, 1]).compute()
+        class_map = result["wishart_supervised_class"].values
 
-    assert set(np.unique(class_map)) == {1, 2}
-    assert np.all(class_map[:2, :] == 1)
-    assert np.all(class_map[2:, :] == 2)
+        assert class_map.shape == (ds.sizes["y"], ds.sizes["x"])
+        assert np.issubdtype(class_map.dtype, np.integer)
+        assert set(np.unique(class_map)).issubset({1, 2}), (
+            f"Unexpected class labels for poltype {poltype}: "
+            f"{set(np.unique(class_map))}"
+        )
+        assert result.attrs.get("poltype") == "wishart_supervised"
 
 
 # Test with default chunk_size=16 to verify small chunks still work

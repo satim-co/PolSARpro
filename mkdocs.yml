@@ -18,6 +18,7 @@ nav:
       - pwf: pwf-tutorial.ipynb
     - Classification:
       - wishart-haa: wishart-h-a-alpha.ipynb
+      - wishart-supervised: wishart-supervised.ipynb
     - Advanced usage:
       - biomass-maap: maap-biomass-stac-api.ipynb
   - API reference: 

@@ -227,6 +227,12 @@ def wishart_supervised(
         input_data, allowed_poltypes=("C3", "T3", "C4", "T4", "S")
     )
 
+
+    if {"y", "x"}.issubset(input_data.dims):
+        dims = ("y", "x")
+    elif {"lat", "lon"}.issubset(input_data.dims):
+        dims = ("lat", "lon")
+
     # Convert input to T3/T4 format for Wishart distance computation
     if poltype == "S":
         in_ = S_to_T3(input_data)
@@ -242,7 +248,7 @@ def wishart_supervised(
 
     if training_labels.ndim != 2:
         raise ValueError("training_labels must be a 2D DataArray.")
-    if training_labels.shape != (input_data.sizes["y"], input_data.sizes["x"]):
+    if training_labels.shape != (dims[0], dims[1]):
         raise ValueError(
             "training_labels must have the same spatial shape as input_data."
         )
@@ -503,6 +509,11 @@ def _h_alpha_classifier(ds_ha: xr.Dataset) -> da.Array:
 
 def _update_wishart_class_centers(input_data, class_map, nclass):
 
+    if {"y", "x"}.issubset(input_data.dims):
+        dims = ("y", "x")
+    elif {"lat", "lon"}.issubset(input_data.dims):
+        dims = ("lat", "lon")
+
     # Compute class center -- broadcast arrays to avoid looping
     mask = class_map[..., None] == da.arange(1, nclass + 1)[None, None]
     npts = mask.sum((0, 1))
@@ -513,7 +524,7 @@ def _update_wishart_class_centers(input_data, class_map, nclass):
     n = 3 if input_data.poltype in ("C3", "T3") else 4
 
     # Class centers
-    center = (mask * input_data.expand_dims(dim="c", axis=2)).sum(("y", "x")) / npts_safe
+    center = (mask * input_data.expand_dims(dim="c", axis=2)).sum((dims[0], dims[1])) / npts_safe
 
     # Reconstruct matrix and regularize
     M_center = _reconstruct_matrix_from_ds(center)  + 1e-30 * da.eye(n)

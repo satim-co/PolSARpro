@@ -6,3 +6,5 @@
 - [Yamaguchi 3-component decomposition](Yamaguchi_3_theory.html)
 - [Yamaguchi 4-component decomposition](Yamaguchi_4_theory.html)
 - [Refined Lee filter](Refined_Lee_theory.html)
+- [Wishart H/A/Alpha classification](Wishart_H_A_alpha_theory.html)
+- [Wishart Supervised classification](Wishart_supervised_theory.html)

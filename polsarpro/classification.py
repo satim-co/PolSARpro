@@ -506,12 +506,14 @@ def _update_wishart_class_centers(input_data, class_map, nclass):
     # Compute class center -- broadcast arrays to avoid looping
     mask = class_map[..., None] == da.arange(1, nclass + 1)[None, None]
     npts = mask.sum((0, 1))
+    # Some classes can be temporarily empty: guard denominator to avoid 0/0.
+    npts_safe = da.maximum(npts, 1)
 
     # Matrix dims
     n = 3 if input_data.poltype in ("C3", "T3") else 4
 
     # Class centers
-    center = (mask * input_data.expand_dims(dim="c", axis=2)).sum(("y", "x")) / npts
+    center = (mask * input_data.expand_dims(dim="c", axis=2)).sum(("y", "x")) / npts_safe
 
     # Reconstruct matrix and regularize
     M_center = _reconstruct_matrix_from_ds(center)  + 1e-30 * da.eye(n)

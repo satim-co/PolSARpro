@@ -82,6 +82,9 @@ def wishart_h_a_alpha(
 
     Returns:
         xr.Dataset: Dataset containing the 8 and 18 class maps.
+            Pixels where any input polarimetric element is NaN are excluded from
+            class-center estimation and iterative class assignment, and are encoded
+            as class ``0`` in the output maps.
 
     References:
         Cloude, S. R., & Pottier, E. (1997). An entropy based classification scheme for land
@@ -138,6 +141,11 @@ def wishart_h_a_alpha(
     elif poltype == "T4":
         in_ = input_data
 
+    # Track invalid pixels and replace NaNs for numerical stability.
+    eps = 1e-30
+    valid_mask = (~in_.to_array().isnull().any("variable")).data
+    in_ = in_.fillna(eps)
+
     # Apply boxcar filtering to the coherency matrix
     in_ = boxcar(in_, dim_az=boxcar_size[0], dim_rg=boxcar_size[1])
 
@@ -150,34 +158,38 @@ def wishart_h_a_alpha(
         )
 
     # Initial classification using H-Alpha decision boundaries
-    class_map_init = _h_alpha_classifier(ds_ha)
+    class_map_init = da.where(valid_mask, _h_alpha_classifier(ds_ha), 0).astype("uint8")
 
     # Iterative Wishart classification
     nclass = 8
     if tol_pct is None:
         # lazy computation for a faster execution
         class_map, percent_changed = _wishart_classifier_without_early_stop(
-            in_, class_map_init, nclass, max_iter
+            in_, class_map_init, nclass, max_iter, valid_mask=valid_mask
         )
     else:
         # in this case results are computed on the fly
         class_map, percent_changed = _wishart_classifier_with_early_stop(
-            in_, class_map_init, nclass, max_iter, tol_pct
+            in_, class_map_init, nclass, max_iter, tol_pct, valid_mask=valid_mask
         )
 
     # Divide classes according to anisotropy
-    class_map_init_16 = da.where(ds_ha.anisotropy.data <= 0.5, class_map, class_map + 8)
+    class_map_init_16 = da.where(
+        valid_mask,
+        da.where(ds_ha.anisotropy.data <= 0.5, class_map, class_map + 8),
+        0,
+    ).astype("uint8")
 
     nclass = 16
     if tol_pct is None:
         # lazy computation for a faster execution
         class_map_16, percent_changed_16 = _wishart_classifier_without_early_stop(
-            in_, class_map_init_16, nclass, max_iter
+            in_, class_map_init_16, nclass, max_iter, valid_mask=valid_mask
         )
     else:
         # in this case results are computed on the fly
         class_map_16, percent_changed_16 = _wishart_classifier_with_early_stop(
-            in_, class_map_init_16, nclass, max_iter, tol_pct
+            in_, class_map_init_16, nclass, max_iter, tol_pct, valid_mask=valid_mask
         )
 
     # Build output dataset
@@ -221,6 +233,9 @@ def wishart_supervised(
 
     Returns:
         xr.Dataset: Dataset containing the output classes.
+            Pixels where any input polarimetric element is NaN are excluded from
+            training and class assignment, and are encoded as class ``0`` in the
+            output map.
     """
 
     poltype = validate_dataset(
@@ -248,15 +263,26 @@ def wishart_supervised(
 
     if training_labels.ndim != 2:
         raise ValueError("training_labels must be a 2D DataArray.")
-    if training_labels.shape != (dims[0], dims[1]):
+    if training_labels.shape != (input_data.sizes[dims[0]], input_data.sizes[dims[1]]):
         raise ValueError(
             "training_labels must have the same spatial shape as input_data."
         )
+
+    # Exclude invalid raster pixels (NaN in any matrix element).
+    eps = 1e-30
+    valid_mask = (~in_.to_array().isnull().any("variable")).data
+    in_ = in_.fillna(eps)
 
     training_labels_data = training_labels.data
     if isinstance(training_labels_data, da.Array):
         training_labels_data = training_labels_data.compute()
     training_labels_data = np.asarray(training_labels_data)
+    if isinstance(valid_mask, da.Array):
+        valid_mask_np = np.asarray(valid_mask.compute())
+    else:
+        valid_mask_np = np.asarray(valid_mask)
+    training_labels_data = training_labels_data.copy()
+    training_labels_data[~valid_mask_np] = 0
 
     lab, cluster_classes = _label_training_clusters(training_labels_data)
     nclass = len(cluster_classes) - 1
@@ -264,8 +290,10 @@ def wishart_supervised(
     # Apply boxcar filtering to the coherency matrix
     in_ = boxcar(in_, dim_az=boxcar_size[0], dim_rg=boxcar_size[1])
 
-    centers = _update_wishart_class_centers(in_, lab, nclass=nclass)
-    cluster_map = _update_wishart_class_map(in_=in_, M_center=centers)
+    centers = _update_wishart_class_centers(
+        in_, lab, nclass=nclass, valid_mask=valid_mask
+    )
+    cluster_map = _update_wishart_class_map(in_=in_, M_center=centers, valid_mask=valid_mask)
 
     # Remap training clusters back to their semantic class labels
     class_map = cluster_map.map_blocks(
@@ -507,7 +535,7 @@ def _h_alpha_classifier(ds_ha: xr.Dataset) -> da.Array:
     return class_map.astype("uint8")
 
 
-def _update_wishart_class_centers(input_data, class_map, nclass):
+def _update_wishart_class_centers(input_data, class_map, nclass, valid_mask=None):
 
     if {"y", "x"}.issubset(input_data.dims):
         dims = ("y", "x")
@@ -516,6 +544,8 @@ def _update_wishart_class_centers(input_data, class_map, nclass):
 
     # Compute class center -- broadcast arrays to avoid looping
     mask = class_map[..., None] == da.arange(1, nclass + 1)[None, None]
+    if valid_mask is not None:
+        mask = mask & valid_mask[..., None]
     npts = mask.sum((0, 1))
     # Some classes can be temporarily empty: guard denominator to avoid 0/0.
     npts_safe = da.maximum(npts, 1)
@@ -533,7 +563,7 @@ def _update_wishart_class_centers(input_data, class_map, nclass):
     return M_center.astype("complex64")
 
 
-def _update_wishart_class_map(in_, M_center):
+def _update_wishart_class_map(in_, M_center, valid_mask=None):
 
     # Compute inverse and determinant
     meta = (np.array([], dtype="complex64").reshape((0, 0, 0)),)
@@ -553,11 +583,18 @@ def _update_wishart_class_map(in_, M_center):
     # Assign class numbers
     # +1 to convert from 0-based to 1-based class labels
     class_map = da.argmin(dist, axis=-1) + 1
+    if valid_mask is not None:
+        class_map = da.where(valid_mask, class_map, 0)
     return class_map
 
 
-def _wishart_classifier_with_early_stop(in_, class_map, nclass, max_iter, tol_pct):
-    total_pixels = class_map.shape[0] * class_map.shape[1]
+def _wishart_classifier_with_early_stop(
+    in_, class_map, nclass, max_iter, tol_pct, valid_mask=None
+):
+    if valid_mask is None:
+        total_pixels = class_map.shape[0] * class_map.shape[1]
+    else:
+        total_pixels = valid_mask.sum()
 
     for iteration in range(max_iter):
         print(f"Iteration #{iteration+1}")
@@ -565,13 +602,20 @@ def _wishart_classifier_with_early_stop(in_, class_map, nclass, max_iter, tol_pc
         class_map_prev = class_map
 
         # Returns class centers as a dask array with shape (nclass, n, n)
-        M_center = _update_wishart_class_centers(in_, class_map, nclass).persist()
+        M_center = _update_wishart_class_centers(
+            in_, class_map, nclass, valid_mask=valid_mask
+        ).persist()
 
         # Assign new classes, use persist to avoid recomputing
-        class_map = _update_wishart_class_map(in_, M_center).persist()
+        class_map = _update_wishart_class_map(
+            in_, M_center, valid_mask=valid_mask
+        ).persist()
 
         # Check for convergence based on percentage of pixels changing class
-        changed_pixels = (class_map != class_map_prev).sum()
+        changed_mask = class_map != class_map_prev
+        if valid_mask is not None:
+            changed_mask = changed_mask & valid_mask
+        changed_pixels = changed_mask.sum()
         percent_changed = (changed_pixels / total_pixels) * 100.0
         percent_changed = percent_changed.compute()
         if percent_changed < tol_pct:
@@ -579,20 +623,30 @@ def _wishart_classifier_with_early_stop(in_, class_map, nclass, max_iter, tol_pc
     return class_map, percent_changed
 
 
-def _wishart_classifier_without_early_stop(in_, class_map, nclass, max_iter):
-    total_pixels = class_map.shape[0] * class_map.shape[1]
+def _wishart_classifier_without_early_stop(
+    in_, class_map, nclass, max_iter, valid_mask=None
+):
+    if valid_mask is None:
+        total_pixels = class_map.shape[0] * class_map.shape[1]
+    else:
+        total_pixels = valid_mask.sum()
     for iteration in range(max_iter):
         # Store previous classification for convergence check
         class_map_prev = class_map
 
         # Returns class centers as a dask array with shape (nclass, n, n)
-        M_center = _update_wishart_class_centers(in_, class_map, nclass)
+        M_center = _update_wishart_class_centers(
+            in_, class_map, nclass, valid_mask=valid_mask
+        )
 
         # Assign new classes
-        class_map = _update_wishart_class_map(in_, M_center)
+        class_map = _update_wishart_class_map(in_, M_center, valid_mask=valid_mask)
 
         # Check for convergence based on percentage of pixels changing class
-        changed_pixels = (class_map != class_map_prev).sum()
+        changed_mask = class_map != class_map_prev
+        if valid_mask is not None:
+            changed_mask = changed_mask & valid_mask
+        changed_pixels = changed_mask.sum()
         percent_changed = (changed_pixels / total_pixels) * 100.0
 
     return class_map, percent_changed

@@ -17,8 +17,9 @@ nav:
       - refined-lee: refined-lee-tutorial.ipynb
       - pwf: pwf-tutorial.ipynb
     - Classification:
-      - wishart-haa: wishart-h-a-alpha.ipynb
-      - wishart-supervised: wishart-supervised.ipynb
+      - wishart-haa: wishart-h-a-alpha-tutorial.ipynb
+      - wishart-supervised: wishart-supervised-tutorial.ipynb
+      - manual-labeling: manual-labeling-tutorial.ipynb
     - Advanced usage:
       - biomass-maap: maap-biomass-stac-api.ipynb
   - API reference: 

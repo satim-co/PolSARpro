@@ -570,6 +570,10 @@ def _update_wishart_class_map(in_, M_center, valid_mask=None):
     M_inv = da.apply_gufunc(np.linalg.inv, "(i,j)->(i,j)", M_center.data, meta=meta)
     M_det = da.apply_gufunc(np.linalg.det, "(i,j)->()", M_center.data, meta=meta)
 
+    # use custom C-like functions instead (Debug only, use with 3x3)
+    # M_inv = inverse_hermitian_3x3(M_center.data)
+    # M_det = det_hermitian_3x3(M_center.data)
+
     # As in C version, let's clip the determinant
     eps = 1e-30
     M_det = M_det.real.clip(eps) + 1j * M_det.imag.clip(eps)

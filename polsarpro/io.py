@@ -287,3 +287,49 @@ def _parse_slc_bands(var_names: set[str]) -> str | None:
 
     # Not an SLC dataset
     return None
+
+def get_incidence_angle_netcdf_beam(file_in: str | Path, interpolation_method:str = "linear") -> xr.Dataset:
+    """Extract the incidence angle raster from a SNAP NetCDF-BEAM file.
+
+    Args:
+        file_in (str | Path): NetCDF-BEAM file produced with SNAP.
+        interpolation_method (str): interpolation method passed to xarray.Dataset.interp.
+
+    Returns:
+        xarray.Dataset: incidence angle interpolated to the raster grid.
+
+    Note:
+        This is a helper function that interpolates incidence angle from the tie point grid to the raster grid in SLC products. For geocoded products this function is not relevant since various incidence angles can be directly computed with SNAP Range Doppler Terrain Correction.
+    """
+    ds = xr.open_dataset(file_in)
+
+    if "incident_angle" not in ds:
+        raise ValueError("Input dataset does not contain an 'incident_angle' variable.")
+    if "metadata" not in ds:
+        raise ValueError("Input dataset does not contain SNAP metadata.")
+
+    ia = ds.incident_angle.rename(tp_y="y", tp_x="x")
+
+    # raster dimensions
+    meta = ds.metadata.attrs
+    required_attrs = (
+        "Abstracted_Metadata:num_samples_per_line",
+        "Abstracted_Metadata:num_output_lines",
+    )
+    missing_attrs = [attr for attr in required_attrs if attr not in meta]
+    if missing_attrs:
+        raise ValueError(f"SNAP metadata is missing required attribute(s): {missing_attrs}")
+    nrg = meta["Abstracted_Metadata:num_samples_per_line"]
+    naz = meta["Abstracted_Metadata:num_output_lines"]
+
+    # tie point to raster coordinates
+    coords_x = (ia.offset_x + ia.x) * ia.subsampling_x
+    coords_y = (ia.offset_y + ia.y) * ia.subsampling_y
+
+    # interpolate on new coordinates
+    return ia.assign_coords(y=coords_y, x=coords_x).interp(
+        y=np.arange(naz),
+        x=np.arange(nrg),
+        method=interpolation_method,
+        kwargs={"fill_value": "extrapolate"},
+    ).drop_attrs()

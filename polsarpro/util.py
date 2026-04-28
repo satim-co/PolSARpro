@@ -230,6 +230,34 @@ def S_to_T4(S: xarray.Dataset) -> xarray.Dataset:
     return xr.Dataset(T4, attrs=attrs)
 
 
+def C3_to_T3(C3: xarray.Dataset) -> xarray.Dataset:
+    """Converts the lexicographic covariance matrix C3 to the Pauli coherency matrix T3.
+
+    Args:
+        C3 (xarray.Dataset): input image of covariance matrices
+
+    Returns:
+        xarray.Dataset: T3 coherency matrix
+    """
+    _ = validate_dataset(C3, allowed_poltypes="C3")
+
+    T3 = {}
+
+    c = 1 / np.sqrt(np.float32(2))
+
+    # force real diagonal to save space
+    T3["m11"] = 0.5 * (C3.m11 + C3.m33) + C3.m13.real
+    T3["m22"] = 0.5 * (C3.m11 + C3.m33) - C3.m13.real
+    T3["m33"] = C3.m22
+    # upper diagonal terms
+    T3["m12"] = 0.5 * (C3.m11 - C3.m33) - 1j * C3.m13.imag
+    T3["m13"] = c * (C3.m12 + C3.m23.conj())
+    T3["m23"] = c * (C3.m12 - C3.m23.conj())
+
+    attrs = {"poltype": "T3", "description": "Coherency matrix (3x3)"}
+    return xr.Dataset(T3, attrs=attrs)
+
+
 def T3_to_C3(T3: xarray.Dataset) -> xarray.Dataset:
     """Converts the Pauli coherency matrix T3 to the lexicographic covariance matrix C3.
 
@@ -258,6 +286,108 @@ def T3_to_C3(T3: xarray.Dataset) -> xarray.Dataset:
 
     attrs = {"poltype": "C3", "description": "Covariance matrix (3x3)"}
     return xr.Dataset(C3, attrs=attrs)
+
+
+def C4_to_T4(C4: xarray.Dataset) -> xarray.Dataset:
+    """Converts the lexicographic covariance matrix C4 to the Pauli coherency matrix T4.
+
+    Args:
+        C4 (xarray.Dataset): input image of covariance matrices
+
+    Returns:
+        xarray.Dataset: T4 coherency matrix
+    """
+    _ = validate_dataset(C4, allowed_poltypes="C4")
+
+    T4 = {}
+
+    # force real diagonal to save space
+    # diagonal terms
+    T4["m11"] = 0.5 * (C4.m11 + 2 * C4.m14.real + C4.m44)
+    T4["m22"] = 0.5 * (C4.m11 - 2 * C4.m14.real + C4.m44)
+    T4["m33"] = 0.5 * (C4.m22 + C4.m33 + 2 * C4.m23.real)
+    T4["m44"] = 0.5 * (C4.m22 + C4.m33 - 2 * C4.m23.real)
+
+    # m12
+    T4["m12"] = 0.5 * (C4.m11 - C4.m44) - 1j * C4.m14.imag
+
+    # m13
+    T4["m13"] = 0.5 * (C4.m12 + C4.m13 + C4.m24.conj() + C4.m34.conj())
+
+    # m14
+    T4["m14"] = 0.5 * (
+        C4.m12.imag - C4.m13.imag - C4.m24.imag + C4.m34.imag
+    ) + 0.5 * 1j * (-C4.m12.real + C4.m13.real - C4.m24.real + C4.m34.real)
+
+    # m23
+    T4["m23"] = 0.5 * (C4.m12 + C4.m13 - C4.m24.conj() - C4.m34.conj())
+
+    # m24
+    T4["m24"] = 0.5 * (
+        C4.m12.imag - C4.m13.imag + C4.m24.imag - C4.m34.imag
+    ) + 0.5 * 1j * (-C4.m12.real + C4.m13.real + C4.m24.real - C4.m34.real)
+
+    # m34
+    T4["m34"] = -C4.m23.imag + 0.5j * (-C4.m22 + C4.m33)
+
+    attrs = {"poltype": "T4", "description": "Coherency matrix (4x4)"}
+    return xr.Dataset(T4, attrs=attrs)
+
+
+def C4_to_C3(C4: xarray.Dataset) -> xarray.Dataset:
+    """Converts the lexicographic covariance matrix C4 to the lexicographic covariance matrix C3.
+
+    Args:
+        C4 (xarray.Dataset): input image of covariance matrices
+
+    Returns:
+        xarray.Dataset: C3 covariance matrix
+    """
+    _ = validate_dataset(C4, allowed_poltypes="C4")
+
+    C3 = {}
+
+    c = 1 / np.sqrt(np.float32(2))
+
+    # force real diagonal to save space
+    C3["m11"] = C4.m11
+    C3["m22"] = 0.5 * (C4.m22 + C4.m33 + 2 * C4.m23.real)
+    C3["m33"] = C4.m44
+
+    # upper diagonal terms
+    C3["m12"] = c * (C4.m12 + C4.m13)
+    C3["m13"] = C4.m14
+    C3["m23"] = c * (C4.m24 + C4.m34)
+
+    attrs = {"poltype": "C3", "description": "Covariance matrix (3x3)"}
+    return xr.Dataset(C3, attrs=attrs)
+
+
+def C4_to_T3(C4: xarray.Dataset) -> xarray.Dataset:
+    """Converts the lexicographic covariance matrix C4 to the Pauli coherency matrix T3.
+
+    Args:
+        C4 (xarray.Dataset): input image of covariance matrices
+
+    Returns:
+        xarray.Dataset: T3 coherency matrix
+    """
+    _ = validate_dataset(C4, allowed_poltypes="C4")
+
+    T3 = {}
+
+    # force real diagonal to save space
+    T3["m11"] = 0.5 * (C4.m11 + C4.m44) + C4.m14.real
+    T3["m22"] = 0.5 * (C4.m11 + C4.m44) - C4.m14.real
+    T3["m33"] = 0.5 * (C4.m22 + C4.m33 + 2 * C4.m23.real)
+
+    # upper diagonal terms
+    T3["m12"] = 0.5 * (C4.m11 - C4.m44) - 1j * C4.m14.imag
+    T3["m13"] = 0.5 * (C4.m12 + C4.m13 + C4.m24.conj() + C4.m34.conj())
+    T3["m23"] = 0.5 * (C4.m12 + C4.m13 - C4.m24.conj() - C4.m34.conj())
+
+    attrs = {"poltype": "T3", "description": "Coherency matrix (3x3)"}
+    return xr.Dataset(T3, attrs=attrs)
 
 
 def T4_to_C4(T4: xarray.Dataset) -> xarray.Dataset:
@@ -305,78 +435,59 @@ def T4_to_C4(T4: xarray.Dataset) -> xarray.Dataset:
     return xr.Dataset(C4, attrs=attrs)
 
 
-def C3_to_T3(C3: xarray.Dataset) -> xarray.Dataset:
-    """Converts the lexicographic covariance matrix C3 to the Pauli coherency matrix T3.
+def T4_to_C3(T4: xarray.Dataset) -> xarray.Dataset:
+    """Converts the Pauli coherency matrix T4 to the lexicographic covariance matrix C3.
 
     Args:
-        C3 (xarray.Dataset): input image of covariance matrices
+        T4 (xarray.Dataset): input image of coherency matrices
 
     Returns:
-        xarray.Dataset: T3 coherency matrix
-    """
-    _ = validate_dataset(C3, allowed_poltypes="C3")
+        xarray.Dataset: C3 covariance matrix
 
-    T3 = {}
+    """
+    _ = validate_dataset(T4, allowed_poltypes="T4")
+
+    C3 = {}
 
     c = 1 / np.sqrt(np.float32(2))
 
     # force real diagonal to save space
-    T3["m11"] = 0.5 * (C3.m11 + C3.m33) + C3.m13.real
-    T3["m22"] = 0.5 * (C3.m11 + C3.m33) - C3.m13.real
-    T3["m33"] = C3.m22
+    C3["m11"] = 0.5 * (T4.m11 + 2 * T4.m12.real + T4.m22)
+    C3["m22"] = T4.m33
+    C3["m33"] = 0.5 * (T4.m11 - 2 * T4.m12.real + T4.m22)
+
     # upper diagonal terms
-    T3["m12"] = 0.5 * (C3.m11 - C3.m33) - 1j * C3.m13.imag
-    T3["m13"] = c * (C3.m12 + C3.m23.conj())
-    T3["m23"] = c * (C3.m12 - C3.m23.conj())
+    C3["m12"] = c * (T4.m13 + T4.m23)
+    C3["m13"] = 0.5 * (T4.m11 - T4.m22) - 1j * T4.m12.imag
+    C3["m23"] = c * (T4.m13.conj() - T4.m23.conj())
+
+    attrs = {"poltype": "C3", "description": "Covariance matrix (3x3)"}
+    return xr.Dataset(C3, attrs=attrs)
+
+
+def T4_to_T3(T4: xarray.Dataset) -> xarray.Dataset:
+    """Converts the Pauli coherency matrix T4 to the Pauli coherency matrix T3.
+
+    Args:
+        T4 (xarray.Dataset): input image of coherency matrices
+
+    Returns:
+        xarray.Dataset: T3 coherency matrix
+
+    """
+    _ = validate_dataset(T4, allowed_poltypes="T4")
+
+    T3 = {
+        "m11": T4.m11,
+        "m22": T4.m22,
+        "m33": T4.m33,
+        "m12": T4.m12,
+        "m13": T4.m13,
+        "m23": T4.m23,
+    }
 
     attrs = {"poltype": "T3", "description": "Coherency matrix (3x3)"}
     return xr.Dataset(T3, attrs=attrs)
-
-
-def C4_to_T4(C4: xarray.Dataset) -> xarray.Dataset:
-    """Converts the lexicographic covariance matrix C4 to the Pauli coherency matrix T4.
-
-    Args:
-        C4 (xarray.Dataset): input image of covariance matrices
-
-    Returns:
-        xarray.Dataset: T4 coherency matrix
-    """
-    _ = validate_dataset(C4, allowed_poltypes="C4")
-
-    T4 = {}
-
-    # force real diagonal to save space
-    # diagonal terms
-    T4["m11"] = 0.5 * (C4.m11 + 2 * C4.m14.real + C4.m44)
-    T4["m22"] = 0.5 * (C4.m11 - 2 * C4.m14.real + C4.m44)
-    T4["m33"] = 0.5 * (C4.m22 + C4.m33 + 2 * C4.m23.real)
-    T4["m44"] = 0.5 * (C4.m22 + C4.m33 - 2 * C4.m23.real)
-
-    # m12
-    T4["m12"] = 0.5 * (C4.m11 - C4.m44) - 1j * C4.m14.imag
-
-    # m13
-    T4["m13"] = 0.5 * (C4.m12 + C4.m13 + C4.m24.conj() + C4.m34.conj())
-
-    # m14
-    T4["m14"] = 0.5 * (
-        C4.m12.imag - C4.m13.imag - C4.m24.imag + C4.m34.imag
-    ) + 0.5 * 1j * (-C4.m12.real + C4.m13.real - C4.m24.real + C4.m34.real)
-
-    # m23
-    T4["m23"] = 0.5 * (C4.m12 + C4.m13 - C4.m24.conj() - C4.m34.conj())
-
-    # m24
-    T4["m24"] = 0.5 * (
-        C4.m12.imag - C4.m13.imag + C4.m24.imag - C4.m34.imag
-    ) + 0.5 * 1j * (-C4.m12.real + C4.m13.real + C4.m24.real - C4.m34.real)
-
-    # m34
-    T4["m34"] = -C4.m23.imag + 0.5j * (-C4.m22 + C4.m33)
-
-    attrs = {"poltype": "T4", "description": "Coherency matrix (4x4)"}
-    return xr.Dataset(T4, attrs=attrs)
 
 
 # this function is used only in unit tests
@@ -554,7 +665,7 @@ def plot_h_alpha_plane(ds, bins=500, min_pts=5):
 
     if not ds.poltype == "h_a_alpha":
         raise ValueError("Input must be a valid PolSARpro H/A/Alpha result.")
-    
+
     if not {"entropy", "alpha"}.issubset(ds.data_vars):
         raise ValueError("Entropy or Alpha is missing from the input data.")
 
@@ -604,12 +715,14 @@ def plot_h_alpha_plane(ds, bins=500, min_pts=5):
     fig, ax = plt.subplots(figsize=(8, 6))
 
     # 2D histogram
-    h = ax.hist2d(entropy, alpha, bins=bins, range=((0, 1), (0, 90)), cmap="jet", cmin=min_pts)
+    h = ax.hist2d(
+        entropy, alpha, bins=bins, range=((0, 1), (0, 90)), cmap="jet", cmin=min_pts
+    )
     plt.colorbar(h[3], ax=ax, label="Number of points")
 
     # Overlay curves
-    ax.plot(x1, 90*y1, color="black", linewidth=1)
-    ax.plot(x2, 90*y2, color="black", linewidth=1)
+    ax.plot(x1, 90 * y1, color="black", linewidth=1)
+    ax.plot(x2, 90 * y2, color="black", linewidth=1)
 
     # Labels and title
     ax.set_xlabel("Entropy (H)")
@@ -625,7 +738,7 @@ def pauli_rgb(input_data: xr.Dataset, q: float = 0.98) -> xr.DataArray:
     Args:
         input_data (xr.Dataset): Input PolSARpro Dataset.
         q (float): Quantile for dynamic range clipping (between 0 and 1).
-    
+
     Returns:
         xr.DataArray: RGB representation with 'band' dimension.
     """
@@ -663,7 +776,9 @@ def pauli_rgb(input_data: xr.Dataset, q: float = 0.98) -> xr.DataArray:
 
     # compute clipping values to handle the high dynamic range
     # clip_val = rgb.quantile(dim=("x", "y"), q=q).astype("float32").drop_vars("quantile")
-    clip_val = rgb.quantile(dim=input_data.dims, q=q).astype("float32").drop_vars("quantile")
+    clip_val = (
+        rgb.quantile(dim=input_data.dims, q=q).astype("float32").drop_vars("quantile")
+    )
 
     # clip and normalize
     return rgb.clip(max=clip_val) / clip_val

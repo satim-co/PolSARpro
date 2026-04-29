@@ -8,11 +8,40 @@ from polsarpro.auxil import validate_dataset
 def dubois_surface_inversion(
     input_data: xr.Dataset,
     incidence_angle: xr.DataArray,
-    f0: float,
-    thresh1: float,
-    thresh2: float,
-    calibration_coeff: float | None = None,
+    f0: float, # In GHz!!!
+    thresh1: float, # dB
+    thresh2: float, # dB
+    calibration_coeff: float | None = None, # sigma0? beta0?
 ) -> xr.Dataset:
+    if not isinstance(incidence_angle, xr.DataArray):
+        raise TypeError("incidence_angle must be an xarray.DataArray.")
+    if not np.issubdtype(incidence_angle.dtype, np.number):
+        raise TypeError("incidence_angle must contain numeric values.")
+
+    if not isinstance(f0, (int, float, np.number)):
+        raise TypeError(f"f0 must be a number, got {type(f0).__name__}.")
+    if f0 <= 0:
+        raise ValueError(f"f0 must be strictly positive, got {f0}.")
+
+    if not isinstance(thresh1, (int, float, np.number)):
+        raise TypeError(
+            f"thresh1 must be a number, got {type(thresh1).__name__}."
+        )
+    if not isinstance(thresh2, (int, float, np.number)):
+        raise TypeError(
+            f"thresh2 must be a number, got {type(thresh2).__name__}."
+        )
+
+    if calibration_coeff is not None:
+        if not isinstance(calibration_coeff, (int, float, np.number)):
+            raise TypeError(
+                "calibration_coeff must be a number or None, "
+                f"got {type(calibration_coeff).__name__}."
+            )
+        if calibration_coeff <= 0:
+            raise ValueError(
+                f"calibration_coeff must be strictly positive, got {calibration_coeff}."
+            )
 
     allowed_poltypes = ("S", "C3", "T3", "C4", "T4")
     poltype = validate_dataset(input_data, allowed_poltypes=allowed_poltypes)
@@ -24,18 +53,24 @@ def dubois_surface_inversion(
         "T4": T4_to_C3,
         "S": S_to_C3,
     }
-    in_ = converters[poltype](input_data)
-
+    C3 = converters[poltype](input_data)
+    
     out = _apply_dubois_inversion(
         theta=incidence_angle,
         f0=f0,
-        hh=in_.m11,
-        vv=in_.m33,
-        hv=in_.m22 / 2.0,
+        hh=C3.m11,
+        vv=C3.m33,
+        hv=C3.m22 / 2.0,
         calib=calibration_coeff,
         thresh1=thresh1,
         thresh2=thresh2,
     )
+    original_non_nan_mask = input_data.to_array().notnull().all("variable")
+    out["dubois_mask_in_out_valid"] = (
+        out["dubois_mask_in"]
+        * out["dubois_mask_out"]
+        * original_non_nan_mask.astype(np.float32, copy=False)
+    ).astype(np.float32, copy=False)
 
     return xr.Dataset(
         {k: (tuple(input_data.dims), v.data) for k, v in out.items()},

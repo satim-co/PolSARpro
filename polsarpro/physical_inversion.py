@@ -129,8 +129,8 @@ def _apply_dubois_inversion(theta, f0, hh, vv, hv, calib, thresh1, thresh2):
     mv_inv = (
         -5.3e-2
         + 2.92e-2 * er_safe
-        - 5.5e-4 * (er_safe * er_safe)
-        + 4.3e-6 * (er_safe * er_safe * er_safe)
+        - 5.5e-4 * er_safe ** 2
+        + 4.3e-6 * er_safe **3
     ) * 100
     msk_mv = base_valid & (mv_inv > 0) & (mv_inv <= 100)
     mv_dub = xr.where(msk_valid & msk_ks & msk_er & msk_mv, mv_inv, 0.0)

@@ -8,10 +8,10 @@ from polsarpro.auxil import validate_dataset
 def dubois_surface_inversion(
     input_data: xr.Dataset,
     incidence_angle: xr.DataArray,
-    f0: float, # In GHz!!!
-    thresh1: float, # dB
-    thresh2: float, # dB
-    calibration_coeff: float | None = None, # sigma0? beta0?
+    f0: float,  # In GHz!!!
+    thresh1: float,  # dB
+    thresh2: float,  # dB
+    calibration_coeff: float | None = None,  # sigma0? beta0?
 ) -> xr.Dataset:
     if not isinstance(incidence_angle, xr.DataArray):
         raise TypeError("incidence_angle must be an xarray.DataArray.")
@@ -24,13 +24,9 @@ def dubois_surface_inversion(
         raise ValueError(f"f0 must be strictly positive, got {f0}.")
 
     if not isinstance(thresh1, (int, float, np.number)):
-        raise TypeError(
-            f"thresh1 must be a number, got {type(thresh1).__name__}."
-        )
+        raise TypeError(f"thresh1 must be a number, got {type(thresh1).__name__}.")
     if not isinstance(thresh2, (int, float, np.number)):
-        raise TypeError(
-            f"thresh2 must be a number, got {type(thresh2).__name__}."
-        )
+        raise TypeError(f"thresh2 must be a number, got {type(thresh2).__name__}.")
 
     if calibration_coeff is not None:
         if not isinstance(calibration_coeff, (int, float, np.number)):
@@ -54,7 +50,7 @@ def dubois_surface_inversion(
         "S": S_to_C3,
     }
     C3 = converters[poltype](input_data)
-    
+
     out = _apply_dubois_inversion(
         theta=incidence_angle,
         f0=f0,
@@ -100,8 +96,10 @@ def _apply_dubois_inversion(theta, f0, hh, vv, hv, calib, thresh1, thresh2):
     hh_safe = xr.where(hh_pos, hh, 1.0)
     theta_safe = xr.where(theta_valid, theta, 1.0)
 
-    msk_valid = base_valid & (hv / vv_safe < 10 ** (thresh1 / 10.0)) & (
-        hh / vv_safe < 10 ** (thresh2 / 10.0)
+    msk_valid = (
+        base_valid
+        & (hv / vv_safe < 10 ** (thresh1 / 10.0))
+        & (hh / vv_safe < 10 ** (thresh2 / 10.0))
     )
 
     ks_inv = np.exp(

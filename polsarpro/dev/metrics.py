@@ -1,8 +1,9 @@
-import numpy as np
-import xarray
-import pandas as pd
-from collections import OrderedDict
 import warnings
+from collections import OrderedDict
+
+import numpy as np
+import pandas as pd
+import xarray
 
 # these are convenience function used only for development
 
@@ -92,6 +93,7 @@ def summarize_metrics(
 
     return pd.concat(dfs)
 
+
 # helper function to visualize errors
 def visualize_errors(out_py, out_c, clip=True):
     import matplotlib.pyplot as plt
@@ -112,8 +114,8 @@ def visualize_errors(out_py, out_c, clip=True):
 
         if clip:
             m = 0.5 * (np.nanmean(img_py) + np.nanmean(img_py))
-            img_c = img_c.clip(0, 2*m) 
-            img_py = img_py.clip(0, 2*m) 
+            img_c = img_c.clip(0, 2 * m)
+            img_py = img_py.clip(0, 2 * m)
 
         plt.figure(figsize=(10, 6))
         plt.suptitle(var)

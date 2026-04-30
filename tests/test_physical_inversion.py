@@ -20,7 +20,7 @@ def test_dubois_surface_inversion(synthetic_poldata):
         res = dubois_surface_inversion(
             input_data=ds,
             incidence_angle=incidence_angle,
-            f0=5.3,
+            freq_ghz=5.3,
             thresh1=3.0,
             thresh2=3.0,
             calibration_coeff=1.0,
@@ -32,7 +32,7 @@ def test_dubois_surface_inversion(synthetic_poldata):
             "dubois_mv",
             "dubois_mask_out",
             "dubois_mask_in",
-            "dubois_mask_in_out_valid",
+            "dubois_mask_valid_in_out",
         }
         assert expected_vars.issubset(set(res.data_vars))
 
@@ -47,7 +47,7 @@ def test_dubois_surface_inversion(synthetic_poldata):
             * res["dubois_mask_out"]
             * original_non_nan_mask.astype("float32")
         ).astype("float32")
-        xr.testing.assert_allclose(res["dubois_mask_in_out_valid"], expected_mask)
+        xr.testing.assert_allclose(res["dubois_mask_valid_in_out"], expected_mask)
 
 
 @pytest.mark.parametrize(
@@ -97,7 +97,7 @@ def test_dubois_surface_inversion_invalid_incidence_angle_type(synthetic_poldata
         dubois_surface_inversion(
             input_data=ds,
             incidence_angle=ds.m11.values,
-            f0=5.3,
+            freq_ghz=5.3,
             thresh1=3.0,
             thresh2=3.0,
         )

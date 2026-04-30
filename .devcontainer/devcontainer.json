@@ -17,11 +17,17 @@
         "njpwerner.autodocstring"
       ],
       "settings": {
+        "isort.importStrategy": "fromEnvironment",
+        "isort.interpreter": ["/root/micromamba/envs/psp/bin/python"],
+        "python.defaultInterpreterPath": "/root/micromamba/envs/psp/bin/python",
         "git.ignoreLimitWarning": true,
         // "python.formatting.provider": "none",
         "[python]": {
           "editor.defaultFormatter": "ms-python.black-formatter",
-          "editor.formatOnSave": true
+          "editor.formatOnSave": true,
+          "editor.codeActionsOnSave": {
+          "source.organizeImports": "explicit"
+          }
         }
       }
     }

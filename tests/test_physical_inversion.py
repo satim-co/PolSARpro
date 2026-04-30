@@ -53,8 +53,8 @@ def test_dubois_surface_inversion(synthetic_poldata):
 @pytest.mark.parametrize(
     "kwargs, exc_type",
     [
-        (dict(f0=0.0), ValueError),
-        (dict(f0="bad"), TypeError),
+        (dict(freq_ghz=0.0), ValueError),
+        (dict(freq_ghz="bad"), TypeError),
         (dict(thresh1="bad"), TypeError),
         (dict(thresh2="bad"), TypeError),
         (dict(calibration_coeff="bad"), TypeError),
@@ -74,7 +74,7 @@ def test_dubois_surface_inversion_invalid_scalars(synthetic_poldata, kwargs, exc
     base_kwargs = dict(
         input_data=ds,
         incidence_angle=incidence_angle,
-        f0=5.3,
+        freq_ghz=5.3,
         thresh1=3.0,
         thresh2=3.0,
         calibration_coeff=1.0,

@@ -1,14 +1,15 @@
+import dask.array as da
 import numpy as np
 import xarray as xr
-import dask.array as da
-from polsarpro.util import S_to_C3, T3_to_C3, C4_to_C3, T4_to_C3
+
 from polsarpro.auxil import validate_dataset
+from polsarpro.util import C4_to_C3, S_to_C3, T3_to_C3, T4_to_C3
 
 
 def dubois_surface_inversion(
     input_data: xr.Dataset,
     incidence_angle: xr.DataArray,
-    f0: float,  # In GHz!!!
+    freq_ghz: float,  # In GHz!!
     thresh1: float,  # dB
     thresh2: float,  # dB
     calibration_coeff: float | None = None,  # sigma0? beta0?
@@ -18,10 +19,10 @@ def dubois_surface_inversion(
     if not np.issubdtype(incidence_angle.dtype, np.number):
         raise TypeError("incidence_angle must contain numeric values.")
 
-    if not isinstance(f0, (int, float, np.number)):
-        raise TypeError(f"f0 must be a number, got {type(f0).__name__}.")
-    if f0 <= 0:
-        raise ValueError(f"f0 must be strictly positive, got {f0}.")
+    if not isinstance(freq_ghz, (int, float, np.number)):
+        raise TypeError(f"freq_ghz must be a number, got {type(freq_ghz).__name__}.")
+    if freq_ghz <= 0:
+        raise ValueError(f"freg_ghz must be strictly positive, got {freq_ghz}.")
 
     if not isinstance(thresh1, (int, float, np.number)):
         raise TypeError(f"thresh1 must be a number, got {type(thresh1).__name__}.")
@@ -53,7 +54,7 @@ def dubois_surface_inversion(
 
     out = _apply_dubois_inversion(
         theta=incidence_angle,
-        f0=f0,
+        f0=freq_ghz,
         hh=C3.m11,
         vv=C3.m33,
         hv=C3.m22 / 2.0,
@@ -62,7 +63,7 @@ def dubois_surface_inversion(
         thresh2=thresh2,
     )
     original_non_nan_mask = input_data.to_array().notnull().all("variable")
-    out["dubois_mask_in_out_valid"] = (
+    out["dubois_mask_valid_in_out"] = (
         out["dubois_mask_in"]
         * out["dubois_mask_out"]
         * original_non_nan_mask.astype(np.float32, copy=False)
@@ -71,7 +72,7 @@ def dubois_surface_inversion(
     return xr.Dataset(
         {k: (tuple(input_data.dims), v.data) for k, v in out.items()},
         attrs={
-            "poltype": "dubois",
+            "poltype": "dubois_surface_inversion",
             "description": "Results of the Dubois surface inversion.",
         },
         coords=input_data.coords,
@@ -127,10 +128,7 @@ def _apply_dubois_inversion(theta, f0, hh, vv, hv, calib, thresh1, thresh2):
 
     er_safe = xr.where(er_dub > 0, er_dub, np.nan)
     mv_inv = (
-        -5.3e-2
-        + 2.92e-2 * er_safe
-        - 5.5e-4 * er_safe ** 2
-        + 4.3e-6 * er_safe **3
+        -5.3e-2 + 2.92e-2 * er_safe - 5.5e-4 * er_safe**2 + 4.3e-6 * er_safe**3
     ) * 100
     msk_mv = base_valid & (mv_inv > 0) & (mv_inv <= 100)
     mv_dub = xr.where(msk_valid & msk_ks & msk_er & msk_mv, mv_inv, 0.0)

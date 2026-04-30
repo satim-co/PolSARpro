@@ -29,11 +29,12 @@ limitations under the License.
 
 import logging
 from pathlib import Path
-import numpy as np
-import xarray as xr
-import xarray
-from polsarpro.auxil import validate_dataset
 
+import numpy as np
+import xarray
+import xarray as xr
+
+from polsarpro.auxil import validate_dataset
 
 log = logging.getLogger(__name__)
 

@@ -31,14 +31,15 @@ from __future__ import annotations
 
 from typing import Optional
 
+import dask.array as da
 import numpy as np
 import xarray as xr
-import dask.array as da
-from polsarpro.util import boxcar, C3_to_T3, S_to_C3, S_to_T3, C4_to_T4, T3_to_C3
+from scipy.ndimage import label
+
 from polsarpro.auxil import validate_dataset
 from polsarpro.decompositions import h_a_alpha
-
-from scipy.ndimage import label
+from polsarpro.util import (C3_to_T3, C4_to_T4, S_to_C3, S_to_T3, T3_to_C3,
+                            boxcar)
 
 
 def wishart_h_a_alpha(

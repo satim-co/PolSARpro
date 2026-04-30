@@ -27,9 +27,10 @@ limitations under the License.
 
 """
 
-import xarray as xr
-import numpy as np
 from typing import Sequence
+
+import numpy as np
+import xarray as xr
 
 # Standardized required variables for each poltype
 POLTYPES = {

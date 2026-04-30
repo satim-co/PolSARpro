@@ -27,11 +27,12 @@ limitations under the License.
 
 """
 
+import dask.array as da
 import numpy as np
 import xarray as xr
-import dask.array as da
-from polsarpro.util import boxcar, C3_to_T3, S_to_C3, S_to_T3, C4_to_T4, T3_to_C3
+
 from polsarpro.auxil import validate_dataset
+from polsarpro.util import C3_to_T3, C4_to_T4, S_to_C3, S_to_T3, T3_to_C3, boxcar
 
 
 def cameron(
@@ -44,7 +45,7 @@ def cameron(
 
     Returns:
         xr.Dataset: Output class (1: plane, 2: dihedral, 3: dipole, 4: cylinder, 5: narrow diplane, 6: 1/4 wave, 7: left helix, 8: right helix).
-    
+
     Notes:
         This decomposition is only applicable to Sinclair matrices (S). Therefore it may not be applied to geocoded data since resampling the S matrix may result in a loss of polarimetric information.
     """
@@ -517,6 +518,7 @@ def vanzyl(
 
 
 # below this line, functions are not meant to be called directly
+
 
 def _compute_h_a_alpha_parameters_C2(l, v, flags):
 

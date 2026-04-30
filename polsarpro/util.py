@@ -28,12 +28,14 @@ limitations under the License.
 """
 
 import logging
-import numpy as np
-from scipy.ndimage import convolve
+
 import dask.array as da
-import xarray as xr
-import xarray
 import matplotlib.pyplot as plt
+import numpy as np
+import xarray
+import xarray as xr
+from scipy.ndimage import convolve
+
 from polsarpro.auxil import validate_dataset
 
 log = logging.getLogger(__name__)

@@ -38,8 +38,7 @@ from scipy.ndimage import label
 
 from polsarpro.auxil import validate_dataset
 from polsarpro.decompositions import h_a_alpha
-from polsarpro.util import (C3_to_T3, C4_to_T4, S_to_C3, S_to_T3, T3_to_C3,
-                            boxcar)
+from polsarpro.util import C3_to_T3, C4_to_T4, S_to_C3, S_to_T3, T3_to_C3, boxcar
 
 
 def wishart_h_a_alpha(
@@ -210,6 +209,7 @@ def wishart_h_a_alpha(
 
     return result
 
+
 def wishart_supervised(
     input_data: xr.Dataset,
     training_labels: xr.DataArray,
@@ -243,7 +243,6 @@ def wishart_supervised(
         input_data, allowed_poltypes=("C3", "T3", "C4", "T4", "S")
     )
 
-
     if {"y", "x"}.issubset(input_data.dims):
         dims = ("y", "x")
     elif {"lat", "lon"}.issubset(input_data.dims):
@@ -260,7 +259,6 @@ def wishart_supervised(
         in_ = C4_to_T4(input_data)
     elif poltype == "T4":
         in_ = input_data
-
 
     if training_labels.ndim != 2:
         raise ValueError("training_labels must be a 2D DataArray.")
@@ -294,7 +292,9 @@ def wishart_supervised(
     centers = _update_wishart_class_centers(
         in_, lab, nclass=nclass, valid_mask=valid_mask
     )
-    cluster_map = _update_wishart_class_map(in_=in_, M_center=centers, valid_mask=valid_mask)
+    cluster_map = _update_wishart_class_map(
+        in_=in_, M_center=centers, valid_mask=valid_mask
+    )
 
     # Remap training clusters back to their semantic class labels
     class_map = cluster_map.map_blocks(
@@ -338,7 +338,7 @@ def _label_training_clusters(
         class_regions, nregions = label(training_labels == class_value)
         if nregions == 0:
             continue
-        
+
         # update cluster -> class mapping list
         region_mask = class_regions > 0
         lab[region_mask] = class_regions[region_mask] + cluster_id
@@ -552,13 +552,20 @@ def _update_wishart_class_centers(input_data, class_map, nclass, valid_mask=None
     npts_safe = da.maximum(npts, 1)
 
     # Matrix dims
-    n = 3 if input_data.poltype in ("C3", "T3") else 4
+    if input_data.poltype in ("C3", "T3"):
+        n = 3
+    elif input_data.poltype in ("C4", "T4"):
+        n = 4
+    else:
+        raise NotImplemented(f"Function is only implemented for 3x3 and 4x4 matrices.")
 
     # Class centers
-    center = (mask * input_data.expand_dims(dim="c", axis=2)).sum((dims[0], dims[1])) / npts_safe
+    center = (mask * input_data.expand_dims(dim="c", axis=2)).sum(
+        (dims[0], dims[1]), keep_attrs=True
+    ) / npts_safe
 
     # Reconstruct matrix and regularize
-    M_center = _reconstruct_matrix_from_ds(center)  + 1e-30 * da.eye(n)
+    M_center = _reconstruct_matrix_from_ds(center) + 1e-30 * da.eye(n)
 
     # otherwise M_center type is complex128
     return M_center.astype("complex64")

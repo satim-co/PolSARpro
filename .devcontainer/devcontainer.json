@@ -2,6 +2,10 @@
   "name": "polsarpro-dev",
   "dockerComposeFile": "../docker-compose.yml",
   "service": "polsarpro-dev",
+  // comment these lines if not using codex
+  "mounts": [
+    "source=${localEnv:HOME}/.codex-devcontainers/${localWorkspaceFolderBasename},target=/root/.codex,type=bind"
+  ],
   "workspaceFolder": "/polsarpro-dev",
   "customizations": {
     "vscode": {

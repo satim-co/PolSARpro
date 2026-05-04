@@ -4,7 +4,9 @@
   "service": "polsarpro-dev",
   // comment these lines if not using codex
   "mounts": [
-    "source=${localEnv:HOME}/.codex-devcontainers/${localWorkspaceFolderBasename},target=/root/.codex,type=bind"
+    "source=${localEnv:HOME}/.codex-devcontainers/${localWorkspaceFolderBasename},target=/root/.codex,type=bind",
+    "source=${localEnv:HOME}/codex-contexts/${localWorkspaceFolderBasename},target=/codex-context,type=bind"
+
   ],
   "workspaceFolder": "/polsarpro-dev",
   "customizations": {

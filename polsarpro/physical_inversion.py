@@ -14,6 +14,46 @@ def dubois_surface_inversion(
     thresh2: float,  # dB
     calibration_coeff: float | None = None,  # sigma0? beta0?
 ) -> xr.Dataset:
+    """Run the Dubois surface inversion on a PolSAR covariance dataset.
+
+    The function accepts a single-scattering input product in any of the
+    supported polarimetric representations (S, C3, T3, C4, or T4), converts
+    it to C3 form when needed, and applies the Dubois empirical model using
+    the supplied incidence-angle raster.
+
+    Parameters
+    ----------
+    input_data:
+        Input covariance dataset. The dataset must be a supported PolSAR
+        product and must share the same spatial grid as ``incidence_angle``.
+    incidence_angle:
+        Incidence angle raster in radians, as an :class:`xarray.DataArray`.
+        The values are expected to be numeric and in the range ``(0, pi/2)``.
+    freq_ghz:
+        Radar center frequency in GHz.
+    thresh1:
+        Maximum allowed ``HV / VV`` ratio in dB for the Dubois validity mask.
+    thresh2:
+        Maximum allowed ``HH / VV`` ratio in dB for the Dubois validity mask.
+    calibration_coeff:
+        Optional multiplicative calibration coefficient. When provided, the
+        HH, VV, and HV channels are scaled by ``sin(theta) / calibration_coeff``
+        before the inversion is applied.
+
+    Returns
+    -------
+    xarray.Dataset
+        A dataset containing the Dubois estimates and masks:
+        ``dubois_ks`` (surface roughness parameter), ``dubois_er`` (relative
+        dielectric constant), ``dubois_mv`` (volumetric moisture estimate),
+        ``dubois_mask_in`` (input validity mask), ``dubois_mask_out`` (model
+        validity mask), and ``dubois_mask_valid_in_out`` (combined mask).
+
+    Notes
+    -----
+    The returned dataset preserves the input coordinates and uses the input
+    spatial dimensions. Output variables are stored as ``float32`` arrays.
+    """
     if not isinstance(incidence_angle, xr.DataArray):
         raise TypeError("incidence_angle must be an xarray.DataArray.")
     if not np.issubdtype(incidence_angle.dtype, np.number):
@@ -79,7 +119,9 @@ def dubois_surface_inversion(
     )
 
 
+# helper function, do not use directly
 def _apply_dubois_inversion(theta, f0, hh, vv, hv, calib, thresh1, thresh2):
+
     scale = np.sin(theta) / calib if calib is not None else 1.0
     hh = hh * scale
     vv = vv * scale

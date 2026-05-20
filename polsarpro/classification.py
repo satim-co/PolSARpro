@@ -195,9 +195,9 @@ def wishart_h_a_alpha(
     # Build output dataset
     result = xr.Dataset(
         {
-            "wishart_h_alpha_class": (in_.dims, class_map),
+            "wishart_h_alpha_class": (in_.dims, class_map.astype("uint8")),
             "wishart_h_alpha_percent_change": percent_changed,
-            "wishart_h_a_alpha_class": (in_.dims, class_map_16),
+            "wishart_h_a_alpha_class": (in_.dims, class_map_16.astype("uint8")),
             "wishart_h_a_alpha_percent_change": percent_changed_16,
         },
         coords=in_.coords,
@@ -305,7 +305,7 @@ def wishart_supervised(
     # Build output dataset
     result = xr.Dataset(
         {
-            "wishart_supervised_class": (in_.dims, class_map),
+            "wishart_supervised_class": (in_.dims, class_map.astype("uint8")),
         },
         coords=in_.coords,
         attrs=dict(
@@ -597,7 +597,7 @@ def _update_wishart_class_map(in_, M_center, valid_mask=None):
     class_map = da.argmin(dist, axis=-1) + 1
     if valid_mask is not None:
         class_map = da.where(valid_mask, class_map, 0)
-    return class_map
+    return class_map.astype("uint8")
 
 
 def _wishart_classifier_with_early_stop(

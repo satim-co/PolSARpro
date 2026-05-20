@@ -41,6 +41,7 @@ def test_wishart_h_a_alpha(synthetic_poldata):
         class_data = result["wishart_h_alpha_class"]
 
         # Check class values are integers in range [1, 9]
+        assert class_data.dtype == np.uint8, f"Class values should be uint8, got {class_data.dtype}"
         assert np.issubdtype(
             class_data.dtype, np.integer
         ), f"Class values should be integers, got {class_data.dtype}"
@@ -54,6 +55,7 @@ def test_wishart_h_a_alpha(synthetic_poldata):
         class_data = result["wishart_h_a_alpha_class"]
 
         # Check class values are integers in range [1, 9]
+        assert class_data.dtype == np.uint8, f"Class values should be uint8, got {class_data.dtype}"
         assert np.issubdtype(
             class_data.dtype, np.integer
         ), f"Class values should be integers, got {class_data.dtype}"
@@ -107,6 +109,7 @@ def test_wishart_h_a_alpha_with_ha_result(synthetic_poldata):
         class_data = result["wishart_h_alpha_class"]
 
         # Check class values are integers in range [1, 9]
+        assert class_data.dtype == np.uint8, f"Class values should be uint8, got {class_data.dtype}"
         assert np.issubdtype(
             class_data.dtype, np.integer
         ), f"Class values should be integers, got {class_data.dtype}"
@@ -171,6 +174,7 @@ def test_wishart_supervised(synthetic_poldata):
         class_map = result["wishart_supervised_class"].values
 
         assert class_map.shape == (ds.sizes["y"], ds.sizes["x"])
+        assert class_map.dtype == np.uint8
         assert np.issubdtype(class_map.dtype, np.integer)
         assert set(np.unique(class_map)).issubset({1, 2}), (
             f"Unexpected class labels for poltype {poltype}: "

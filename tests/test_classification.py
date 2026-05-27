@@ -121,6 +121,7 @@ def test_wishart_h_a_alpha_with_ha_result(synthetic_poldata):
         ), f"Max class value should be <= 9, got {class_data.max()}"
 
 
+
 @pytest.mark.parametrize("synthetic_poldata", ["h_a_alpha"], indirect=True)
 def test_h_alpha_classifier(synthetic_poldata):
     ds = synthetic_poldata["h_a_alpha"]

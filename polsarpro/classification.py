@@ -47,6 +47,7 @@ def wishart_h_a_alpha(
     h_a_alpha_result: Optional[xr.Dataset] = None,
     max_iter: int = 10,
     tol_pct: float = None,
+    verbose: bool = True,
 ) -> xr.Dataset:
     """
     Performs the Wishart H/A/Alpha classification on polarimetric SAR data.
@@ -79,6 +80,8 @@ def wishart_h_a_alpha(
             percentage of pixels changing class between iterations. This parameter is kept only for compatibility with the C version (see notes below). When the percentage
             of pixels that switch class is less than this value, the algorithm stops.
             If set, must be in the range [0.0, 100.0]. Defaults to None.
+        verbose (bool, optional): If True, print progress messages during the eager
+            tol_pct path. Defaults to True.
 
     Returns:
         xr.Dataset: Dataset containing the 8 and 18 class maps.
@@ -163,14 +166,34 @@ def wishart_h_a_alpha(
     # Iterative Wishart classification
     nclass = 8
     if tol_pct is None:
-        # lazy computation for a faster execution
+        # Lazy pipeline: list the planned stages up front.
+        if verbose:
+            print("Starting Wishart H/A/Alpha operations")
+            if h_a_alpha_result is None:
+                print("- H/A/Alpha decomposition")
+            print("- H/Alpha initial classes")
+            print("- Wishart H/Alpha clustering (8 classes)")
+            print("- Wishart H/A/Alpha clustering (16 classes)")
         class_map, percent_changed = _wishart_classifier_without_early_stop(
             in_, class_map_init, nclass, max_iter, valid_mask=valid_mask
         )
     else:
-        # in this case results are computed on the fly
+        # Eager pipeline: print progress as each stage runs.
+        if verbose:
+            first_stage_message = (
+                "Starting H/A/Alpha decomposition & Wishart H/Alpha clustering (8 classes)"
+                if h_a_alpha_result is None
+                else "Starting Wishart H/Alpha clustering (8 classes)"
+            )
+            print(first_stage_message)
         class_map, percent_changed = _wishart_classifier_with_early_stop(
-            in_, class_map_init, nclass, max_iter, tol_pct, valid_mask=valid_mask
+            in_,
+            class_map_init,
+            nclass,
+            max_iter,
+            tol_pct,
+            valid_mask=valid_mask,
+            verbose=verbose,
         )
 
     # Divide classes according to anisotropy
@@ -182,14 +205,22 @@ def wishart_h_a_alpha(
 
     nclass = 16
     if tol_pct is None:
-        # lazy computation for a faster execution
+        # Lazy pipeline: the stage list was already printed above.
         class_map_16, percent_changed_16 = _wishart_classifier_without_early_stop(
             in_, class_map_init_16, nclass, max_iter, valid_mask=valid_mask
         )
     else:
-        # in this case results are computed on the fly
+        # Eager pipeline: print progress as each stage runs.
+        if verbose:
+            print("Starting Wishart H/A/Alpha clustering (16 classes)")
         class_map_16, percent_changed_16 = _wishart_classifier_with_early_stop(
-            in_, class_map_init_16, nclass, max_iter, tol_pct, valid_mask=valid_mask
+            in_,
+            class_map_init_16,
+            nclass,
+            max_iter,
+            tol_pct,
+            valid_mask=valid_mask,
+            verbose=verbose,
         )
 
     # Build output dataset
@@ -601,7 +632,13 @@ def _update_wishart_class_map(in_, M_center, valid_mask=None):
 
 
 def _wishart_classifier_with_early_stop(
-    in_, class_map, nclass, max_iter, tol_pct, valid_mask=None
+    in_,
+    class_map,
+    nclass,
+    max_iter,
+    tol_pct,
+    valid_mask=None,
+    verbose: bool = True,
 ):
     if valid_mask is None:
         total_pixels = class_map.shape[0] * class_map.shape[1]
@@ -609,7 +646,8 @@ def _wishart_classifier_with_early_stop(
         total_pixels = valid_mask.sum()
 
     for iteration in range(max_iter):
-        print(f"Iteration #{iteration+1}")
+        if verbose:
+            print(f"Iteration #{iteration + 1}")
         # Store previous classification for convergence check
         class_map_prev = class_map
 

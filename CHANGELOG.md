@@ -1,3 +1,20 @@
+# 2026.5.0 (to be released)
+## New features
+- Added Wishart H/A/Alpha classification with 8-class H/Alpha and 16-class H/A/Alpha outputs.
+- Added supervised Wishart classification from connected training-label regions.
+- Added Dubois surface inversion with roughness, dielectric constant, moisture, and validity-mask outputs.
+- Added matrix conversion helpers needed by classification and physical inversion workflows.
+
+## Documentation and tutorials
+- Added tutorials for Wishart H/A/Alpha classification, supervised Wishart classification, manual labeling, and Dubois surface inversion.
+- Added Wishart classifier theory pages and MkDocs navigation entries.
+- Added development notebooks for real-data comparison with legacy C-PolSARpro outputs.
+
+## Tests and improvements
+- Added unit tests for Wishart classifiers, Dubois inversion, expanded matrix conversions, and validation behavior.
+- Added `h_a_alpha` to the validated product schemas so H/A/Alpha results can be reused as classifier inputs.
+- Improved invalid-pixel handling, coordinate/attribute preservation, and `uint8` class-map outputs.
+
 # 2026.1.2
 ## New feature
 - `open_netcdf_beam` is now able to read calibrated BIOMASS files exported from SNAP.

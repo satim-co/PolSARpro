@@ -2,6 +2,12 @@
   "name": "polsarpro-dev",
   "dockerComposeFile": "../docker-compose.yml",
   "service": "polsarpro-dev",
+  // comment these lines if not using codex
+  "mounts": [
+    "source=${localEnv:HOME}/.codex-devcontainers/${localWorkspaceFolderBasename},target=/root/.codex,type=bind",
+    "source=${localEnv:HOME}/codex-contexts/${localWorkspaceFolderBasename},target=/codex-context,type=bind"
+
+  ],
   "workspaceFolder": "/polsarpro-dev",
   "customizations": {
     "vscode": {
@@ -17,11 +23,17 @@
         "njpwerner.autodocstring"
       ],
       "settings": {
+        "isort.importStrategy": "fromEnvironment",
+        "isort.interpreter": ["/root/micromamba/envs/psp/bin/python"],
+        "python.defaultInterpreterPath": "/root/micromamba/envs/psp/bin/python",
         "git.ignoreLimitWarning": true,
         // "python.formatting.provider": "none",
         "[python]": {
           "editor.defaultFormatter": "ms-python.black-formatter",
-          "editor.formatOnSave": true
+          "editor.formatOnSave": true,
+          "editor.codeActionsOnSave": {
+          "source.organizeImports": "explicit"
+          }
         }
       }
     }

@@ -1,9 +1,11 @@
 import logging
-import numpy as np
-import xarray as xr
 from pathlib import Path
 
+import numpy as np
+import xarray as xr
+
 log = logging.getLogger(__name__)
+
 
 def read_T3_psp(input_dir: str):
     """Reads a T3 matrix in the PolSARPro format.

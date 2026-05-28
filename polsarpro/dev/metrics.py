@@ -1,8 +1,9 @@
-import numpy as np
-import xarray
-import pandas as pd
-from collections import OrderedDict
 import warnings
+from collections import OrderedDict
+
+import numpy as np
+import pandas as pd
+import xarray
 
 # these are convenience function used only for development
 
@@ -92,8 +93,9 @@ def summarize_metrics(
 
     return pd.concat(dfs)
 
+
 # helper function to visualize errors
-def visualize_errors(out_py, out_c, clip=True):
+def visualize_errors(out_py, out_c, clip=True, sub_az=8, sub_rg=1):
     import matplotlib.pyplot as plt
 
     for var in out_py.data_vars:
@@ -112,23 +114,24 @@ def visualize_errors(out_py, out_c, clip=True):
 
         if clip:
             m = 0.5 * (np.nanmean(img_py) + np.nanmean(img_py))
-            img_c = img_c.clip(0, 2*m) 
-            img_py = img_py.clip(0, 2*m) 
+            img_c = img_c.clip(0, 2 * m)
+            img_py = img_py.clip(0, 2 * m)
 
         plt.figure(figsize=(10, 6))
         plt.suptitle(var)
         plt.subplot(131)
-        plt.imshow(err[::8], interpolation="none")
+        plt.imshow(err[::sub_az, ::sub_rg], interpolation="none")
         plt.title(t_err)
         plt.axis("off")
         plt.colorbar(fraction=0.046, pad=0.04, location="bottom")
         plt.subplot(132)
-        plt.imshow(img_c[::8], interpolation="none")
+        plt.imshow(img_c[::sub_az, ::sub_rg], interpolation="none")
         plt.title("C")
         plt.axis("off")
         plt.colorbar(fraction=0.046, pad=0.04, location="bottom")
         plt.subplot(133)
-        plt.imshow(img_py[::8], interpolation="none")
+        plt.imshow(img_py[::sub_az, ::sub_rg], interpolation="none")
         plt.colorbar(fraction=0.046, pad=0.04, location="bottom")
         plt.title("python")
         plt.axis("off")
+        plt.tight_layout()

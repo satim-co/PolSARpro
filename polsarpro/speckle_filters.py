@@ -27,13 +27,13 @@ limitations under the License.
 
 """
 
+import dask.array as da
 import numpy as np
 import xarray as xr
-import dask.array as da
-from polsarpro.util import boxcar, S_to_C3
-from polsarpro.auxil import validate_dataset
 from scipy.ndimage import convolve
-from polsarpro.util import _boxcar_core
+
+from polsarpro.auxil import validate_dataset
+from polsarpro.util import S_to_C3, _boxcar_core, boxcar
 
 
 def pwf(

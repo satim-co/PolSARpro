@@ -2,36 +2,58 @@ import pytest
 import numpy as np
 import xarray as xr
 from polsarpro.util import vec_to_mat
+from polsarpro.decompositions import h_a_alpha
 
 
 @pytest.fixture(scope="function")
 def synthetic_poldata(request):
-    """Generate only the requested synthetic polarimetric datasets.
+    """Generate synthetic polarimetric datasets for testing.
+
+    The fixture accepts parameters to customize data size and chunking:
+        - poltypes: list of polarimetric types to generate (default: ["S", "C3", "T3"])
+        - size: spatial dimension N for NxN images (default: 128)
+        - chunk_size: chunk size for dask arrays (default: 16)
 
     Args:
-        request.param: one or more of {"S", "C3", "T3"}.
-                       If None, all are generated.
+        request.param: Can be one of:
+            - str: single polarimetric type (e.g., "T3")
+            - list: multiple types (e.g., ["S", "C3", "T3"])
+            - dict: with keys "poltypes", "size", "chunk_size" for full control
 
     Returns:
         - xr.Dataset if one type requested (e.g., "T3")
         - dict[str, xr.Dataset] if multiple types requested
     """
-    N = 128
-    D = 3
-    C = 16
-    dims = ("y", "x")
+    # Parse parameters with defaults
+    if isinstance(request.param, dict):
+        poltypes = request.param.get("poltypes", ["S", "C3", "T3"])
+        size = request.param.get("size", 128)
+        chunk_size = request.param.get("chunk_size", 16)
+        # Convert single string to list
+        if isinstance(poltypes, str):
+            poltypes = [poltypes]
+    elif isinstance(request.param, (list, tuple)):
+        poltypes = list(request.param)
+        size = 128
+        chunk_size = 16
+    elif isinstance(request.param, str):
+        poltypes = [request.param]
+        size = 128
+        chunk_size = 16
+    else:
+        poltypes = ["S", "C3", "T3"]
+        size = 128
+        chunk_size = 16
 
-    # Parse requested types
-    requested = getattr(request, "param", None)
-    if requested is None:
-        requested = ["S", "C3", "T3"]
-    elif isinstance(requested, str):
-        requested = [requested]
+    N = size
+    D = 3
+    C = chunk_size
+    dims = ("y", "x")
 
     result = {}
 
     # Generate only what's needed
-    if "S" in requested:
+    if "S" in poltypes:
         S = (np.random.randn(N, N, 2, 2) + 1j * np.random.randn(N, N, 2, 2)).astype(
             "complex64"
         )
@@ -47,11 +69,11 @@ def synthetic_poldata(request):
             coords={"y": np.arange(N), "x": np.arange(N)},
         ).chunk(x=C, y=C)
 
-    if any(t in requested for t in ("C3", "T3")):
+    if any(t in poltypes for t in ("C3", "T3")):
         # Only generate v/vp when needed
         v = np.random.randn(N, N, D) + 1j * np.random.randn(N, N, D)
         vp = np.random.randn(N, N, D) + 1j * np.random.randn(N, N, D)
-        if "C2" in requested:
+        if "C2" in poltypes:
             C2 = vec_to_mat(v[..., :2]).astype("complex64")
             C2_dict = dict(
                 m11=xr.DataArray(C2[..., 0, 0].real, dims=dims),
@@ -63,7 +85,7 @@ def synthetic_poldata(request):
                 attrs=dict(poltype="C2", description="..."),
                 coords={"y": np.arange(N), "x": np.arange(N)},
             ).chunk(x=2, y=2)
-        if "C3" in requested:
+        if "C3" in poltypes:
             C3 = vec_to_mat(v).astype("complex64")
             C3_dict = dict(
                 m11=xr.DataArray(C3[..., 0, 0].real, dims=dims),
@@ -78,7 +100,7 @@ def synthetic_poldata(request):
                 attrs=dict(poltype="C3", description="..."),
                 coords={"y": np.arange(N), "x": np.arange(N)},
             ).chunk(x=C, y=C)
-        if "C4" in requested:
+        if "C4" in poltypes:
             v = np.random.randn(N, N, 4) + 1j * np.random.randn(N, N, 4)
             C4 = vec_to_mat(v).astype("complex64")
             C4_dict = dict(
@@ -98,7 +120,7 @@ def synthetic_poldata(request):
                 attrs=dict(poltype="C4", description="..."),
                 coords={"y": np.arange(N), "x": np.arange(N)},
             ).chunk(x=C, y=C)
-        if "T3" in requested:
+        if "T3" in poltypes:
             T3 = vec_to_mat(vp).astype("complex64")
             T3_dict = dict(
                 m11=xr.DataArray(T3[..., 0, 0].real, dims=dims),
@@ -113,7 +135,7 @@ def synthetic_poldata(request):
                 attrs=dict(poltype="T3", description="..."),
                 coords={"y": np.arange(N), "x": np.arange(N)},
             ).chunk(x=C, y=C)
-        if "T4" in requested:
+        if "T4" in poltypes:
             v = np.random.randn(N, N, 4) + 1j * np.random.randn(N, N, 4)
             T4 = vec_to_mat(v).astype("complex64")
             T4_dict = dict(
@@ -133,5 +155,28 @@ def synthetic_poldata(request):
                 attrs=dict(poltype="T4", description="..."),
                 coords={"y": np.arange(N), "x": np.arange(N)},
             ).chunk(x=C, y=C)
+
+    # Generate h_a_alpha decomposition data
+    if "h_a_alpha" in poltypes:
+        S = (np.random.randn(N, N, 2, 2) + 1j * np.random.randn(N, N, 2, 2)).astype(
+            "complex64"
+        )
+        S_dict = dict(
+            hh=xr.DataArray(S[..., 0, 0], dims=dims),
+            hv=xr.DataArray(S[..., 0, 1], dims=dims),
+            vh=xr.DataArray(S[..., 1, 0], dims=dims),
+            vv=xr.DataArray(S[..., 1, 1], dims=dims),
+        )
+        ds = xr.Dataset(
+            S_dict,
+            attrs=dict(poltype="S", description="..."),
+            coords={"y": np.arange(N), "x": np.arange(N)},
+        ).chunk(x=C, y=C)
+
+        result["h_a_alpha"] = h_a_alpha(
+            input_data=ds,
+            boxcar_size=[5, 5],
+            flags=("entropy", "alpha", "anisotropy"),
+        )
 
     return result

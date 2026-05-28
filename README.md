@@ -56,9 +56,9 @@ These instructions are intended for contributors or advanced users who want to w
 - Requires Docker and Docker Compose.
 
 Steps:
-1. Adjust volume paths in `docker-compose.yml` to match your system.
-2. Open the project in VSCode.
-3. Use **Rebuild and Reopen in Container** (Ctrl+Shift+P / Cmd+Shift+P) to launch the devcontainer.
+1. Adjust volume paths in `docker-compose.yml` to match your system.  
+2. Open the project in VSCode.  
+3. Use **Rebuild and Reopen in Container** (Ctrl+Shift+P / Cmd+Shift+P) to launch the devcontainer.   
 
 ### Running the Docker container outside VSCode
 - Intended only for users comfortable managing containers manually.

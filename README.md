@@ -29,8 +29,6 @@ conda activate polsarpro
 conda install conda-forge::polsarpro
 ```
 
----
-
 ### Install with conda using a cloned repository
 Choose this approach if you want access to the source code.
 
@@ -46,8 +44,6 @@ conda activate psp
 export PYTHONPATH="${PYTHONPATH}:/mypath/to/polsarpro/source"
 ```
 - To verify the installation, run `pytest` from the main directory. All tests should pass.
-
----
 
 ## Development Environment (optional)
 
@@ -74,8 +70,6 @@ docker compose up -d
 docker compose down
 ```
 
----
-
 ## Getting Started
 
 Read this [tutorial](https://polsarpro.readthedocs.io/en/latest/quickstart-tutorial/).
@@ -83,3 +77,7 @@ Read this [tutorial](https://polsarpro.readthedocs.io/en/latest/quickstart-tutor
 Tutorial notebooks may be downloaded from the [notebooks](https://github.com/satim-co/PolSARpro/tree/main/notebooks) directory on Github.
 
 The ALOS-1 image used in the tutorials may be downloaded [here](https://step.esa.int/auxdata/PolSARpro/SAN_FRANCISCO_ALOS1_slc.nc). The original data used for this product have been supplied by JAXA’s ALOS-2 sample product.
+
+## Scientific evaluation
+
+The routines have been compared with the PolSARPro C code and eventual numerical differences are negligible. If you would like to look at the comparison reports, please contact [Dr Armando Marino](https://www.stir.ac.uk/people/894087) at the University of Stirling, Scotland, UK. 

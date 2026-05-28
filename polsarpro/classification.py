@@ -38,7 +38,7 @@ from scipy.ndimage import label
 
 from polsarpro.auxil import validate_dataset
 from polsarpro.decompositions import h_a_alpha
-from polsarpro.util import C3_to_T3, C4_to_T4, S_to_C3, S_to_T3, T3_to_C3, boxcar
+from polsarpro.util import C3_to_T3, C4_to_T4, S_to_T3, boxcar
 
 
 def wishart_h_a_alpha(

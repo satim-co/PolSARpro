@@ -71,14 +71,17 @@ def wishart_h_a_alpha(
             (boxcar filter) applied before decomposition. Defaults to [5, 5].
         h_a_alpha_result (xr.Dataset, optional): Pre-computed H/A/Alpha decomposition
             results. If provided, the function will use these results for the initial
-            H-Alpha classification instead of computing them from input_data. The dataset
-            must contain at least 'entropy' and 'alpha' variables. If None (default),
+            H-Alpha classification instead of computing them from input_data.
+            The dataset must contain at least 'entropy' and 'alpha' variables.
+            If None (default),
             the H/A/Alpha decomposition is computed from input_data.
         max_iter (int, optional): Maximum number of iterations for the classification
             refinement loop. Must be a positive integer. Defaults to 10.
         tol_pct (float or None, optional): Threshold for early stopping based on the
-            percentage of pixels changing class between iterations. This parameter is kept only for compatibility with the C version (see notes below). When the percentage
-            of pixels that switch class is less than this value, the algorithm stops.
+            percentage of pixels changing class between iterations. This parameter
+            is kept only for compatibility with the C version (see notes below).
+            When the percentage of pixels that switch class is less than this
+            value, the algorithm stops.
             If set, must be in the range [0.0, 100.0]. Defaults to None.
         verbose (bool, optional): If True, print progress messages during the eager
             tol_pct path. Defaults to True.
@@ -90,12 +93,24 @@ def wishart_h_a_alpha(
             as class ``0`` in the output maps.
 
     References:
-        Cloude, S. R., & Pottier, E. (1997). An entropy based classification scheme for land
-        applications of polarimetric SAR. *IEEE Transactions on Geoscience and Remote Sensing*,
+        Cloude, S. R., & Pottier, E. (1997). An entropy based classification
+        scheme for land applications of polarimetric SAR. *IEEE Transactions on
+        Geoscience and Remote Sensing*,
         35(1), 68-78.
 
     Notes:
-        It is recommended to leave the tol_pct parameter to its default None state to take advantage of Dask lazy processing. Setting this parameter to a value might result in a performance loss. It has been observed that without early termination the python implementation is faster than the legacy version.
+        It is recommended to leave the tol_pct parameter to its default None
+        state to take advantage of Dask lazy processing. Setting this parameter
+        to a value might result in a performance loss. It has been observed
+        that without early termination the python implementation is faster than
+        the legacy version.
+
+        For large products, calling this function without h_a_alpha_result
+        can still require substantial memory when the lazy result is eventually
+        computed or written to disk, because the H/A/Alpha decomposition is part
+        of the same Dask pipeline. If memory is limited, compute the H/A/Alpha
+        decomposition separately, write it to a file, reopen it with xarray,
+        and pass it through h_a_alpha_result.
 
     """
     # Validate max_iter parameter

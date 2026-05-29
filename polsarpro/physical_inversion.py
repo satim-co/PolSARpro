@@ -52,11 +52,17 @@ def dubois_surface_inversion(
     Args:
         input_data (xr.Dataset): Input polarimetric dataset. Supported
             products are:
+
             - "S": Sinclair scattering matrix
+
             - "C3": Lexicographic covariance matrix (3x3)
+
             - "T3": Pauli coherency matrix (3x3)
+
             - "C4": 4x4 covariance matrix
+
             - "T4": 4x4 coherency matrix
+
             The dataset must share the same spatial grid as
             ``incidence_angle``.
         incidence_angle (xr.DataArray): Incidence angle raster in radians.

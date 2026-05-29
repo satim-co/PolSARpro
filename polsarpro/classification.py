@@ -62,11 +62,17 @@ def wishart_h_a_alpha(
 
     Args:
         input_data (xr.Dataset): Input polarimetric SAR dataset. Supported types are:
+
             - "S": Sinclair scattering matrix
+
             - "C3": Lexicographic covariance matrix (3x3)
+
             - "T3": Pauli coherency matrix (3x3)
+
             - "C4": 4x4 covariance matrix
+
             - "T4": 4x4 coherency matrix
+
         boxcar_size (list[int, int], optional): Size of the spatial averaging window
             (boxcar filter) applied before decomposition. Defaults to [5, 5].
         h_a_alpha_result (xr.Dataset, optional): Pre-computed H/A/Alpha decomposition

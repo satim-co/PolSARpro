@@ -25,8 +25,10 @@ nav:
     - Advanced usage:
       - biomass-maap: maap-biomass-stac-api.ipynb
   - API reference: 
+    - Classification: classification.md
     - Decompositions: decompositions.md
     - Speckle Filters: speckle_filters.md
+    - Physical inversion: physical_inversion.md
     - Utilities: util.md
     - Inputs/Outputs: io.md
   - Theory: theory.md

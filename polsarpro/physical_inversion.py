@@ -37,50 +37,52 @@ from polsarpro.util import C4_to_C3, S_to_C3, T3_to_C3, T4_to_C3
 def dubois_surface_inversion(
     input_data: xr.Dataset,
     incidence_angle: xr.DataArray,
-    freq_ghz: float,  # In GHz!!
-    thresh1: float,  # dB
-    thresh2: float,  # dB
-    calibration_coeff: float | None = None,  # sigma0? beta0?
+    freq_ghz: float,
+    thresh1: float,
+    thresh2: float,
+    calibration_coeff: float | None = None,
 ) -> xr.Dataset:
     """Run the Dubois surface inversion on a PolSAR covariance dataset.
 
     The function accepts a single-scattering input product in any of the
-    supported polarimetric representations (S, C3, T3, C4, or T4), converts
-    it to C3 form when needed, and applies the Dubois empirical model using
-    the supplied incidence-angle raster.
+    supported polarimetric representations, converts it to C3 form when
+    needed, and applies the Dubois empirical model using the supplied
+    incidence-angle raster.
 
-    Parameters
-    ----------
-    input_data:
-        Input covariance dataset. The dataset must be a supported PolSAR
-        product and must share the same spatial grid as ``incidence_angle``.
-    incidence_angle:
-        Incidence angle raster in radians, as an :class:`xarray.DataArray`.
-        The values are expected to be numeric and in the range ``(0, pi/2)``.
-    freq_ghz:
-        Radar center frequency in GHz.
-    thresh1:
-        Maximum allowed ``HV / VV`` ratio in dB for the Dubois validity mask.
-    thresh2:
-        Maximum allowed ``HH / VV`` ratio in dB for the Dubois validity mask.
-    calibration_coeff:
-        Optional multiplicative calibration coefficient. When provided, the
-        HH, VV, and HV channels are scaled by ``sin(theta) / calibration_coeff``
-        before the inversion is applied.
+    Args:
+        input_data (xr.Dataset): Input polarimetric dataset. Supported
+            products are:
+            - "S": Sinclair scattering matrix
+            - "C3": Lexicographic covariance matrix (3x3)
+            - "T3": Pauli coherency matrix (3x3)
+            - "C4": 4x4 covariance matrix
+            - "T4": 4x4 coherency matrix
+            The dataset must share the same spatial grid as
+            ``incidence_angle``.
+        incidence_angle (xr.DataArray): Incidence angle raster in radians.
+            Values must be numeric and in the range ``(0, pi/2)``.
+        freq_ghz (float): Radar center frequency in GHz.
+        thresh1 (float): Maximum allowed ``HV / VV`` ratio in dB for the
+            Dubois validity mask.
+        thresh2 (float): Maximum allowed ``HH / VV`` ratio in dB for the
+            Dubois validity mask.
+        calibration_coeff (float or None, optional): Optional multiplicative
+            calibration coefficient. When provided, the HH, VV, and HV
+            channels are scaled by ``sin(theta) / calibration_coeff`` before
+            the inversion is applied. Defaults to None.
 
-    Returns
-    -------
-    xarray.Dataset
-        A dataset containing the Dubois estimates and masks:
-        ``dubois_ks`` (surface roughness parameter), ``dubois_er`` (relative
-        dielectric constant), ``dubois_mv`` (volumetric moisture estimate),
-        ``dubois_mask_in`` (input validity mask), ``dubois_mask_out`` (model
-        validity mask), and ``dubois_mask_valid_in_out`` (combined mask).
+    Returns:
+        xr.Dataset: Dataset containing the Dubois estimates and masks:
+            ``dubois_ks`` (surface roughness parameter), ``dubois_er``
+            (relative dielectric constant), ``dubois_mv`` (volumetric moisture
+            estimate), ``dubois_mask_in`` (input validity mask),
+            ``dubois_mask_out`` (model validity mask), and
+            ``dubois_mask_valid_in_out`` (combined mask).
 
-    Notes
-    -----
-    The returned dataset preserves the input coordinates and uses the input
-    spatial dimensions. Output variables are stored as ``float32`` arrays.
+    Notes:
+        The returned dataset preserves the input coordinates and uses the
+        input spatial dimensions. Output variables are stored as ``float32``
+        arrays.
     """
     if not isinstance(incidence_angle, xr.DataArray):
         raise TypeError("incidence_angle must be an xarray.DataArray.")

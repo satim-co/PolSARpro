@@ -624,10 +624,6 @@ def _update_wishart_class_map(in_, M_center, valid_mask=None):
     M_inv = da.apply_gufunc(np.linalg.inv, "(i,j)->(i,j)", M_center.data, meta=meta)
     M_det = da.apply_gufunc(np.linalg.det, "(i,j)->()", M_center.data, meta=meta)
 
-    # use custom C-like functions instead (Debug only, use with 3x3)
-    # M_inv = inverse_hermitian_3x3(M_center.data)
-    # M_det = det_hermitian_3x3(M_center.data)
-
     # As in C version, let's clip the determinant
     eps = 1e-30
     M_det = M_det.real.clip(eps) + 1j * M_det.imag.clip(eps)
@@ -717,113 +713,113 @@ def _wishart_classifier_without_early_stop(
     return class_map, percent_changed
 
 
-def inverse_hermitian_3x3(M: da.Array) -> da.Array:
-    """
-    Invert a batch of 3x3 Hermitian matrices using explicit cofactor expansion.
+# def inverse_hermitian_3x3(M: da.Array) -> da.Array:
+#     """
+#     Invert a batch of 3x3 Hermitian matrices using explicit cofactor expansion.
 
-    Args:
-        M: Complex Dask array with shape (..., 3, 3)
+#     Args:
+#         M: Complex Dask array with shape (..., 3, 3)
 
-    Returns:
-        Complex Dask array with shape (..., 3, 3)
-    """
+#     Returns:
+#         Complex Dask array with shape (..., 3, 3)
+#     """
 
-    # --- Extract elements ---
-    m11 = M[..., 0, 0]
-    m12 = M[..., 0, 1]
-    m13 = M[..., 0, 2]
-    m21 = M[..., 1, 0]
-    m22 = M[..., 1, 1]
-    m23 = M[..., 1, 2]
-    m31 = M[..., 2, 0]
-    m32 = M[..., 2, 1]
-    m33 = M[..., 2, 2]
+#     # --- Extract elements ---
+#     m11 = M[..., 0, 0]
+#     m12 = M[..., 0, 1]
+#     m13 = M[..., 0, 2]
+#     m21 = M[..., 1, 0]
+#     m22 = M[..., 1, 1]
+#     m23 = M[..., 1, 2]
+#     m31 = M[..., 2, 0]
+#     m32 = M[..., 2, 1]
+#     m33 = M[..., 2, 2]
 
-    # --- Cofactors (adjugate before transpose, but already aligned) ---
-    c00 = m22 * m33 - m23 * m32
-    c01 = -(m12 * m33 - m13 * m32)
-    c02 = m12 * m23 - m22 * m13
+#     # --- Cofactors (adjugate before transpose, but already aligned) ---
+#     c00 = m22 * m33 - m23 * m32
+#     c01 = -(m12 * m33 - m13 * m32)
+#     c02 = m12 * m23 - m22 * m13
 
-    c10 = -(m21 * m33 - m31 * m23)
-    c11 = m11 * m33 - m13 * m31
-    c12 = -(m11 * m23 - m13 * m21)
+#     c10 = -(m21 * m33 - m31 * m23)
+#     c11 = m11 * m33 - m13 * m31
+#     c12 = -(m11 * m23 - m13 * m21)
 
-    c20 = m21 * m32 - m22 * m31
-    c21 = -(m11 * m32 - m12 * m31)
-    c22 = m11 * m22 - m12 * m21
+#     c20 = m21 * m32 - m22 * m31
+#     c21 = -(m11 * m32 - m12 * m31)
+#     c22 = m11 * m22 - m12 * m21
 
-    # --- Determinant ---
-    det = m11 * c00 + m21 * c01 + m31 * c02
-    eps = 1e-30
-    det_real = da.maximum(det.real, eps)
-    det_imag = da.maximum(det.imag, eps)
-    det = det_real + 1j * det_imag
+#     # --- Determinant ---
+#     det = m11 * c00 + m21 * c01 + m31 * c02
+#     eps = 1e-30
+#     det_real = da.maximum(det.real, eps)
+#     det_imag = da.maximum(det.imag, eps)
+#     det = det_real + 1j * det_imag
 
-    # Optional safety (uncomment if needed)
-    # det = da.where(det == 0, da.nan, det)
+#     # Optional safety (uncomment if needed)
+#     # det = da.where(det == 0, da.nan, det)
 
-    inv_det = 1.0 / det
+#     inv_det = 1.0 / det
 
-    # --- Apply normalization ---
-    i00 = c00 * inv_det
-    i01 = c01 * inv_det
-    i02 = c02 * inv_det
+#     # --- Apply normalization ---
+#     i00 = c00 * inv_det
+#     i01 = c01 * inv_det
+#     i02 = c02 * inv_det
 
-    i10 = c10 * inv_det
-    i11 = c11 * inv_det
-    i12 = c12 * inv_det
+#     i10 = c10 * inv_det
+#     i11 = c11 * inv_det
+#     i12 = c12 * inv_det
 
-    i20 = c20 * inv_det
-    i21 = c21 * inv_det
-    i22 = c22 * inv_det
+#     i20 = c20 * inv_det
+#     i21 = c21 * inv_det
+#     i22 = c22 * inv_det
 
-    # --- Stack back to matrix form ---
-    row0 = da.stack([i00, i01, i02], axis=-1)
-    row1 = da.stack([i10, i11, i12], axis=-1)
-    row2 = da.stack([i20, i21, i22], axis=-1)
+#     # --- Stack back to matrix form ---
+#     row0 = da.stack([i00, i01, i02], axis=-1)
+#     row1 = da.stack([i10, i11, i12], axis=-1)
+#     row2 = da.stack([i20, i21, i22], axis=-1)
 
-    M_inv = da.stack([row0, row1, row2], axis=-2)
+#     M_inv = da.stack([row0, row1, row2], axis=-2)
 
-    return M_inv
+#     return M_inv
 
 
-def det_hermitian_3x3(M: da.Array) -> da.Array:
-    """
-    Compute determinant of 3x3 Hermitian matrices using the same
-    method as the provided C implementation.
+# def det_hermitian_3x3(M: da.Array) -> da.Array:
+#     """
+#     Compute determinant of 3x3 Hermitian matrices using the same
+#     method as the provided C implementation.
 
-    Args:
-        M: Complex Dask array with shape (..., 3, 3)
+#     Args:
+#         M: Complex Dask array with shape (..., 3, 3)
 
-    Returns:
-        Complex Dask array with shape (...)
-    """
+#     Returns:
+#         Complex Dask array with shape (...)
+#     """
 
-    # --- Extract elements ---
-    m11 = M[..., 0, 0]
-    m12 = M[..., 0, 1]
-    m13 = M[..., 0, 2]
-    m21 = M[..., 1, 0]
-    m22 = M[..., 1, 1]
-    m23 = M[..., 1, 2]
-    m31 = M[..., 2, 0]
-    m32 = M[..., 2, 1]
-    m33 = M[..., 2, 2]
+#     # --- Extract elements ---
+#     m11 = M[..., 0, 0]
+#     m12 = M[..., 0, 1]
+#     m13 = M[..., 0, 2]
+#     m21 = M[..., 1, 0]
+#     m22 = M[..., 1, 1]
+#     m23 = M[..., 1, 2]
+#     m31 = M[..., 2, 0]
+#     m32 = M[..., 2, 1]
+#     m33 = M[..., 2, 2]
 
-    # --- First row of cofactors (same as C: IHM[0][*]) ---
-    c00 = m22 * m33 - m23 * m32
-    c01 = -(m12 * m33 - m13 * m32)
-    c02 = m12 * m23 - m22 * m13
+#     # --- First row of cofactors (same as C: IHM[0][*]) ---
+#     c00 = m22 * m33 - m23 * m32
+#     c01 = -(m12 * m33 - m13 * m32)
+#     c02 = m12 * m23 - m22 * m13
 
-    # --- Determinant (complex) ---
-    # C version does this in real/imag parts explicitly
-    det = m11 * c00 + m21 * c01 + m31 * c02
+#     # --- Determinant (complex) ---
+#     # C version does this in real/imag parts explicitly
+#     det = m11 * c00 + m21 * c01 + m31 * c02
 
-    # --- Optional epsilon handling (mimics C behaviour) ---
-    # if eps is not None:
-    eps = 1e-30
-    det_real = da.maximum(det.real, eps)
-    det_imag = da.maximum(det.imag, eps)
-    det = det_real + 1j * det_imag
+#     # --- Optional epsilon handling (mimics C behaviour) ---
+#     # if eps is not None:
+#     eps = 1e-30
+#     det_real = da.maximum(det.real, eps)
+#     det_imag = da.maximum(det.imag, eps)
+#     det = det_real + 1j * det_imag
 
-    return det
+#     return det

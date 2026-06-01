@@ -55,7 +55,7 @@ These instructions are intended for contributors or advanced users who want to w
 - Requires placing the official PolSARpro ZIP archive in the project root before building the container.
 - Requires Docker and Docker Compose.
 
-Steps:
+Steps:  
 1. Adjust volume paths in `docker-compose.yml` to match your system.  
 2. Open the project in VSCode.  
 3. Use **Rebuild and Reopen in Container** (Ctrl+Shift+P / Cmd+Shift+P) to launch the devcontainer.   

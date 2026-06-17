@@ -14,6 +14,7 @@
 - Added unit tests for Wishart classifiers, Dubois inversion, expanded matrix conversions, and validation behavior.
 - Added `h_a_alpha` to the validated product schemas so H/A/Alpha results can be reused as classifier inputs.
 - Improved invalid-pixel handling, coordinate/attribute preservation, and `uint8` class-map outputs.
+- Added tiny diagonal loading in PWF to reduce singular inversion failures.
 
 # 2026.1.2
 ## New feature

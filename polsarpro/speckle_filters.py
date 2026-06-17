@@ -96,6 +96,12 @@ def pwf(
     # box_train = box_train.fillna(eps)
 
     M_box = _reconstruct_matrix_from_ds(box_train).data
+
+    # Add tiny diagonal loading as a minimal safeguard against singular inversions.
+    n = M_box.shape[-1]
+    eye = da.eye(n)
+    M_box = M_box + eps * eye
+
     # M = _reconstruct_matrix_from_ds(in_).data
     M = _reconstruct_matrix_from_ds(box_test).data
     # eigendecomposition

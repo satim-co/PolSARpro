@@ -1,4 +1,4 @@
-# 2026.5.0
+# 2026.6.0
 ## New features
 - Added Wishart H/A/Alpha classification with 8-class H/Alpha and 16-class H/A/Alpha outputs.
 - Added supervised Wishart classification from connected training-label regions.

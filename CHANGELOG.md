@@ -15,6 +15,7 @@
 - Added `h_a_alpha` to the validated product schemas so H/A/Alpha results can be reused as classifier inputs.
 - Improved invalid-pixel handling, coordinate/attribute preservation, and `uint8` class-map outputs.
 - Added tiny diagonal loading in PWF to reduce singular inversion failures.
+- Updated package metadata, development environment dependencies, and conda recipe import tests for all submodules, and restricted supported Python versions to 3.12 to avoid performance regressions on newer Python releases.
 
 # 2026.1.2
 ## New feature

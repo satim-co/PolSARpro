@@ -1,17 +1,39 @@
 [build-system]
-requires = [ "setuptools", "wheel",]
+requires = [
+    "setuptools",
+    "wheel",
+]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "polsarpro"
 version = "2026.6.0"
 description = "Re-implementation of selected PolSARpro functions in Python, following the scientific recommendations of PolInSAR 2021."
-requires-python = ">=3.12" 
-dependencies = ["gdal", "rasterio", "geopandas", "pandas", "xarray", "netcdf4", "rioxarray", "dask", "bottleneck", "jupyter", "zarr", "pyyaml"]
+requires-python = ">=3.12"
+dependencies = [
+    "bottleneck",
+    "dask",
+    "gdal",
+    "geopandas",
+    "jupyter",
+    "matplotlib",
+    "netcdf4",
+    "numpy",
+    "pandas",
+    "pyyaml",
+    "rasterio",
+    "rioxarray",
+    "scipy",
+    "xarray",
+    "zarr",
+]
+
 [[project.authors]]
 name = "Olivier D'Hondt"
 email = "dhondt.olivier@gmail.com"
 
 [tool.setuptools]
-packages = [ "polsarpro"]
+packages = [
+    "polsarpro",
+]
 include-package-data = true

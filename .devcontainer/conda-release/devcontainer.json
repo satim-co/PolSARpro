@@ -1,0 +1,34 @@
+{
+  "name": "polsarpro-conda-release",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "polsarpro-conda-release",
+  "mounts": [
+    "source=${localEnv:HOME}/.codex-devcontainers/${localWorkspaceFolderBasename}-conda-release,target=/root/.codex,type=bind",
+    "source=${localEnv:HOME}/codex-contexts/${localWorkspaceFolderBasename},target=/codex-context,type=bind"
+  ],
+  "workspaceFolder": "/polsarpro-dev",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.isort",
+        "ms-python.black-formatter",
+        "ms-toolsai.jupyter",
+        "njpwerner.autodocstring"
+      ],
+      "settings": {
+        "isort.importStrategy": "fromEnvironment",
+        "isort.interpreter": ["/root/micromamba/envs/psp/bin/python"],
+        "python.defaultInterpreterPath": "/root/micromamba/envs/psp/bin/python",
+        "git.ignoreLimitWarning": true,
+        "[python]": {
+          "editor.defaultFormatter": "ms-python.black-formatter",
+          "editor.formatOnSave": true,
+          "editor.codeActionsOnSave": {
+            "source.organizeImports": "explicit"
+          }
+        }
+      }
+    }
+  }
+}

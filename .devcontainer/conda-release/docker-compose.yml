@@ -1,0 +1,16 @@
+---
+version: "3.7"
+
+services:
+
+  polsarpro-conda-release:
+    build:
+      context: ../..
+      dockerfile: .devcontainer/conda-release/Dockerfile
+    volumes:
+      - ../../data:/polsarpro-dev/data
+      - ../../docs:/polsarpro-dev/docs
+      - ../../notebooks:/polsarpro-dev/notebooks
+      - ../../tests:/polsarpro-dev/tests
+      - ${HOME}/data:/data
+    command: /bin/sh -c "while sleep 1000; do :; done"

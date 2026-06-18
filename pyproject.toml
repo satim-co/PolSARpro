@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 name = "polsarpro"
 version = "2026.6.0"
 description = "Re-implementation of selected PolSARpro functions in Python, following the scientific recommendations of PolInSAR 2021."
-requires-python = ">=3.12"
+requires-python = ">=3.12,<3.13"
 dependencies = [
     "bottleneck",
     "dask",

@@ -18,6 +18,9 @@ dependencies:
   - rioxarray
   - dask
   - bottleneck
+  - matplotlib
   - jupyter
+  - numpy
+  - scipy
   - zarr
   - pyyaml

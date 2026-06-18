@@ -5,8 +5,8 @@ services:
 
   polsarpro-conda-release:
     build:
-      context: ../..
-      dockerfile: .devcontainer/conda-release/Dockerfile
+      context: .
+      dockerfile: Dockerfile
     volumes:
       - ../../data:/polsarpro-dev/data
       - ../../docs:/polsarpro-dev/docs

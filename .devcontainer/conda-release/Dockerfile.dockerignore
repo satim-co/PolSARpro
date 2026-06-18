@@ -1,0 +1,8 @@
+*
+
+!.devcontainer/conda-release/Dockerfile
+!environment.yaml
+!README.md
+!CHANGELOG.md
+!LICENSE
+!mkdocs.yml

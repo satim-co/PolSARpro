@@ -334,3 +334,6 @@ def get_incidence_angle_netcdf_beam(file_in: str | Path, interpolation_method:st
         method=interpolation_method,
         kwargs={"fill_value": "extrapolate"},
     ).drop_attrs()
+
+def open_biomass(file):
+    pass

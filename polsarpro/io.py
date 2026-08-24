@@ -346,7 +346,6 @@ def get_incidence_angle_netcdf_beam(file_in: str | Path, interpolation_method:st
 
 
 def _validate_biomass_l1a_scs_name(product_path: str | Path) -> str:
-    """Validate and return a BIOMASS Level-1a Standard SCS directory name."""
     product_name = Path(urlsplit(str(product_path)).path).name
 
     if BIOMASS_L1A_SCS_NAME.fullmatch(product_name) is None:

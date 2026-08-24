@@ -335,5 +335,50 @@ def get_incidence_angle_netcdf_beam(file_in: str | Path, interpolation_method:st
         kwargs={"fill_value": "extrapolate"},
     ).drop_attrs()
 
-def open_biomass(file):
-    pass
+
+def open_biomass_l1a_scs(
+    product_path: str | Path,
+    *,
+    chunks: dict | str | None = "auto",
+    gdal_options: dict | None = None,
+) -> xarray.Dataset:
+    """Open a BIOMASS Level-1a Standard SCS product as a scattering matrix.
+
+    The reader targets standard, non-calibration SCS products (product type
+    ``S[123]_SCS__1S``). It reconstructs the four complex polarimetric channels
+    from the product's amplitude and phase Cloud Optimized GeoTIFFs while
+    preserving lazy, chunked access for local or remote rasters.
+
+    Args:
+        product_path (str | Path): Path or URL to the BIOMASS product
+            directory containing the measurement rasters.
+        chunks (dict | str | None): Chunking passed to the raster reader. Use
+            ``None`` for eager arrays. Defaults to ``"auto"``.
+        gdal_options (dict | None): Optional GDAL environment options needed
+            while opening the rasters, such as HTTP authorization headers.
+
+    Returns:
+        xarray.Dataset: Lazy scattering-matrix dataset with ``hh``, ``hv``,
+        ``vh``, and ``vv`` variables and ``poltype="S"``.
+
+    Raises:
+        ValueError: If the directory name does not identify a supported
+            product, the matching measurement rasters cannot be found, or
+            their metadata and polarization bands are inconsistent.
+
+    Note:
+        Phase units, band ordering, scaling, offsets, and nodata handling must
+        be verified from authoritative metadata before reconstruction is
+        implemented. Floating/unframed products must not be rejected based on
+        their raster dimensions.
+    """
+    # Parse the directory name and validate a standard, non-calibration L1a
+    # SCS product.
+    # Derive the internal filename stem from the product naming convention.
+    # Locate one matching *_i_abs.tiff and *_i_phase.tiff measurement pair.
+    # Open the amplitude and phase COGs under the requested GDAL environment.
+    # Verify dimensions, georeferencing, tiling, dtypes, and four-band layout.
+    # Resolve polarization order and sample conventions from product metadata.
+    # Lazily reconstruct the complex channels from amplitude and phase.
+    # Return a PolSARpro scattering-matrix dataset with pixel coordinates.
+    raise NotImplementedError("BIOMASS Level-1a SCS reading is not implemented yet")

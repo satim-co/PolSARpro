@@ -273,36 +273,6 @@ def polmat_to_netcdf(ds: xarray.Dataset, file_path: str | Path):
     )
     ds_out.to_netcdf(file_path, encoding=encoding)
 
-
-# --- helper functions not to be called outside of the module
-
-
-def _parse_slc_bands(var_names: set[str]) -> str | None:
-    pol_list = ("HH", "HV", "VH", "VV")
-    tags = ("S1", "S2", "S3")
-
-    # Legacy SNAP-style SLC (no tag)
-    base_set = {f"{x}_{p}" for p in pol_list for x in ("i", "q")}
-    if base_set.issubset(var_names):
-        return SLC_NO_TAG
-
-    # Tagged SLC variants
-    found_tags = []
-    for tag in tags:
-        tagged_set = {f"{x}_{tag}_{p}" for p in pol_list for x in ("i", "q")}
-        if tagged_set.issubset(var_names):
-            found_tags.append(tag)
-
-    if len(found_tags) > 1:
-        raise ValueError(f"Multiple SLC tags found: {found_tags}")
-
-    if found_tags:
-        return found_tags[0]
-
-    # Not an SLC dataset
-    return None
-
-
 def get_incidence_angle_netcdf_beam(
     file_in: str | Path, interpolation_method: str = "linear"
 ) -> xr.Dataset:
@@ -356,57 +326,6 @@ def get_incidence_angle_netcdf_beam(
         )
         .drop_attrs()
     )
-
-
-def _validate_biomass_l1a_scs_name(product_path: str | Path) -> str:
-    product_name = Path(product_path).name
-
-    if BIOMASS_L1A_SCS_NAME.fullmatch(product_name) is None:
-        raise ValueError(
-            f"Unsupported BIOMASS product directory name: {product_name!r}. "
-            "Expected a standard, non-calibration L1a SCS product "
-            "(BIO_S[123]_SCS__1S_...)."
-        )
-
-    return product_name
-
-
-def _validate_biomass_rasters(
-    amplitude: xarray.DataArray, phase: xarray.DataArray
-) -> None:
-    expected_dims = ("band", "y", "x")
-    expected_polarizations = ("HH", "HV", "VH", "VV")
-
-    for name, raster in (("amplitude", amplitude), ("phase", phase)):
-        if raster.dims != expected_dims:
-            raise ValueError(
-                f"BIOMASS {name} raster must have dimensions "
-                f"{expected_dims}, found {raster.dims}."
-            )
-        if raster.sizes["band"] != len(expected_polarizations):
-            raise ValueError(
-                f"BIOMASS {name} raster must contain four bands, found "
-                f"{raster.sizes['band']}."
-            )
-        storage_dtype = np.dtype(raster.encoding.get("rasterio_dtype", raster.dtype))
-        if storage_dtype != np.dtype("float32"):
-            raise TypeError(
-                f"BIOMASS {name} raster must have dtype float32, found "
-                f"{storage_dtype}."
-            )
-
-        polarizations = tuple(raster.attrs.get("PolarisationsSequence", "").split())
-        if polarizations != expected_polarizations:
-            raise ValueError(
-                f"BIOMASS {name} raster must contain polarizations "
-                f"in order {expected_polarizations}, found {polarizations}."
-            )
-
-    if amplitude.shape != phase.shape:
-        raise ValueError(
-            "BIOMASS amplitude and phase raster shapes do not match: "
-            f"{amplitude.shape} != {phase.shape}."
-        )
 
 def open_biomass_l1a_scs(
     product_path: str | Path,
@@ -476,3 +395,83 @@ def open_biomass_l1a_scs(
         },
         attrs={"poltype": "S", "description": "Scattering matrix"},
     )
+
+
+# --- helper functions not to be called outside of the module
+
+
+def _parse_slc_bands(var_names: set[str]) -> str | None:
+    pol_list = ("HH", "HV", "VH", "VV")
+    tags = ("S1", "S2", "S3")
+
+    # Legacy SNAP-style SLC (no tag)
+    base_set = {f"{x}_{p}" for p in pol_list for x in ("i", "q")}
+    if base_set.issubset(var_names):
+        return SLC_NO_TAG
+
+    # Tagged SLC variants
+    found_tags = []
+    for tag in tags:
+        tagged_set = {f"{x}_{tag}_{p}" for p in pol_list for x in ("i", "q")}
+        if tagged_set.issubset(var_names):
+            found_tags.append(tag)
+
+    if len(found_tags) > 1:
+        raise ValueError(f"Multiple SLC tags found: {found_tags}")
+
+    if found_tags:
+        return found_tags[0]
+
+    # Not an SLC dataset
+    return None
+
+
+def _validate_biomass_l1a_scs_name(product_path: str | Path) -> str:
+    product_name = Path(product_path).name
+
+    if BIOMASS_L1A_SCS_NAME.fullmatch(product_name) is None:
+        raise ValueError(
+            f"Unsupported BIOMASS product directory name: {product_name!r}. "
+            "Expected a standard, non-calibration L1a SCS product "
+            "(BIO_S[123]_SCS__1S_...)."
+        )
+
+    return product_name
+
+
+def _validate_biomass_rasters(
+    amplitude: xarray.DataArray, phase: xarray.DataArray
+) -> None:
+    expected_dims = ("band", "y", "x")
+    expected_polarizations = ("HH", "HV", "VH", "VV")
+
+    for name, raster in (("amplitude", amplitude), ("phase", phase)):
+        if raster.dims != expected_dims:
+            raise ValueError(
+                f"BIOMASS {name} raster must have dimensions "
+                f"{expected_dims}, found {raster.dims}."
+            )
+        if raster.sizes["band"] != len(expected_polarizations):
+            raise ValueError(
+                f"BIOMASS {name} raster must contain four bands, found "
+                f"{raster.sizes['band']}."
+            )
+        storage_dtype = np.dtype(raster.encoding.get("rasterio_dtype", raster.dtype))
+        if storage_dtype != np.dtype("float32"):
+            raise TypeError(
+                f"BIOMASS {name} raster must have dtype float32, found "
+                f"{storage_dtype}."
+            )
+
+        polarizations = tuple(raster.attrs.get("PolarisationsSequence", "").split())
+        if polarizations != expected_polarizations:
+            raise ValueError(
+                f"BIOMASS {name} raster must contain polarizations "
+                f"in order {expected_polarizations}, found {polarizations}."
+            )
+
+    if amplitude.shape != phase.shape:
+        raise ValueError(
+            "BIOMASS amplitude and phase raster shapes do not match: "
+            f"{amplitude.shape} != {phase.shape}."
+        )

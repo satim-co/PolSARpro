@@ -385,11 +385,6 @@ def open_biomass_l1a_scs(
             inconsistent.
         FileNotFoundError: If either expected measurement raster is missing.
 
-    Note:
-        Phase units, band ordering, scaling, offsets, and nodata handling must
-        be verified from authoritative metadata before reconstruction is
-        implemented. Floating/unframed products must not be rejected based on
-        their raster dimensions.
     """
     product_name = _validate_biomass_l1a_scs_name(product_path)
 

@@ -6,6 +6,7 @@ from pathlib import Path
 from polsarpro.io import (
     _parse_slc_bands,
     _validate_biomass_l1a_scs_name,
+    open_biomass_l1a_scs,
     open_netcdf_beam,
     polmat_to_netcdf,
 )
@@ -13,6 +14,10 @@ from polsarpro.io import (
 VALID_BIOMASS_NAME = (
     "BIO_S2_SCS__1S_20251216T034800_20251216T034815_"
     "T_G01_M01_C02_T017_F289_01_DJQGAN"
+)
+VALID_BIOMASS_STEM = (
+    "bio_s2_scs__1s_20251216t034800_20251216t034815_"
+    "t_g01_m01_c02_t017_f289"
 )
 
 
@@ -310,3 +315,28 @@ def test_biomass_name_valid(sensor):
 def test_biomass_name_invalid(name):
     with pytest.raises(ValueError, match="Unsupported BIOMASS product"):
         _validate_biomass_l1a_scs_name(name)
+
+
+def test_biomass_files_found(tmp_path):
+    product_path = tmp_path / VALID_BIOMASS_NAME
+    measurement_path = product_path / "measurement"
+    measurement_path.mkdir(parents=True)
+    (measurement_path / f"{VALID_BIOMASS_STEM}_i_abs.tiff").touch()
+    (measurement_path / f"{VALID_BIOMASS_STEM}_i_phase.tiff").touch()
+
+    with pytest.raises(NotImplementedError):
+        open_biomass_l1a_scs(product_path)
+
+
+@pytest.mark.parametrize("missing_suffix", ["i_abs.tiff", "i_phase.tiff"])
+def test_biomass_file_missing(tmp_path, missing_suffix):
+    product_path = tmp_path / VALID_BIOMASS_NAME
+    measurement_path = product_path / "measurement"
+    measurement_path.mkdir(parents=True)
+
+    for suffix in ("i_abs.tiff", "i_phase.tiff"):
+        if suffix != missing_suffix:
+            (measurement_path / f"{VALID_BIOMASS_STEM}_{suffix}").touch()
+
+    with pytest.raises(FileNotFoundError, match=missing_suffix):
+        open_biomass_l1a_scs(product_path)

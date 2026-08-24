@@ -30,7 +30,6 @@ limitations under the License.
 import logging
 import re
 from pathlib import Path
-from urllib.parse import urlsplit
 
 import numpy as np
 import xarray
@@ -346,7 +345,7 @@ def get_incidence_angle_netcdf_beam(file_in: str | Path, interpolation_method:st
 
 
 def _validate_biomass_l1a_scs_name(product_path: str | Path) -> str:
-    product_name = Path(urlsplit(str(product_path)).path).name
+    product_name = Path(product_path).name
 
     if BIOMASS_L1A_SCS_NAME.fullmatch(product_name) is None:
         raise ValueError(
@@ -362,22 +361,19 @@ def open_biomass_l1a_scs(
     product_path: str | Path,
     *,
     chunks: dict | str | None = "auto",
-    gdal_options: dict | None = None,
 ) -> xarray.Dataset:
     """Open a BIOMASS Level-1a Standard SCS product as a scattering matrix.
 
     The reader targets standard, non-calibration SCS products (product type
     ``S[123]_SCS__1S``). It reconstructs the four complex polarimetric channels
     from the product's amplitude and phase Cloud Optimized GeoTIFFs while
-    preserving lazy, chunked access for local or remote rasters.
+    preserving lazy, chunked access.
 
     Args:
-        product_path (str | Path): Path or URL to the BIOMASS product
-            directory containing the measurement rasters.
+        product_path (str | Path): Path to the BIOMASS product directory
+            containing the measurement rasters.
         chunks (dict | str | None): Chunking passed to the raster reader. Use
             ``None`` for eager arrays. Defaults to ``"auto"``.
-        gdal_options (dict | None): Optional GDAL environment options needed
-            while opening the rasters, such as HTTP authorization headers.
 
     Returns:
         xarray.Dataset: Lazy scattering-matrix dataset with ``hh``, ``hv``,
@@ -385,8 +381,9 @@ def open_biomass_l1a_scs(
 
     Raises:
         ValueError: If the directory name does not identify a supported
-            product, the matching measurement rasters cannot be found, or
-            their metadata and polarization bands are inconsistent.
+            product, or if raster metadata and polarization bands are
+            inconsistent.
+        FileNotFoundError: If either expected measurement raster is missing.
 
     Note:
         Phase units, band ordering, scaling, offsets, and nodata handling must
@@ -394,11 +391,25 @@ def open_biomass_l1a_scs(
         implemented. Floating/unframed products must not be rejected based on
         their raster dimensions.
     """
-    _validate_biomass_l1a_scs_name(product_path)
+    product_name = _validate_biomass_l1a_scs_name(product_path)
 
-    # Derive the internal filename stem from the product naming convention.
-    # Locate one matching *_i_abs.tiff and *_i_phase.tiff measurement pair.
-    # Open the amplitude and phase COGs under the requested GDAL environment.
+    # Internal filenames are lowercase and omit the baseline and creation ID.
+    file_stem = product_name.rsplit("_", maxsplit=2)[0].lower()
+    measurement_path = Path(product_path) / "measurement"
+    amplitude_path = measurement_path / f"{file_stem}_i_abs.tiff"
+    phase_path = measurement_path / f"{file_stem}_i_phase.tiff"
+
+    missing_files = [
+        path for path in (amplitude_path, phase_path) if not path.is_file()
+    ]
+    if missing_files:
+        missing_names = ", ".join(path.name for path in missing_files)
+        raise FileNotFoundError(
+            f"Missing BIOMASS measurement file(s) in {measurement_path}: "
+            f"{missing_names}"
+        )
+
+    # Open the amplitude and phase COGs.
     # Verify dimensions, georeferencing, tiling, dtypes, and four-band layout.
     # Resolve polarization order and sample conventions from product metadata.
     # Lazily reconstruct the complex channels from amplitude and phase.

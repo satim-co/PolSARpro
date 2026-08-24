@@ -50,6 +50,7 @@ BIOMASS_L1A_SCS_NAME = re.compile(
     r"[A-Z0-9]{2}_[A-Z0-9]{6}"
 )
 
+
 def open_netcdf_beam(file_path: str | Path) -> xarray.Dataset:
     """Open data in the NetCDF-BEAM format exported by SNAP and create a valid python PolSARpro Dataset. Also works for complex matrix datasets written with polmat_to_netcdf.
 
@@ -184,12 +185,12 @@ def open_netcdf_beam(file_path: str | Path) -> xarray.Dataset:
     elif tag is not None:
         poltype = "S"
         description = "Scattering matrix"
-        if tag == SLC_NO_TAG: # Usual SNAP band names
+        if tag == SLC_NO_TAG:  # Usual SNAP band names
             data["hh"] = ds.i_HH + 1j * ds.q_HH
             data["hv"] = ds.i_HV + 1j * ds.q_HV
             data["vh"] = ds.i_VH + 1j * ds.q_VH
             data["vv"] = ds.i_VV + 1j * ds.q_VV
-        else: # BIOMASS data
+        else:  # BIOMASS data
             data["hh"] = ds[f"i_{tag}_HH"] + 1j * ds[f"q_{tag}_HH"]
             data["hv"] = ds[f"i_{tag}_HV"] + 1j * ds[f"q_{tag}_HV"]
             data["vh"] = ds[f"i_{tag}_VH"] + 1j * ds[f"q_{tag}_VH"]
@@ -260,7 +261,10 @@ def polmat_to_netcdf(ds: xarray.Dataset, file_path: str | Path):
 
     # make a new dataset with PolSARpro metadata
     # Preserve chunking when writing
-    encoding = {var: {"chunksizes": data_out[var].data.chunksize, "zlib": True} for var in data_out}
+    encoding = {
+        var: {"chunksizes": data_out[var].data.chunksize, "zlib": True}
+        for var in data_out
+    }
     ds_out = xr.Dataset(
         # extract dask arrays and dims from xarray data
         {k: (ds.dims, v.data) for k, v in data_out.items()},
@@ -269,7 +273,9 @@ def polmat_to_netcdf(ds: xarray.Dataset, file_path: str | Path):
     )
     ds_out.to_netcdf(file_path, encoding=encoding)
 
+
 # --- helper functions not to be called outside of the module
+
 
 def _parse_slc_bands(var_names: set[str]) -> str | None:
     pol_list = ("HH", "HV", "VH", "VV")
@@ -288,9 +294,7 @@ def _parse_slc_bands(var_names: set[str]) -> str | None:
             found_tags.append(tag)
 
     if len(found_tags) > 1:
-        raise ValueError(
-            f"Multiple SLC tags found: {found_tags}"
-        )
+        raise ValueError(f"Multiple SLC tags found: {found_tags}")
 
     if found_tags:
         return found_tags[0]
@@ -298,7 +302,10 @@ def _parse_slc_bands(var_names: set[str]) -> str | None:
     # Not an SLC dataset
     return None
 
-def get_incidence_angle_netcdf_beam(file_in: str | Path, interpolation_method:str = "linear") -> xr.Dataset:
+
+def get_incidence_angle_netcdf_beam(
+    file_in: str | Path, interpolation_method: str = "linear"
+) -> xr.Dataset:
     """Extract the incidence angle raster from a SNAP NetCDF-BEAM file.
 
     Args:
@@ -328,7 +335,9 @@ def get_incidence_angle_netcdf_beam(file_in: str | Path, interpolation_method:st
     )
     missing_attrs = [attr for attr in required_attrs if attr not in meta]
     if missing_attrs:
-        raise ValueError(f"SNAP metadata is missing required attribute(s): {missing_attrs}")
+        raise ValueError(
+            f"SNAP metadata is missing required attribute(s): {missing_attrs}"
+        )
     nrg = meta["Abstracted_Metadata:num_samples_per_line"]
     naz = meta["Abstracted_Metadata:num_output_lines"]
 
@@ -337,12 +346,16 @@ def get_incidence_angle_netcdf_beam(file_in: str | Path, interpolation_method:st
     coords_y = (ia.offset_y + ia.y) * ia.subsampling_y
 
     # interpolate on new coordinates
-    return ia.assign_coords(y=coords_y, x=coords_x).interp(
-        y=np.arange(naz),
-        x=np.arange(nrg),
-        method=interpolation_method,
-        kwargs={"fill_value": "extrapolate"},
-    ).drop_attrs()
+    return (
+        ia.assign_coords(y=coords_y, x=coords_x)
+        .interp(
+            y=np.arange(naz),
+            x=np.arange(nrg),
+            method=interpolation_method,
+            kwargs={"fill_value": "extrapolate"},
+        )
+        .drop_attrs()
+    )
 
 
 def _validate_biomass_l1a_scs_name(product_path: str | Path) -> str:
@@ -375,21 +388,18 @@ def _validate_biomass_rasters(
                 f"BIOMASS {name} raster must contain four bands, found "
                 f"{raster.sizes['band']}."
             )
-        if raster.dtype != np.dtype("float32"):
+        storage_dtype = np.dtype(raster.encoding.get("rasterio_dtype", raster.dtype))
+        if storage_dtype != np.dtype("float32"):
             raise TypeError(
                 f"BIOMASS {name} raster must have dtype float32, found "
-                f"{raster.dtype}."
+                f"{storage_dtype}."
             )
 
-        polarizations = tuple(
-            raster.attrs.get("PolarisationsSequence", "").split()
-        )
-        if len(polarizations) != len(expected_polarizations) or set(
-            polarizations
-        ) != set(expected_polarizations):
+        polarizations = tuple(raster.attrs.get("PolarisationsSequence", "").split())
+        if polarizations != expected_polarizations:
             raise ValueError(
                 f"BIOMASS {name} raster must contain polarizations "
-                f"{expected_polarizations}, found {polarizations}."
+                f"in order {expected_polarizations}, found {polarizations}."
             )
 
     if amplitude.shape != phase.shape:
@@ -397,7 +407,6 @@ def _validate_biomass_rasters(
             "BIOMASS amplitude and phase raster shapes do not match: "
             f"{amplitude.shape} != {phase.shape}."
         )
-
 
 def open_biomass_l1a_scs(
     product_path: str | Path,
@@ -418,8 +427,8 @@ def open_biomass_l1a_scs(
             ``None`` for eager arrays. Defaults to ``"auto"``.
 
     Returns:
-        xarray.Dataset: Lazy scattering-matrix dataset with ``hh``, ``hv``,
-        ``vh``, and ``vv`` variables and ``poltype="S"``.
+        xarray.Dataset: Scattering-matrix dataset with ``hh``, ``hv``, ``vh``,
+            and ``vv`` variables and ``poltype="S"``.
 
     Raises:
         ValueError: If the directory name does not identify a supported
@@ -447,12 +456,23 @@ def open_biomass_l1a_scs(
             f"{missing_names}"
         )
 
-    with riox.open_rasterio(amplitude_path, chunks=chunks) as amplitude:
-        with riox.open_rasterio(phase_path, chunks=chunks) as phase:
-            _validate_biomass_rasters(amplitude, phase)
+    amplitude = riox.open_rasterio(amplitude_path, chunks=chunks, masked=True)
+    phase = riox.open_rasterio(phase_path, chunks=chunks, masked=True)
+    _validate_biomass_rasters(amplitude, phase)
 
-            # Lazily reconstruct the complex channels from amplitude and phase.
-            # Return a PolSARpro scattering-matrix dataset with pixel coordinates.
-            raise NotImplementedError(
-                "BIOMASS Level-1a SCS reading is not implemented yet"
-            )
+    slc = amplitude.data * np.exp(1j * phase.data)
+    dims = ("y", "x")
+
+    return xr.Dataset(
+        {
+            "hh": (dims, slc[0]),
+            "hv": (dims, slc[1]),
+            "vh": (dims, slc[2]),
+            "vv": (dims, slc[3]),
+        },
+        coords={
+            "y": np.arange(amplitude.sizes["y"]),
+            "x": np.arange(amplitude.sizes["x"]),
+        },
+        attrs={"poltype": "S", "description": "Scattering matrix"},
+    )

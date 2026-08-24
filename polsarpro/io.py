@@ -28,7 +28,9 @@ limitations under the License.
 """
 
 import logging
+import re
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import numpy as np
 import xarray
@@ -40,6 +42,13 @@ log = logging.getLogger(__name__)
 
 SLC_NO_TAG = ""
 ALLOWED_SLC_TAGS = ("S1", "S2", "S3")
+
+BIOMASS_L1A_SCS_NAME = re.compile(
+    r"BIO_S[123]_SCS__1S_"
+    r"\d{8}T\d{6}_\d{8}T\d{6}_"
+    r"[A-Z]_G\d{2}_M\d{2}_C\d{2}_T\d{3}_F\d{3}_"
+    r"[A-Z0-9]{2}_[A-Z0-9]{6}"
+)
 
 def open_netcdf_beam(file_path: str | Path) -> xarray.Dataset:
     """Open data in the NetCDF-BEAM format exported by SNAP and create a valid python PolSARpro Dataset. Also works for complex matrix datasets written with polmat_to_netcdf.
@@ -336,6 +345,20 @@ def get_incidence_angle_netcdf_beam(file_in: str | Path, interpolation_method:st
     ).drop_attrs()
 
 
+def _validate_biomass_l1a_scs_name(product_path: str | Path) -> str:
+    """Validate and return a BIOMASS Level-1a Standard SCS directory name."""
+    product_name = Path(urlsplit(str(product_path)).path).name
+
+    if BIOMASS_L1A_SCS_NAME.fullmatch(product_name) is None:
+        raise ValueError(
+            f"Unsupported BIOMASS product directory name: {product_name!r}. "
+            "Expected a standard, non-calibration L1a SCS product "
+            "(BIO_S[123]_SCS__1S_...)."
+        )
+
+    return product_name
+
+
 def open_biomass_l1a_scs(
     product_path: str | Path,
     *,
@@ -372,8 +395,8 @@ def open_biomass_l1a_scs(
         implemented. Floating/unframed products must not be rejected based on
         their raster dimensions.
     """
-    # Parse the directory name and validate a standard, non-calibration L1a
-    # SCS product.
+    _validate_biomass_l1a_scs_name(product_path)
+
     # Derive the internal filename stem from the product naming convention.
     # Locate one matching *_i_abs.tiff and *_i_phase.tiff measurement pair.
     # Open the amplitude and phase COGs under the requested GDAL environment.

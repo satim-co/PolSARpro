@@ -3,7 +3,17 @@ import numpy as np
 import xarray as xr
 from pathlib import Path
 
-from polsarpro.io import open_netcdf_beam, polmat_to_netcdf, _parse_slc_bands
+from polsarpro.io import (
+    _parse_slc_bands,
+    _validate_biomass_l1a_scs_name,
+    open_netcdf_beam,
+    polmat_to_netcdf,
+)
+
+VALID_BIOMASS_NAME = (
+    "BIO_S2_SCS__1S_20251216T034800_20251216T034815_"
+    "T_G01_M01_C02_T017_F289_01_DJQGAN"
+)
 
 
 @pytest.fixture
@@ -269,3 +279,34 @@ def test_parse_slc_bands():
     assert _parse_slc_bands(var_names=var_names_bad_prefix) is None
     assert _parse_slc_bands(var_names=var_names_bad_pol) is None
     assert _parse_slc_bands(var_names=var_names_bad_tag) is None
+
+
+@pytest.mark.parametrize("sensor", ["S1", "S2", "S3"])
+def test_biomass_name_valid(sensor):
+    name = VALID_BIOMASS_NAME.replace("S2_SCS", f"{sensor}_SCS")
+
+    assert _validate_biomass_l1a_scs_name(Path("products") / name) == name
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        VALID_BIOMASS_NAME.replace("BIO_", "BAD_", 1),
+        VALID_BIOMASS_NAME.replace("S2_SCS", "S4_SCS"),
+        VALID_BIOMASS_NAME.replace("SCS", "DGM"),
+        VALID_BIOMASS_NAME.replace("1S_", "1M_", 1),
+        VALID_BIOMASS_NAME.replace("SCS__", "SCS1_"),
+        VALID_BIOMASS_NAME.replace("G01_", "G1_"),
+    ],
+    ids=[
+        "satellite",
+        "sensor",
+        "dgm",
+        "monitoring",
+        "calibration",
+        "field-width",
+    ],
+)
+def test_biomass_name_invalid(name):
+    with pytest.raises(ValueError, match="Unsupported BIOMASS product"):
+        _validate_biomass_l1a_scs_name(name)

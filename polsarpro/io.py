@@ -32,6 +32,7 @@ import re
 from pathlib import Path
 
 import numpy as np
+import rioxarray as riox
 import xarray
 import xarray as xr
 
@@ -357,6 +358,47 @@ def _validate_biomass_l1a_scs_name(product_path: str | Path) -> str:
     return product_name
 
 
+def _validate_biomass_rasters(
+    amplitude: xarray.DataArray, phase: xarray.DataArray
+) -> None:
+    expected_dims = ("band", "y", "x")
+    expected_polarizations = ("HH", "HV", "VH", "VV")
+
+    for name, raster in (("amplitude", amplitude), ("phase", phase)):
+        if raster.dims != expected_dims:
+            raise ValueError(
+                f"BIOMASS {name} raster must have dimensions "
+                f"{expected_dims}, found {raster.dims}."
+            )
+        if raster.sizes["band"] != len(expected_polarizations):
+            raise ValueError(
+                f"BIOMASS {name} raster must contain four bands, found "
+                f"{raster.sizes['band']}."
+            )
+        if raster.dtype != np.dtype("float32"):
+            raise TypeError(
+                f"BIOMASS {name} raster must have dtype float32, found "
+                f"{raster.dtype}."
+            )
+
+        polarizations = tuple(
+            raster.attrs.get("PolarisationsSequence", "").split()
+        )
+        if len(polarizations) != len(expected_polarizations) or set(
+            polarizations
+        ) != set(expected_polarizations):
+            raise ValueError(
+                f"BIOMASS {name} raster must contain polarizations "
+                f"{expected_polarizations}, found {polarizations}."
+            )
+
+    if amplitude.shape != phase.shape:
+        raise ValueError(
+            "BIOMASS amplitude and phase raster shapes do not match: "
+            f"{amplitude.shape} != {phase.shape}."
+        )
+
+
 def open_biomass_l1a_scs(
     product_path: str | Path,
     *,
@@ -383,6 +425,7 @@ def open_biomass_l1a_scs(
         ValueError: If the directory name does not identify a supported
             product, or if raster metadata and polarization bands are
             inconsistent.
+        TypeError: If a measurement raster is not stored as ``float32``.
         FileNotFoundError: If either expected measurement raster is missing.
 
     """
@@ -404,9 +447,12 @@ def open_biomass_l1a_scs(
             f"{missing_names}"
         )
 
-    # Open the amplitude and phase COGs.
-    # Verify dimensions, georeferencing, tiling, dtypes, and four-band layout.
-    # Resolve polarization order and sample conventions from product metadata.
-    # Lazily reconstruct the complex channels from amplitude and phase.
-    # Return a PolSARpro scattering-matrix dataset with pixel coordinates.
-    raise NotImplementedError("BIOMASS Level-1a SCS reading is not implemented yet")
+    with riox.open_rasterio(amplitude_path, chunks=chunks) as amplitude:
+        with riox.open_rasterio(phase_path, chunks=chunks) as phase:
+            _validate_biomass_rasters(amplitude, phase)
+
+            # Lazily reconstruct the complex channels from amplitude and phase.
+            # Return a PolSARpro scattering-matrix dataset with pixel coordinates.
+            raise NotImplementedError(
+                "BIOMASS Level-1a SCS reading is not implemented yet"
+            )

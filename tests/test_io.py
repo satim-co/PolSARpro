@@ -1,5 +1,6 @@
 import pytest
 import numpy as np
+import rasterio
 import xarray as xr
 from pathlib import Path
 
@@ -19,6 +20,27 @@ VALID_BIOMASS_STEM = (
     "bio_s2_scs__1s_20251216t034800_20251216t034815_"
     "t_g01_m01_c02_t017_f289"
 )
+
+
+def _write_biomass_raster(
+    path,
+    *,
+    shape=(4, 2, 3),
+    dtype="float32",
+    polarizations=("HH", "HV", "VH", "VV"),
+):
+    data = np.ones(shape, dtype=dtype)
+    with rasterio.open(
+        path,
+        "w",
+        driver="GTiff",
+        count=shape[0],
+        height=shape[1],
+        width=shape[2],
+        dtype=dtype,
+    ) as raster:
+        raster.write(data)
+        raster.update_tags(PolarisationsSequence=" ".join(polarizations))
 
 
 @pytest.fixture
@@ -317,15 +339,20 @@ def test_biomass_name_invalid(name):
         _validate_biomass_l1a_scs_name(name)
 
 
+@pytest.mark.filterwarnings("ignore:Dataset has no geotransform")
 def test_biomass_files_found(tmp_path):
     product_path = tmp_path / VALID_BIOMASS_NAME
     measurement_path = product_path / "measurement"
     measurement_path.mkdir(parents=True)
-    (measurement_path / f"{VALID_BIOMASS_STEM}_i_abs.tiff").touch()
-    (measurement_path / f"{VALID_BIOMASS_STEM}_i_phase.tiff").touch()
+    _write_biomass_raster(
+        measurement_path / f"{VALID_BIOMASS_STEM}_i_abs.tiff"
+    )
+    _write_biomass_raster(
+        measurement_path / f"{VALID_BIOMASS_STEM}_i_phase.tiff"
+    )
 
     with pytest.raises(NotImplementedError):
-        open_biomass_l1a_scs(product_path)
+        open_biomass_l1a_scs(product_path, chunks=None)
 
 
 @pytest.mark.parametrize("missing_suffix", ["i_abs.tiff", "i_phase.tiff"])
@@ -340,3 +367,35 @@ def test_biomass_file_missing(tmp_path, missing_suffix):
 
     with pytest.raises(FileNotFoundError, match=missing_suffix):
         open_biomass_l1a_scs(product_path)
+
+
+@pytest.mark.parametrize(
+    "raster_name, options, error, message",
+    [
+        ("amplitude", {"shape": (3, 2, 3)}, ValueError, "four bands"),
+        ("phase", {"dtype": "uint16"}, TypeError, "dtype float32"),
+        ("phase", {"shape": (4, 3, 3)}, ValueError, "shapes do not match"),
+        (
+            "amplitude",
+            {"polarizations": ("HH", "HV", "VV", "XX")},
+            ValueError,
+            "must contain polarizations",
+        ),
+    ],
+    ids=["bands", "dtype", "shape", "polarizations"],
+)
+@pytest.mark.filterwarnings("ignore:Dataset has no geotransform")
+def test_biomass_raster_invalid(tmp_path, raster_name, options, error, message):
+    product_path = tmp_path / VALID_BIOMASS_NAME
+    measurement_path = product_path / "measurement"
+    measurement_path.mkdir(parents=True)
+
+    for name, suffix in (("amplitude", "i_abs.tiff"), ("phase", "i_phase.tiff")):
+        raster_options = options if name == raster_name else {}
+        _write_biomass_raster(
+            measurement_path / f"{VALID_BIOMASS_STEM}_{suffix}",
+            **raster_options,
+        )
+
+    with pytest.raises(error, match=message):
+        open_biomass_l1a_scs(product_path, chunks=None)

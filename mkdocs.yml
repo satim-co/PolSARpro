@@ -23,6 +23,7 @@ nav:
     - Physical parameter inversion:
       - dubois: dubois-surface-inversion-tutorial.ipynb
     - Advanced usage:
+      - biomass-local: biomass-tutorial.ipynb
       - biomass-maap: maap-biomass-stac-api.ipynb
   - API reference: 
     - Classification: classification.md

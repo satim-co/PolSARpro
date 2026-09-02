@@ -12,4 +12,15 @@ services:
     volumes:
       - ${HOME}/code/python/PolSARpro:/polsarpro-dev
       - ${HOME}/data:/data
-    command: /bin/sh -c "while sleep 1000; do :; done" 
+    command: /bin/sh -c "while sleep 1000; do :; done"
+
+  polsarpro-contrib:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      PYTHONPATH: /polsarpro
+    volumes:
+      - ${HOME}/code/python/PolSARpro:/polsarpro
+      - ${HOME}/data:/data
+    command: /bin/sh -c "while sleep 1000; do :; done"

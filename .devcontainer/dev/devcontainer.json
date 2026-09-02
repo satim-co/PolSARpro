@@ -1,8 +1,14 @@
 {
-  "name": "polsarpro-contrib",
-  "dockerComposeFile": "../docker-compose.yml",
-  "service": "polsarpro-contrib",
-  "workspaceFolder": "/polsarpro",
+  "name": "polsarpro-dev",
+  "dockerComposeFile": "../../docker-compose.yml",
+  "service": "polsarpro-dev",
+  "mounts": [
+    "source=${localEnv:HOME}/.codex-devcontainers/${localWorkspaceFolderBasename},target=/root/.codex,type=bind",
+    "source=${localEnv:HOME}/codex-contexts/${localWorkspaceFolderBasename},target=/codex-context,type=bind",
+    "source=${localEnv:HOME}/.codex-devcontainers/common/AGENTS.md,target=/root/.codex/AGENTS.md,type=bind,readonly",
+    "source=${localEnv:HOME}/.codex-devcontainers/common/rules/safety.rules,target=/root/.codex/rules/safety.rules,type=bind,readonly"
+  ],
+  "workspaceFolder": "/polsarpro-dev",
   "customizations": {
     "vscode": {
       "extensions": [
@@ -10,7 +16,8 @@
         "ms-python.isort",
         "ms-python.black-formatter",
         "ms-toolsai.jupyter",
-        "njpwerner.autodocstring"
+        "njpwerner.autodocstring",
+        "openai.chatgpt"
       ],
       "settings": {
         "isort.importStrategy": "fromEnvironment",

@@ -47,7 +47,7 @@ export PYTHONPATH="${PYTHONPATH}:/mypath/to/polsarpro/source"
 
 ## Development Environment (optional)
 
-These instructions are intended for contributors or advanced users who want to work with the project's development tooling. They rely on a Docker configuration that mirrors the maintainer’s own setup and may require adjustments depending on your environment.
+These instructions are intended for contributors or advanced users who want to work with the project's development tooling. They rely on a Docker configuration that mirrors the project environment and may require adjustments depending on your environment.
 
 ### VSCode Devcontainer
 - Provides a ready-to-use environment for development and testing.
@@ -55,10 +55,14 @@ These instructions are intended for contributors or advanced users who want to w
 - Requires placing the official PolSARpro ZIP archive in the project root before building the container.
 - Requires Docker and Docker Compose.
 
+The default `.devcontainer/devcontainer.json` launches the `polsarpro-contrib` environment. It includes the source tree at `/polsarpro`, Python test and formatting tools, and Jupyter.
+
+The alternate `.devcontainer/dev/devcontainer.json` configuration mirrors a maintainer-specific local setup and should not be used for general development.
+
 Steps:  
-1. Adjust volume paths in `docker-compose.yml` to match your system.  
-2. Open the project in VSCode.  
-3. Use **Rebuild and Reopen in Container** (Ctrl+Shift+P / Cmd+Shift+P) to launch the devcontainer.   
+1. Adjust volume paths in `docker-compose.yml` to match your system.
+2. Open the project in VSCode.
+3. Use **Rebuild and Reopen in Container** (Ctrl+Shift+P / Cmd+Shift+P) to launch the contributor devcontainer.
 
 ### Running the Docker container outside VSCode
 - Intended only for users comfortable managing containers manually.
@@ -70,6 +74,8 @@ docker compose up -d
 docker compose down
 ```
 
+To start the contributor environment outside VSCode, use `polsarpro-contrib` as the service name.
+
 ## Getting Started
 
 Read this [tutorial](https://polsarpro.readthedocs.io/en/latest/quickstart-tutorial/).
@@ -80,4 +86,4 @@ The ALOS-1 image used in the tutorials may be downloaded [here](https://step.esa
 
 ## Scientific evaluation
 
-The routines have been compared with the PolSARPro C code and eventual numerical differences are negligible. If you would like to look at the comparison reports, please contact [Dr Armando Marino](https://www.stir.ac.uk/people/894087) at the University of Stirling, Scotland, UK. 
+The routines have been compared with the PolSARPro C code and eventual numerical differences are negligible. If you would like to look at the comparison reports, please contact [Dr Armando Marino](https://www.stir.ac.uk/people/894087) at the University of Stirling, Scotland, UK.

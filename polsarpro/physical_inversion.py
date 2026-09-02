@@ -155,6 +155,64 @@ def dubois_surface_inversion(
     )
 
 
+def oh_surface_inversion(
+    input_data: xr.Dataset,
+    incidence_angle: xr.DataArray,
+    thresh1: float,
+    thresh2: float,
+) -> xr.Dataset:
+    """Run the legacy Oh surface inversion on a PolSAR covariance dataset.
+
+    The function accepts a single-scattering input product in any of the
+    supported polarimetric representations, converts it to C3 form when
+    needed, and applies the original Oh empirical model using the supplied
+    incidence-angle raster.
+
+    Args:
+        input_data (xr.Dataset): Input polarimetric dataset. Supported
+            products are:
+
+            - "S": Sinclair scattering matrix
+
+            - "C3": Lexicographic covariance matrix (3x3)
+
+            - "T3": Pauli coherency matrix (3x3)
+
+            - "C4": 4x4 covariance matrix
+
+            - "T4": 4x4 coherency matrix
+
+            The dataset must share the same spatial grid as
+            ``incidence_angle``.
+        incidence_angle (xr.DataArray): Incidence angle raster in radians.
+            Values must be numeric and in the range ``(0, pi/2)``.
+        thresh1 (float): Maximum allowed ``HV / VV`` ratio in dB for the Oh
+            validity mask.
+        thresh2 (float): Maximum allowed ``HH / VV`` ratio in dB for the Oh
+            validity mask.
+
+    Returns:
+        xr.Dataset: Dataset containing the Oh estimates and masks:
+            ``oh_ks`` (normalized surface roughness), ``oh_er`` (relative
+            dielectric constant), ``oh_mv`` (volumetric moisture estimate),
+            ``oh_mask_in`` (input validity mask), ``oh_mask_out`` (model
+            validity mask), and ``oh_mask_valid_in_out`` (combined mask).
+
+    Notes:
+        The PolSARpro C command-line help reverses the descriptions of
+        ``thresh1`` and ``thresh2``. Its implementation applies ``thresh1``
+        to ``HV / VV`` and ``thresh2`` to ``HH / VV``, which is the ordering
+        used here and by :func:`dubois_surface_inversion`. For C/Python
+        comparisons, pass the Python values directly as ``-th1`` and
+        ``-th2``, respectively.
+
+        The returned dataset preserves the input coordinates and uses the
+        input spatial dimensions. Output variables are stored as ``float32``
+        arrays.
+    """
+    raise NotImplementedError("Oh surface inversion is not implemented yet.")
+
+
 # helper function, do not use directly
 def _apply_dubois_inversion(theta, f0, hh, vv, hv, calib, thresh1, thresh2):
 

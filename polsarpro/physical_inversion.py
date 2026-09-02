@@ -45,10 +45,9 @@ def dubois_surface_inversion(
 ) -> xr.Dataset:
     """Run the Dubois surface inversion on a PolSAR covariance dataset.
 
-    The function accepts a single-scattering input product in any of the
-    supported polarimetric representations, converts it to C3 form when
-    needed, and applies the Dubois empirical model using the supplied
-    incidence-angle raster.
+    The function converts the input dataset to C3 when it uses another
+    supported polarimetric representation, then applies the Dubois empirical
+    model using the supplied incidence-angle raster.
 
     Args:
         input_data (xr.Dataset): Input polarimetric dataset. Supported
@@ -164,10 +163,9 @@ def oh_surface_inversion(
 ) -> xr.Dataset:
     """Run the legacy Oh surface inversion on a PolSAR covariance dataset.
 
-    The function accepts a single-scattering input product in any of the
-    supported polarimetric representations, converts it to C3 form when
-    needed, and applies the original Oh empirical model using the supplied
-    incidence-angle raster.
+    The function converts the input dataset to C3 when it uses another
+    supported polarimetric representation, then applies the original Oh
+    empirical model using the supplied incidence-angle raster.
 
     Args:
         input_data (xr.Dataset): Input polarimetric dataset. Supported

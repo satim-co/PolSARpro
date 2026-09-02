@@ -278,3 +278,63 @@ def _apply_dubois_inversion(theta, f0, hh, vv, hv, calib, thresh1, thresh2):
         "dubois_mask_out": msk_out.astype(np.float32, copy=False),
         "dubois_mask_in": msk_valid.astype(np.float32, copy=False),
     }
+
+
+def _apply_oh_inversion(theta, hh, vv, hv, thresh1, thresh2):
+
+    theta_valid = np.isfinite(theta) & (theta > 0) & (theta < (np.pi / 2.0))
+    hh_pos = np.isfinite(hh) & (hh > 0)
+    vv_pos = np.isfinite(vv) & (vv > 0)
+    base_valid = theta_valid & hh_pos & vv_pos & np.isfinite(hv)
+
+    vv_safe = xr.where(vv_pos, vv, 1.0)
+    hh_safe = xr.where(hh_pos, hh, 1.0)
+    theta_safe = xr.where(theta_valid, theta, 1.0)
+
+    hh_vv = hh_safe / vv_safe
+    hv_vv = hv / vv_safe
+    msk_valid = (
+        base_valid
+        & (hv_vv < 10 ** (thresh1 / 10.0))
+        & (hh_vv < 10 ** (thresh2 / 10.0))
+    )
+
+    a = 2.0 * theta_safe / np.pi
+    b = hv_vv / 0.23
+    c = np.sqrt(hh_vv) - 1.0
+    log_a = np.log(a)
+    x = xr.full_like(theta_safe, 2.0)
+
+    for _ in range(100):
+        a_power = np.exp((x**2 / 3.0) * log_a)
+        numerator = a_power * (1.0 - b * x) + c
+        denominator = (
+            (2.0 * x / 3.0 * log_a * (1.0 - b * x)) - b
+        ) * a_power
+        x = xr.where(msk_valid, x - numerator / denominator, 2.0)
+
+    abs_x = np.abs(x)
+    er_inv = np.abs((1.0 + 1.0 / abs_x) / (1.0 - 1.0 / abs_x)) ** 2
+    msk_er = np.isfinite(er_inv) & (er_inv >= 0) & (er_inv < 20)
+    er_oh = xr.where(msk_valid & msk_er, er_inv, 0.0)
+
+    mv_inv = (
+        -5.3e-2 + 2.92e-2 * er_oh - 5.5e-4 * er_oh**2 + 4.3e-6 * er_oh**3
+    ) * 100.0
+    msk_mv = np.isfinite(mv_inv) & (mv_inv >= 0)
+    mv_oh = xr.where(msk_valid & msk_mv, mv_inv, 0.0)
+
+    a_power = np.exp((x**2 / 3.0) * log_a)
+    ks_inv = np.log(np.abs(a_power / c))
+    msk_ks = np.isfinite(ks_inv) & (ks_inv >= 0) & (ks_inv <= 3)
+    ks_oh = xr.where(msk_valid & msk_ks, ks_inv, 0.0)
+
+    msk_out = (msk_valid & msk_mv & msk_er & msk_ks).astype(np.float32)
+
+    return {
+        "oh_ks": ks_oh.astype(np.float32, copy=False),
+        "oh_er": er_oh.astype(np.float32, copy=False),
+        "oh_mv": mv_oh.astype(np.float32, copy=False),
+        "oh_mask_out": msk_out.astype(np.float32, copy=False),
+        "oh_mask_in": msk_valid.astype(np.float32, copy=False),
+    }

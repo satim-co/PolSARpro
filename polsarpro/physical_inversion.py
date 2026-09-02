@@ -318,14 +318,17 @@ def _apply_oh_inversion(theta, hh, vv, hv, thresh1, thresh2):
     msk_er = np.isfinite(er_inv) & (er_inv >= 0) & (er_inv < 20)
     er_oh = xr.where(msk_valid & msk_er, er_inv, 0.0)
 
+    er_calc = xr.where(msk_valid, er_oh, 1.0)
     mv_inv = (
-        -5.3e-2 + 2.92e-2 * er_oh - 5.5e-4 * er_oh**2 + 4.3e-6 * er_oh**3
+        -5.3e-2
+        + 2.92e-2 * er_calc
+        - 5.5e-4 * np.exp(2.0 * np.log(er_calc))
+        + 4.3e-6 * np.exp(3.0 * np.log(er_calc))
     ) * 100.0
     msk_mv = np.isfinite(mv_inv) & (mv_inv >= 0)
     mv_oh = xr.where(msk_valid & msk_mv, mv_inv, 0.0)
 
-    a_power = np.exp((x**2 / 3.0) * log_a)
-    ks_inv = np.log(np.abs(a_power / c))
+    ks_inv = np.log(np.abs(np.power(a, np.power(x, 2.0) / 3.0) / c))
     msk_ks = np.isfinite(ks_inv) & (ks_inv >= 0) & (ks_inv <= 3)
     ks_oh = xr.where(msk_valid & msk_ks, ks_inv, 0.0)
 

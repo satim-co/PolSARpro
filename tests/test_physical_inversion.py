@@ -1,7 +1,10 @@
 import pytest
 import xarray as xr
 
-from polsarpro.physical_inversion import dubois_surface_inversion
+from polsarpro.physical_inversion import (
+    dubois_surface_inversion,
+    oh_surface_inversion,
+)
 
 
 @pytest.mark.parametrize(
@@ -98,6 +101,87 @@ def test_dubois_surface_inversion_invalid_incidence_angle_type(synthetic_poldata
             input_data=ds,
             incidence_angle=ds.m11.values,
             freq_ghz=5.3,
+            thresh1=3.0,
+            thresh2=3.0,
+        )
+
+
+@pytest.mark.parametrize(
+    "synthetic_poldata",
+    [{"poltypes": ["S", "C3", "T3", "C4", "T4"], "size": 8, "chunk_size": 4}],
+    indirect=True,
+)
+def test_oh_surface_inversion(synthetic_poldata):
+    for _, ds in synthetic_poldata.items():
+        ds = ds.copy()
+        first_var = next(iter(ds.data_vars))
+        ds[first_var] = ds[first_var].where(~((ds.y == 0) & (ds.x == 0)))
+
+        incidence_angle = ds[first_var].real.astype("float32") * 0 + 0.6
+
+        res = oh_surface_inversion(
+            input_data=ds,
+            incidence_angle=incidence_angle,
+            thresh1=3.0,
+            thresh2=3.0,
+        )
+
+        expected_vars = {
+            "oh_ks",
+            "oh_er",
+            "oh_mv",
+            "oh_mask_out",
+            "oh_mask_in",
+            "oh_mask_valid_in_out",
+        }
+        assert expected_vars.issubset(set(res.data_vars))
+        assert res.attrs["poltype"] == "oh_surface_inversion"
+
+        shape = ds[first_var].shape
+        for name in expected_vars:
+            assert res[name].shape == shape
+            assert res[name].dtype == "float32"
+
+        original_non_nan_mask = ds.to_array().notnull().all("variable")
+        expected_mask = (
+            res["oh_mask_in"]
+            * res["oh_mask_out"]
+            * original_non_nan_mask.astype("float32")
+        ).astype("float32")
+        xr.testing.assert_allclose(res["oh_mask_valid_in_out"], expected_mask)
+
+
+@pytest.mark.parametrize("name", ["thresh1", "thresh2"])
+@pytest.mark.parametrize(
+    "synthetic_poldata",
+    [{"poltypes": ["C3"], "size": 8, "chunk_size": 4}],
+    indirect=True,
+)
+def test_oh_surface_inversion_invalid_threshold(synthetic_poldata, name):
+    ds = synthetic_poldata["C3"]
+    incidence_angle = ds.m11.astype("float32") * 0 + 0.6
+    kwargs = {"thresh1": 3.0, "thresh2": 3.0, name: "bad"}
+
+    with pytest.raises(TypeError):
+        oh_surface_inversion(
+            input_data=ds,
+            incidence_angle=incidence_angle,
+            **kwargs,
+        )
+
+
+@pytest.mark.parametrize(
+    "synthetic_poldata",
+    [{"poltypes": ["C3"], "size": 8, "chunk_size": 4}],
+    indirect=True,
+)
+def test_oh_surface_inversion_invalid_incidence_angle_type(synthetic_poldata):
+    ds = synthetic_poldata["C3"]
+
+    with pytest.raises(TypeError):
+        oh_surface_inversion(
+            input_data=ds,
+            incidence_angle=ds.m11.values,
             thresh1=3.0,
             thresh2=3.0,
         )

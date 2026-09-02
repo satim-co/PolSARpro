@@ -26,6 +26,7 @@ limitations under the License.
 # Description: module containing physical inversion functions
 
 """
+
 import dask.array as da
 import numpy as np
 import xarray as xr
@@ -210,7 +211,51 @@ def oh_surface_inversion(
         input spatial dimensions. Output variables are stored as ``float32``
         arrays.
     """
-    raise NotImplementedError("Oh surface inversion is not implemented yet.")
+    if not isinstance(incidence_angle, xr.DataArray):
+        raise TypeError("incidence_angle must be an xarray.DataArray.")
+    if not np.issubdtype(incidence_angle.dtype, np.number):
+        raise TypeError("incidence_angle must contain numeric values.")
+
+    if not isinstance(thresh1, (int, float, np.number)):
+        raise TypeError(f"thresh1 must be a number, got {type(thresh1).__name__}.")
+    if not isinstance(thresh2, (int, float, np.number)):
+        raise TypeError(f"thresh2 must be a number, got {type(thresh2).__name__}.")
+
+    allowed_poltypes = ("S", "C3", "T3", "C4", "T4")
+    poltype = validate_dataset(input_data, allowed_poltypes=allowed_poltypes)
+
+    converters = {
+        "C3": lambda ds: ds,
+        "T3": T3_to_C3,
+        "C4": C4_to_C3,
+        "T4": T4_to_C3,
+        "S": S_to_C3,
+    }
+    C3 = converters[poltype](input_data)
+
+    out = _apply_oh_inversion(
+        theta=incidence_angle,
+        hh=C3.m11,
+        vv=C3.m33,
+        hv=C3.m22 / 2.0,
+        thresh1=thresh1,
+        thresh2=thresh2,
+    )
+    original_non_nan_mask = input_data.to_array().notnull().all("variable")
+    out["oh_mask_valid_in_out"] = (
+        out["oh_mask_in"]
+        * out["oh_mask_out"]
+        * original_non_nan_mask.astype(np.float32, copy=False)
+    ).astype(np.float32, copy=False)
+
+    return xr.Dataset(
+        {k: (tuple(input_data.dims), v.data) for k, v in out.items()},
+        attrs={
+            "poltype": "oh_surface_inversion",
+            "description": "Results of the Oh surface inversion.",
+        },
+        coords=input_data.coords,
+    )
 
 
 # helper function, do not use directly
@@ -294,9 +339,7 @@ def _apply_oh_inversion(theta, hh, vv, hv, thresh1, thresh2):
     hh_vv = hh_safe / vv_safe
     hv_vv = hv / vv_safe
     msk_valid = (
-        base_valid
-        & (hv_vv < 10 ** (thresh1 / 10.0))
-        & (hh_vv < 10 ** (thresh2 / 10.0))
+        base_valid & (hv_vv < 10 ** (thresh1 / 10.0)) & (hh_vv < 10 ** (thresh2 / 10.0))
     )
 
     a = 2.0 * theta_safe / np.pi
@@ -308,9 +351,7 @@ def _apply_oh_inversion(theta, hh, vv, hv, thresh1, thresh2):
     for _ in range(100):
         a_power = np.exp((x**2 / 3.0) * log_a)
         numerator = a_power * (1.0 - b * x) + c
-        denominator = (
-            (2.0 * x / 3.0 * log_a * (1.0 - b * x)) - b
-        ) * a_power
+        denominator = ((2.0 * x / 3.0 * log_a * (1.0 - b * x)) - b) * a_power
         x = xr.where(msk_valid, x - numerator / denominator, 2.0)
 
     abs_x = np.abs(x)

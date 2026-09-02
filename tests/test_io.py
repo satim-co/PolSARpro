@@ -7,7 +7,7 @@ from pathlib import Path
 from polsarpro.io import (
     _parse_slc_bands,
     _validate_biomass_l1a_scs_name,
-    open_biomass_l1a_scs,
+    open_biomass_l1a,
     open_netcdf_beam,
     polmat_to_netcdf,
 )
@@ -369,7 +369,7 @@ def test_biomass_files_valid(tmp_path):
         data=phase,
     )
 
-    result = open_biomass_l1a_scs(product_path, chunks={"y": 1, "x": 2})
+    result = open_biomass_l1a(product_path, chunks={"y": 1, "x": 2})
 
     assert set(result.data_vars) == {"hh", "hv", "vh", "vv"}
     assert result.attrs == {
@@ -411,7 +411,7 @@ def test_biomass_nodata(tmp_path):
         nodata=-9999,
     )
 
-    result = open_biomass_l1a_scs(product_path, chunks=None)
+    result = open_biomass_l1a(product_path, chunks=None)
 
     assert np.isnan(result.hh[0, 0])
     assert np.isnan(result.hv[0, 1])
@@ -430,7 +430,7 @@ def test_biomass_file_missing(tmp_path, missing_suffix):
             (measurement_path / f"{VALID_BIOMASS_STEM}_{suffix}").touch()
 
     with pytest.raises(FileNotFoundError, match=missing_suffix):
-        open_biomass_l1a_scs(product_path)
+        open_biomass_l1a(product_path)
 
 
 @pytest.mark.parametrize(
@@ -463,4 +463,4 @@ def test_biomass_raster_invalid(tmp_path, raster_name, options, error, message):
         )
 
     with pytest.raises(error, match=message):
-        open_biomass_l1a_scs(product_path, chunks=None)
+        open_biomass_l1a(product_path, chunks=None)

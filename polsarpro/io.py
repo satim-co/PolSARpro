@@ -327,7 +327,7 @@ def get_incidence_angle_netcdf_beam(
         .drop_attrs()
     )
 
-def open_biomass_l1a_scs(
+def open_biomass_l1a(
     product_path: str | Path,
     *,
     chunks: dict | str | None = "auto",

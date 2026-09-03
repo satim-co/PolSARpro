@@ -5,6 +5,14 @@ loop counter `tt` is shared between workers, so a multithreaded run can execute
 a varying number of the intended 100 iterations and produce different results
 between identical runs.
 
+The optional Python argument `c_semantics=True` reproduces the C implementation's
+mixed float/double evaluation, rounding at float assignment points, and
+comparison-based NaN masks. These details explain the small residual differences
+that remain after C is restricted to one thread, but their numerical effect is
+negligible compared with the OpenMP race. The mode therefore remains optional:
+the normal implementation is already very close to deterministic C, while exact
+C parity also reproduces questionable NaN-mask behavior and runs more slowly.
+
 Use a single C thread when collecting parity evidence:
 
 ```python
@@ -38,8 +46,5 @@ as its numerical floor; this does not represent an observed difference. A
 direct comparison of the generated float32 arrays found all six outputs
 bitwise identical to single-threaded C, including NaN locations and payloads.
 
-The C-semantics mode reproduces the original mixture of float storage and
-double-precision math-function evaluation, casts at the C assignment points,
-and uses the same comparison-based validity rules. It is an experimental
-option pending a decision about whether exact legacy behavior, including its
-NaN masking, should become the default.
+The C-semantics mode remains experimental pending a decision about whether
+exact legacy behavior should become the default.

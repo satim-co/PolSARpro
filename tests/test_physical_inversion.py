@@ -172,6 +172,71 @@ def test_oh_surface_inversion_invalid_threshold(synthetic_poldata, name):
 
 @pytest.mark.parametrize(
     "synthetic_poldata",
+    [{"poltypes": ["C3"], "size": 4, "chunk_size": 2}],
+    indirect=True,
+)
+def test_oh_surface_inversion_c_semantics(synthetic_poldata):
+    ds = synthetic_poldata["C3"]
+    incidence_angle = ds.m11.astype("float32") * 0 + 0.6
+
+    result = oh_surface_inversion(
+        input_data=ds,
+        incidence_angle=incidence_angle,
+        thresh1=3.0,
+        thresh2=3.0,
+        c_semantics=True,
+    ).compute()
+
+    assert result.attrs["poltype"] == "oh_surface_inversion"
+    assert all(value.dtype == "float32" for value in result.values())
+
+
+@pytest.mark.parametrize(
+    "synthetic_poldata",
+    [{"poltypes": ["C3"], "size": 4, "chunk_size": 2}],
+    indirect=True,
+)
+def test_oh_surface_inversion_c_semantics_accepts_nan_results(synthetic_poldata):
+    ds = synthetic_poldata["C3"].copy()
+    ds["m11"] = xr.full_like(ds.m11, -1.0)
+    ds["m22"] = xr.full_like(ds.m22, 0.2)
+    ds["m33"] = xr.full_like(ds.m33, 1.0)
+    incidence_angle = xr.full_like(ds.m11.real, 0.6)
+
+    result = oh_surface_inversion(
+        input_data=ds,
+        incidence_angle=incidence_angle,
+        thresh1=3.0,
+        thresh2=3.0,
+        c_semantics=True,
+    ).compute()
+
+    assert result[["oh_ks", "oh_er", "oh_mv"]].to_array().isnull().all()
+    assert (result["oh_mask_in"] == 1).all()
+    assert (result["oh_mask_out"] == 1).all()
+
+
+@pytest.mark.parametrize(
+    "synthetic_poldata",
+    [{"poltypes": ["C3"], "size": 4, "chunk_size": 2}],
+    indirect=True,
+)
+def test_oh_surface_inversion_invalid_c_semantics(synthetic_poldata):
+    ds = synthetic_poldata["C3"]
+    incidence_angle = ds.m11.astype("float32") * 0 + 0.6
+
+    with pytest.raises(TypeError):
+        oh_surface_inversion(
+            input_data=ds,
+            incidence_angle=incidence_angle,
+            thresh1=3.0,
+            thresh2=3.0,
+            c_semantics="yes",
+        )
+
+
+@pytest.mark.parametrize(
+    "synthetic_poldata",
     [{"poltypes": ["C3"], "size": 8, "chunk_size": 4}],
     indirect=True,
 )

@@ -511,83 +511,87 @@ def _solve_oh_newton_c(
     return x
 
 
-def _apply_oh_inversion_c(theta, hh, vv, hv, thresh1, thresh2):
+def _apply_oh_inversion_c_block(theta, hh, vv, hv, thresh1, thresh2):
+    # This suppression is deliberate: the reference C code lacks numerical
+    # safeguards and silently propagates the resulting IEEE Inf and NaN values.
+    with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
+        theta = np.asarray(theta, dtype=np.float32)
+        hh = np.asarray(hh, dtype=np.float32)
+        vv = np.asarray(vv, dtype=np.float32)
+        hv = np.asarray(hv, dtype=np.float32)
 
-    theta = theta.astype(np.float32, copy=False)
-    hh = hh.astype(np.float32, copy=False)
-    vv = vv.astype(np.float32, copy=False)
-    hv = hv.astype(np.float32, copy=False)
+        hh_vv = (hh / vv).astype(np.float32, copy=False)
+        hv_vv = (hv / vv).astype(np.float32, copy=False)
+        thresh1 = np.float32(thresh1)
+        thresh2 = np.float32(thresh2)
+        hv_limit = np.power(10.0, np.float64(thresh1 / np.float32(10.0)))
+        hh_limit = np.power(10.0, np.float64(thresh2 / np.float32(10.0)))
+        msk_valid = (hv_vv < hv_limit) & (hh_vv < hh_limit)
 
-    hh_vv = (hh / vv).astype(np.float32, copy=False)
-    hv_vv = (hv / vv).astype(np.float32, copy=False)
-    thresh1 = np.float32(thresh1)
-    thresh2 = np.float32(thresh2)
-    hv_limit = np.power(10.0, np.float64(thresh1 / np.float32(10.0)))
-    hh_limit = np.power(10.0, np.float64(thresh2 / np.float32(10.0)))
-    msk_valid = (hv_vv < hv_limit) & (hh_vv < hh_limit)
+        two_theta = (np.float32(2.0) * theta).astype(np.float32, copy=False)
+        a = (two_theta.astype(np.float64) / np.pi).astype(np.float32, copy=False)
+        b = (hv_vv.astype(np.float64) / 0.23).astype(np.float32, copy=False)
+        c = (np.sqrt(hh_vv.astype(np.float64)) - 1.0).astype(np.float32, copy=False)
+        x = _solve_oh_newton_c(a, b, c, msk_valid)
 
-    two_theta = (np.float32(2.0) * theta).astype(np.float32, copy=False)
-    a = (two_theta.astype(np.float64) / np.pi).astype(np.float32, copy=False)
-    b = (hv_vv.astype(np.float64) / 0.23).astype(np.float32, copy=False)
-    c = (np.sqrt(hh_vv.astype(np.float64)) - 1.0).astype(np.float32, copy=False)
-    x = xr.apply_ufunc(
-        _solve_oh_newton_c,
-        a,
-        b,
-        c,
-        msk_valid,
-        dask="parallelized",
-        output_dtypes=[np.float32],
-    )
+        abs_x = np.abs(x.astype(np.float64))
+        er_inv = np.power(
+            np.abs((1.0 + 1.0 / abs_x) / (1.0 - 1.0 / abs_x)), 2.0
+        ).astype(np.float32, copy=False)
+        msk_er = ~((er_inv >= 20) | (er_inv < 0))
+        er_oh = np.where(
+            msk_valid,
+            er_inv * msk_er.astype(np.float32),
+            np.float32(0.0),
+        ).astype(np.float32, copy=False)
 
-    abs_x = np.abs(x.astype(np.float64))
-    er_inv = np.power(np.abs((1.0 + 1.0 / abs_x) / (1.0 - 1.0 / abs_x)), 2.0).astype(
-        np.float32, copy=False
-    )
-    msk_er = ~((er_inv >= 20) | (er_inv < 0))
-    er_oh = xr.where(
-        msk_valid,
-        er_inv * msk_er.astype(np.float32),
-        np.float32(0.0),
-    ).astype(np.float32, copy=False)
+        er_calc = er_oh.astype(np.float64, copy=False)
+        mv_inv = (
+            -5.3e-2
+            + 2.92e-2 * er_calc
+            - 5.5e-4 * np.exp(2.0 * np.log(er_calc))
+            + 4.3e-6 * np.exp(3.0 * np.log(er_calc))
+        ) * 100.0
+        mv_inv = mv_inv.astype(np.float32, copy=False)
+        msk_mv = ~(mv_inv < 0)
+        mv_oh = np.where(
+            msk_valid,
+            mv_inv * msk_mv.astype(np.float32),
+            np.float32(0.0),
+        ).astype(np.float32, copy=False)
 
-    er_calc = er_oh.astype(np.float64, copy=False)
-    mv_inv = (
-        -5.3e-2
-        + 2.92e-2 * er_calc
-        - 5.5e-4 * np.exp(2.0 * np.log(er_calc))
-        + 4.3e-6 * np.exp(3.0 * np.log(er_calc))
-    ) * 100.0
-    mv_inv = mv_inv.astype(np.float32, copy=False)
-    msk_mv = ~(mv_inv < 0)
-    mv_oh = xr.where(
-        msk_valid,
-        mv_inv * msk_mv.astype(np.float32),
-        np.float32(0.0),
-    ).astype(np.float32, copy=False)
-
-    ks_inv = np.log(
-        np.abs(
-            np.power(
-                a.astype(np.float64),
-                np.power(x.astype(np.float64), 2.0) / 3.0,
+        ks_inv = np.log(
+            np.abs(
+                np.power(
+                    a.astype(np.float64),
+                    np.power(x.astype(np.float64), 2.0) / 3.0,
+                )
+                / c.astype(np.float64)
             )
-            / c.astype(np.float64)
-        )
-    ).astype(np.float32, copy=False)
-    msk_ks = ~((ks_inv > 3) | (ks_inv < 0))
-    ks_oh = xr.where(
-        msk_valid,
-        ks_inv * msk_ks.astype(np.float32),
-        np.float32(0.0),
-    ).astype(np.float32, copy=False)
+        ).astype(np.float32, copy=False)
+        msk_ks = ~((ks_inv > 3) | (ks_inv < 0))
+        ks_oh = np.where(
+            msk_valid,
+            ks_inv * msk_ks.astype(np.float32),
+            np.float32(0.0),
+        ).astype(np.float32, copy=False)
 
-    msk_out = (msk_valid & msk_mv & msk_er & msk_ks).astype(np.float32)
+        msk_out = (msk_valid & msk_mv & msk_er & msk_ks).astype(np.float32)
 
-    return {
-        "oh_ks": ks_oh.astype(np.float32, copy=False),
-        "oh_er": er_oh.astype(np.float32, copy=False),
-        "oh_mv": mv_oh.astype(np.float32, copy=False),
-        "oh_mask_out": msk_out.astype(np.float32, copy=False),
-        "oh_mask_in": msk_valid.astype(np.float32, copy=False),
-    }
+    return ks_oh, er_oh, mv_oh, msk_out, msk_valid.astype(np.float32, copy=False)
+
+
+def _apply_oh_inversion_c(theta, hh, vv, hv, thresh1, thresh2):
+    outputs = xr.apply_ufunc(
+        _apply_oh_inversion_c_block,
+        theta,
+        hh,
+        vv,
+        hv,
+        kwargs={"thresh1": thresh1, "thresh2": thresh2},
+        dask="parallelized",
+        output_core_dims=[[], [], [], [], []],
+        output_dtypes=[np.float32] * 5,
+    )
+    names = ("oh_ks", "oh_er", "oh_mv", "oh_mask_out", "oh_mask_in")
+    return dict(zip(names, outputs))

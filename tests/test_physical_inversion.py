@@ -178,6 +178,7 @@ def test_oh_surface_inversion_invalid_threshold(synthetic_poldata, name):
     [{"poltypes": ["C3"], "size": 4, "chunk_size": 2}],
     indirect=True,
 )
+@pytest.mark.filterwarnings("error::RuntimeWarning")
 def test_oh_surface_inversion_c_semantics(synthetic_poldata):
     ds = synthetic_poldata["C3"]
     incidence_angle = ds.m11.astype("float32") * 0 + 0.6
@@ -199,6 +200,7 @@ def test_oh_surface_inversion_c_semantics(synthetic_poldata):
     [{"poltypes": ["C3"], "size": 4, "chunk_size": 2}],
     indirect=True,
 )
+@pytest.mark.filterwarnings("error::RuntimeWarning")
 def test_oh_surface_inversion_c_semantics_accepts_nan_results(synthetic_poldata):
     ds = synthetic_poldata["C3"].copy()
     ds["m11"] = xr.full_like(ds.m11, -1.0)

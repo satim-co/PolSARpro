@@ -1,7 +1,9 @@
+import numpy as np
 import pytest
 import xarray as xr
 
 from polsarpro.physical_inversion import (
+    _solve_oh_newton_c,
     dubois_surface_inversion,
     oh_surface_inversion,
 )
@@ -215,6 +217,21 @@ def test_oh_surface_inversion_c_semantics_accepts_nan_results(synthetic_poldata)
     assert result[["oh_ks", "oh_er", "oh_mv"]].to_array().isnull().all()
     assert (result["oh_mask_in"] == 1).all()
     assert (result["oh_mask_out"] == 1).all()
+
+
+def test_oh_newton_c_semantics_float32_regression():
+    a = np.array([0.3, 0.5, 0.7, 0.6], dtype=np.float32)
+    b = np.array([0.2, 0.5, 0.8, 0.3], dtype=np.float32)
+    c = np.array([-0.1, 0.2, 0.5, -0.4], dtype=np.float32)
+    valid = np.array([True, True, True, False])
+
+    with np.errstate(all="ignore"):
+        result = _solve_oh_newton_c(a, b, c, valid)
+
+    expected_bits = np.array(
+        [0x40060595, 0xFFC00000, 0xFFC00000, 0x40000000], dtype=np.uint32
+    )
+    np.testing.assert_array_equal(result.view(np.uint32), expected_bits)
 
 
 @pytest.mark.parametrize(

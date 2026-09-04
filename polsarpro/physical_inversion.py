@@ -464,6 +464,53 @@ def _solve_oh_newton(
     return x
 
 
+def _solve_oh_newton_c(
+    a: np.ndarray,
+    b: np.ndarray,
+    c: np.ndarray,
+    valid: np.ndarray,
+) -> np.ndarray:
+    """Solve the Oh Newton iteration with the legacy C numeric semantics.
+
+    Args:
+        a: Incidence-angle term.
+        b: Cross-polarization ratio term.
+        c: Co-polarization ratio term.
+        valid: Input-validity mask.
+
+    Returns:
+        The float32 Newton solution, including the C implementation's
+        non-finite results.
+    """
+
+    a = np.asarray(a, dtype=np.float32)
+    b = np.asarray(b, dtype=np.float32)
+    c = np.asarray(c, dtype=np.float32)
+    valid = np.asarray(valid, dtype=bool)
+
+    log_a = np.log(a.astype(np.float64))
+    x = np.full_like(a, np.float32(2.0))
+
+    for _ in range(100):
+        x_squared_third = (x * x / np.float32(3.0)).astype(np.float32, copy=False)
+        one_minus_bx = (np.float32(1.0) - b * x).astype(np.float32, copy=False)
+        a_power = np.exp(x_squared_third.astype(np.float64) * log_a)
+        numerator = a_power * one_minus_bx.astype(np.float64) + c.astype(np.float64)
+        two_x_third = (np.float32(2.0) * x / np.float32(3.0)).astype(
+            np.float32, copy=False
+        )
+        denominator = (
+            two_x_third.astype(np.float64) * log_a * one_minus_bx.astype(np.float64)
+            - b.astype(np.float64)
+        ) * a_power
+        x_update = (x.astype(np.float64) - numerator / denominator).astype(
+            np.float32, copy=False
+        )
+        x = np.where(valid, x_update, np.float32(2.0)).astype(np.float32, copy=False)
+
+    return x
+
+
 def _apply_oh_inversion_c(theta, hh, vv, hv, thresh1, thresh2):
 
     theta = theta.astype(np.float32, copy=False)
@@ -483,27 +530,15 @@ def _apply_oh_inversion_c(theta, hh, vv, hv, thresh1, thresh2):
     a = (two_theta.astype(np.float64) / np.pi).astype(np.float32, copy=False)
     b = (hv_vv.astype(np.float64) / 0.23).astype(np.float32, copy=False)
     c = (np.sqrt(hh_vv.astype(np.float64)) - 1.0).astype(np.float32, copy=False)
-    log_a = np.log(a.astype(np.float64))
-    x = xr.full_like(theta, np.float32(2.0))
-
-    for _ in range(100):
-        x_squared_third = (x * x / np.float32(3.0)).astype(np.float32, copy=False)
-        one_minus_bx = (np.float32(1.0) - b * x).astype(np.float32, copy=False)
-        a_power = np.exp(x_squared_third.astype(np.float64) * log_a)
-        numerator = a_power * one_minus_bx.astype(np.float64) + c.astype(np.float64)
-        two_x_third = (np.float32(2.0) * x / np.float32(3.0)).astype(
-            np.float32, copy=False
-        )
-        denominator = (
-            two_x_third.astype(np.float64) * log_a * one_minus_bx.astype(np.float64)
-            - b.astype(np.float64)
-        ) * a_power
-        x_update = (x.astype(np.float64) - numerator / denominator).astype(
-            np.float32, copy=False
-        )
-        x = xr.where(msk_valid, x_update, np.float32(2.0)).astype(
-            np.float32, copy=False
-        )
+    x = xr.apply_ufunc(
+        _solve_oh_newton_c,
+        a,
+        b,
+        c,
+        msk_valid,
+        dask="parallelized",
+        output_dtypes=[np.float32],
+    )
 
     abs_x = np.abs(x.astype(np.float64))
     er_inv = np.power(np.abs((1.0 + 1.0 / abs_x) / (1.0 - 1.0 / abs_x)), 2.0).astype(

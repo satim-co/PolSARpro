@@ -111,6 +111,7 @@ def test_dubois_surface_inversion_invalid_incidence_angle_type(synthetic_poldata
     [{"poltypes": ["S", "C3", "T3", "C4", "T4"], "size": 8, "chunk_size": 4}],
     indirect=True,
 )
+@pytest.mark.filterwarnings("error::RuntimeWarning")
 def test_oh_surface_inversion(synthetic_poldata):
     for _, ds in synthetic_poldata.items():
         ds = ds.copy()

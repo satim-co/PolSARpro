@@ -350,23 +350,28 @@ def _apply_oh_inversion(theta, hh, vv, hv, thresh1, thresh2):
     )
 
     a = 2.0 * theta_safe / np.pi
-    b = hv_vv / 0.23
-    c = np.sqrt(hh_vv) - 1.0
-    log_a = np.log(a)
-    x = xr.full_like(theta_safe, 2.0)
-
-    for _ in range(100):
-        a_power = np.exp((x**2 / 3.0) * log_a)
-        numerator = a_power * (1.0 - b * x) + c
-        denominator = ((2.0 * x / 3.0 * log_a * (1.0 - b * x)) - b) * a_power
-        x = xr.where(msk_valid, x - numerator / denominator, 2.0)
+    b = (hv_vv / 0.23).astype(np.float64, copy=False)
+    c = (np.sqrt(hh_vv) - 1.0).astype(np.float64, copy=False)
+    a = a.astype(np.float64, copy=False)
+    x = xr.apply_ufunc(
+        _solve_oh_newton,
+        a,
+        b,
+        c,
+        msk_valid,
+        dask="parallelized",
+        output_dtypes=[np.float64],
+    )
+    active = msk_valid & np.isfinite(x)
 
     abs_x = np.abs(x)
-    er_inv = np.abs((1.0 + 1.0 / abs_x) / (1.0 - 1.0 / abs_x)) ** 2
-    msk_er = np.isfinite(er_inv) & (er_inv >= 0) & (er_inv < 20)
+    er_domain = active & (abs_x != 0) & (abs_x != 1)
+    abs_x_safe = xr.where(er_domain, abs_x, 2.0)
+    er_inv = np.abs((1.0 + 1.0 / abs_x_safe) / (1.0 - 1.0 / abs_x_safe)) ** 2
+    msk_er = er_domain & np.isfinite(er_inv) & (er_inv >= 0) & (er_inv < 20)
     er_oh = xr.where(msk_valid & msk_er, er_inv, 0.0)
 
-    er_calc = xr.where(msk_valid, er_oh, 1.0)
+    er_calc = xr.where(msk_valid & msk_er & (er_oh > 0), er_oh, np.nan)
     mv_inv = (
         -5.3e-2
         + 2.92e-2 * er_calc
@@ -376,8 +381,13 @@ def _apply_oh_inversion(theta, hh, vv, hv, thresh1, thresh2):
     msk_mv = np.isfinite(mv_inv) & (mv_inv >= 0)
     mv_oh = xr.where(msk_valid & msk_mv, mv_inv, 0.0)
 
-    ks_inv = np.log(np.abs(np.power(a, np.power(x, 2.0) / 3.0) / c))
-    msk_ks = np.isfinite(ks_inv) & (ks_inv >= 0) & (ks_inv <= 3)
+    c_safe = xr.where(active & np.isfinite(c) & (c != 0), c, np.nan)
+    ks_argument = np.abs(np.power(a, np.power(x, 2.0) / 3.0) / c_safe)
+    ks_log_argument = xr.where(
+        np.isfinite(ks_argument) & (ks_argument > 0), ks_argument, np.nan
+    )
+    ks_inv = np.log(ks_log_argument)
+    msk_ks = active & np.isfinite(ks_inv) & (ks_inv >= 0) & (ks_inv <= 3)
     ks_oh = xr.where(msk_valid & msk_ks, ks_inv, 0.0)
 
     msk_out = (msk_valid & msk_mv & msk_er & msk_ks).astype(np.float32)
@@ -389,6 +399,69 @@ def _apply_oh_inversion(theta, hh, vv, hv, thresh1, thresh2):
         "oh_mask_out": msk_out.astype(np.float32, copy=False),
         "oh_mask_in": msk_valid.astype(np.float32, copy=False),
     }
+
+
+def _solve_oh_newton(
+    a: np.ndarray,
+    b: np.ndarray,
+    c: np.ndarray,
+    valid: np.ndarray,
+) -> np.ndarray:
+    """Solve the Oh model's Newton iteration for one array block.
+
+    Args:
+        a: Incidence-angle term.
+        b: Cross-polarization ratio term.
+        c: Co-polarization ratio term.
+        valid: Input-validity mask.
+
+    Returns:
+        The Newton solution, with invalid trajectories represented by NaN.
+    """
+
+    a = np.asarray(a, dtype=np.float64)
+    b = np.asarray(b, dtype=np.float64)
+    c = np.asarray(c, dtype=np.float64)
+    valid = np.asarray(valid, dtype=bool)
+
+    a_valid = np.isfinite(a) & (a > 0)
+    a_safe = np.where(a_valid, a, 1.0)
+    log_a = np.log(a_safe)
+    x = np.full_like(a, 2.0)
+    active = valid & a_valid & np.isfinite(b) & np.isfinite(c)
+    # A larger update overflowed the previous float32 iteration and could not
+    # yield a valid result. Keep that trajectory invalid instead of recovering
+    # a different root only because the guarded calculations use float64.
+    float32_max = np.finfo(np.float32).max
+
+    for _ in range(100):
+        x_valid = active & np.isfinite(x) & (np.abs(x) <= float32_max)
+        x_safe = np.where(x_valid, x, 2.0)
+        b_safe = np.where(x_valid, b, 0.0)
+        c_safe = np.where(x_valid, c, 0.0)
+        log_a_safe = np.where(x_valid, log_a, 0.0)
+
+        a_power = np.exp((x_safe**2 / 3.0) * log_a_safe)
+        one_minus_bx = 1.0 - b_safe * x_safe
+        numerator = a_power * one_minus_bx + c_safe
+        denominator = (
+            (2.0 * x_safe / 3.0 * log_a_safe * one_minus_bx) - b_safe
+        ) * a_power
+
+        can_divide = (
+            x_valid
+            & np.isfinite(numerator)
+            & np.isfinite(denominator)
+            & (denominator != 0)
+            & (np.abs(numerator) <= float32_max * np.abs(denominator))
+        )
+        numerator_safe = np.where(can_divide, numerator, 0.0)
+        denominator_safe = np.where(can_divide, denominator, 1.0)
+        x_update = x_safe - numerator_safe / denominator_safe
+        active = can_divide & np.isfinite(x_update) & (np.abs(x_update) <= float32_max)
+        x = np.where(active, x_update, np.nan)
+
+    return x
 
 
 def _apply_oh_inversion_c(theta, hh, vv, hv, thresh1, thresh2):

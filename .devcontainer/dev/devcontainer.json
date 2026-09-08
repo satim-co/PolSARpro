@@ -5,8 +5,8 @@
   "mounts": [
     "source=${localEnv:HOME}/.codex-devcontainers/${localWorkspaceFolderBasename},target=/root/.codex,type=bind",
     "source=${localEnv:HOME}/codex-contexts/${localWorkspaceFolderBasename},target=/codex-context,type=bind",
-    "source=${localEnv:HOME}/.codex-devcontainers/common/AGENTS.md,target=/root/.codex/AGENTS.md,type=bind,readonly",
-    "source=${localEnv:HOME}/.codex-devcontainers/common/rules/safety.rules,target=/root/.codex/rules/safety.rules,type=bind,readonly"
+    "source=${localEnv:HOME}/codex-contexts/common/AGENTS.md,target=/root/.codex/AGENTS.md,type=bind,readonly",
+    "source=${localEnv:HOME}/codex-contexts/common/rules/safety.rules,target=/root/.codex/rules/safety.rules,type=bind,readonly"
   ],
   "workspaceFolder": "/polsarpro-dev",
   "customizations": {

@@ -16,8 +16,7 @@ def test_polarisation_synthesis(synthetic_poldata):
                 basis=basis,
             )
             var = "hh" if "hh" in ds.data_vars else "m11"
-            shape = ds[var].shape
-            channels = ("red", "green", "blue")
-            assert set(res.data_vars) == set(channels)
-            assert all(res[channel].shape == shape for channel in channels)
-            assert all(res[channel].dtype == "float32" for channel in channels)
+            assert res.shape == (3,) + ds[var].shape
+            assert res.dims == ("band",) + tuple(ds.dims)
+            assert res.band.values.tolist() == ["red", "green", "blue"]
+            assert res.dtype == "float32"

@@ -40,7 +40,7 @@ def polarisation_synthesis(
     tau: float = 0.0,
     *,
     basis: Literal["pauli", "sinclair"] = "pauli",
-) -> xr.Dataset:
+) -> xr.DataArray:
     """Synthesize power channels for a rotated polarisation state.
 
     The input is converted to the Pauli coherency basis before applying a
@@ -58,15 +58,16 @@ def polarisation_synthesis(
             C-PolSARpro red, green, and blue channel assignment.
 
     Returns:
-        Dataset containing the raw ``red``, ``green``, and ``blue`` power
-        channels as ``float32`` arrays. Coordinates and Dask laziness are
-        preserved from the input.
+        DataArray containing the raw power channels as ``float32`` values along
+        a ``band`` dimension labeled ``red``, ``green``, and ``blue``.
+        Coordinates and Dask laziness are preserved from the input.
 
     Notes:
         This function follows the angle signs and channel normalization of
         C-PolSARpro's ``polar_synt`` routine. At zero rotation, the Sinclair
         blue and red channels are HH and VV power, respectively, while green
-        is the reciprocal cross-polar power.
+        is the reciprocal cross-polar power. The result can be displayed as an
+        RGB image with ``result.plot.imshow(rgb="band", robust=True)``.
     """
     for name, angle in (("phi", phi), ("tau", tau)):
         if not isinstance(angle, Real):
@@ -115,11 +116,6 @@ def polarisation_synthesis(
         red = 0.5 * (new_t11 + new_t22) - new_t12_re
         green = 0.5 * new_t33
 
-    channels = {
-        "red": red.astype(np.float32, copy=False),
-        "green": green.astype(np.float32, copy=False),
-        "blue": blue.astype(np.float32, copy=False),
-    }
     attrs = {
         "poltype": "polarisation_synthesis",
         "description": "Polarisation synthesis power channels.",
@@ -127,4 +123,10 @@ def polarisation_synthesis(
         "phi": float(phi),
         "tau": float(tau),
     }
-    return xr.Dataset(channels, coords=input_data.coords, attrs=attrs)
+    band = xr.IndexVariable("band", ["red", "green", "blue"])
+    return (
+        xr.concat((red, green, blue), dim=band)
+        .astype(np.float32, copy=False)
+        .rename("Polarisation synthesis")
+        .assign_attrs(attrs)
+    )

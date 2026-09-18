@@ -486,6 +486,9 @@ def _solve_oh_newton_c(
         non-finite results.
     """
 
+    # These conversions duplicate the enclosing C-semantics kernel's dtype
+    # normalization, but retain an explicit precision boundary if this helper
+    # is called independently.
     a = np.asarray(a, dtype=np.float32)
     b = np.asarray(b, dtype=np.float32)
     c = np.asarray(c, dtype=np.float32)

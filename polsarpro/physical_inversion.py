@@ -353,6 +353,9 @@ def _apply_oh_inversion(theta, hh, vv, hv, thresh1, thresh2):
     b = (hv_vv / 0.23).astype(np.float64, copy=False)
     c = (np.sqrt(hh_vv) - 1.0).astype(np.float64, copy=False)
     a = a.astype(np.float64, copy=False)
+    # Group only the 100 Newton updates in one task per Dask block. This avoids
+    # building a graph layer for every iteration, while the safeguarded and
+    # warning-free parameter calculations below remain clear xarray operations.
     x = xr.apply_ufunc(
         _solve_oh_newton,
         a,
@@ -512,8 +515,11 @@ def _solve_oh_newton_c(
 
 
 def _apply_oh_inversion_c_block(theta, hh, vv, hv, thresh1, thresh2):
-    # This suppression is deliberate: the reference C code lacks numerical
-    # safeguards and silently propagates the resulting IEEE Inf and NaN values.
+    # The reference C calculation does not guard divisions, logarithms, powers,
+    # or float32 overflow. It silently propagates the resulting IEEE Inf and NaN
+    # values into its comparison-based masks. Suppress the equivalent NumPy
+    # warnings only in this compatibility kernel; adding safe operands here
+    # would change the legacy results that c_semantics=True is meant to match.
     with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
         theta = np.asarray(theta, dtype=np.float32)
         hh = np.asarray(hh, dtype=np.float32)
@@ -582,6 +588,12 @@ def _apply_oh_inversion_c_block(theta, hh, vv, hv, thresh1, thresh2):
 
 
 def _apply_oh_inversion_c(theta, hh, vv, hv, thresh1, thresh2):
+    # Run the complete legacy calculation inside each Dask block, rather than
+    # grouping only Newton as in the default path. Keeping every operation in
+    # this kernel preserves the C evaluation order and float32 assignment
+    # points. It also makes the np.errstate above active when workers execute
+    # the lazy graph; applying it while constructing xarray expressions would
+    # not suppress warnings raised later during Dask execution.
     outputs = xr.apply_ufunc(
         _apply_oh_inversion_c_block,
         theta,

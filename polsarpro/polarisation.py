@@ -24,7 +24,7 @@ limitations under the License.
 
 """
 
-from numbers import Real
+from numbers import Integral, Real
 from typing import Literal
 
 import numpy as np
@@ -110,6 +110,82 @@ def polarisation_synthesis(
         .astype(np.float32, copy=False)
         .rename("Polarisation synthesis")
         .assign_attrs(attrs)
+    )
+
+
+def polarimetric_signature(
+    input_data: xr.Dataset,
+    row: int,
+    col: int,
+    *,
+    n_phi: int = 181,
+    n_tau: int = 91,
+) -> xr.Dataset:
+    """Compute the co-polar and cross-polar signatures of one pixel.
+
+    The polarisation orientation angle ``phi`` spans -90 to 90 degrees, and
+    the polarisation ellipticity angle ``tau`` spans -45 to 45 degrees. Both
+    endpoints are included. Results are raw powers without display
+    normalization or dB scaling.
+
+    Args:
+        input_data: Polarimetric dataset with ``poltype`` ``"S"``, ``"C3"``,
+            or ``"T3"`` and spatial dimensions ``(y, x)`` or ``(lat, lon)``.
+        row: Zero-based position along the first spatial dimension.
+        col: Zero-based position along the second spatial dimension.
+        n_phi: Number of evenly spaced polarisation orientation angles, at
+            least two.
+        n_tau: Number of evenly spaced polarisation ellipticity angles, at
+            least two.
+
+    Returns:
+        Dataset with ``copol`` and ``xpol`` float32 powers on ``(phi, tau)``.
+        Source pixel positions are recorded in the dataset attributes.
+
+    Notes:
+        The default 181 phi and 91 tau values include both endpoints at exact
+        1-degree steps. C-PolSARpro uses 180 and 90 values over the same ranges,
+        giving steps of 180/179 and 90/89 degrees. Use ``n_phi=180`` and
+        ``n_tau=90`` to reproduce the C angle grid. The C writer also normalizes
+        each surface for display; this function returns raw powers.
+    """
+    poltype = validate_dataset(input_data, allowed_poltypes=("S", "C3", "T3"))
+    if len(input_data.dims) != 2:
+        raise ValueError("Signature input must have two spatial dimensions.")
+    row_dim, col_dim = input_data.dims
+    for name, index, dim in (("row", row, row_dim), ("col", col, col_dim)):
+        if isinstance(index, bool) or not isinstance(index, Integral):
+            raise TypeError(f"{name} must be an integer pixel position.")
+        if not 0 <= index < input_data.sizes[dim]:
+            raise IndexError(f"{name}={index} is outside the {dim} dimension.")
+    for name, count in (("n_phi", n_phi), ("n_tau", n_tau)):
+        if isinstance(count, bool) or not isinstance(count, Integral):
+            raise TypeError(f"{name} must be an integer.")
+        if count < 2:
+            raise ValueError(f"{name} must be at least 2.")
+
+    pixel = input_data.isel(
+        {row_dim: slice(row, row + 1), col_dim: slice(col, col + 1)}
+    )
+    converters = {"S": S_to_T3, "C3": C3_to_T3, "T3": lambda data: data}
+    T3 = converters[poltype](pixel).isel({row_dim: 0, col_dim: 0}, drop=True).compute()
+
+    phi_values = np.linspace(-90.0, 90.0, n_phi)
+    tau_values = np.linspace(-45.0, 45.0, n_tau)
+    phi = xr.DataArray(phi_values, dims="phi", coords={"phi": phi_values})
+    tau = xr.DataArray(tau_values, dims="tau", coords={"tau": tau_values})
+    t11, t12_re, t22, t33 = _rotated_powers(T3, phi, tau)
+    copol = (0.5 * (t11 + t22) + t12_re).transpose("phi", "tau")
+    xpol = (0.5 * t33).transpose("phi", "tau")
+
+    return xr.Dataset(
+        {"copol": copol.astype(np.float32), "xpol": xpol.astype(np.float32)},
+        attrs={
+            "poltype": "polarimetric_signature",
+            "description": "Single-pixel co-polar and cross-polar power signatures.",
+            "row": int(row),
+            "col": int(col),
+        },
     )
 
 

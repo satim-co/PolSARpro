@@ -2,7 +2,11 @@ import numpy as np
 import pytest
 import xarray as xr
 
-from polsarpro.polarisation import _rotated_powers, polarisation_synthesis
+from polsarpro.polarisation import (
+    _rotated_powers,
+    polarimetric_signature,
+    polarisation_synthesis,
+)
 
 
 @pytest.mark.parametrize("synthetic_poldata", ["S", "C3", "T3"], indirect=True)
@@ -79,3 +83,66 @@ def test_pol_synth_broadcast():
         t22.sel(phi=0.0).item(),
         t33.sel(phi=0.0, tau=0.0).item(),
     ) == (2.0, 1.0, 4.0, 6.0)
+
+
+@pytest.mark.parametrize("synthetic_poldata", ["S", "C3", "T3"], indirect=True)
+@pytest.mark.parametrize("geocoded", [False, True])
+def test_signature_pixel(synthetic_poldata, geocoded):
+    """Check positional selection and zero-angle powers for each input format."""
+    data = next(iter(synthetic_poldata.values()))
+    if geocoded:
+        data = data.rename({"y": "lat", "x": "lon"})
+
+    result = polarimetric_signature(data, row=3, col=5, n_phi=3, n_tau=3)
+    synthesis = polarisation_synthesis(data, basis="sinclair").isel(
+        {list(data.dims)[0]: 3, list(data.dims)[1]: 5}
+    )
+
+    assert set(result.data_vars) == {"copol", "xpol"}
+    assert result.copol.dims == result.xpol.dims == ("phi", "tau")
+    assert result.copol.shape == result.xpol.shape == (3, 3)
+    assert result.copol.dtype == result.xpol.dtype == np.float32
+    assert isinstance(result.copol.data, np.ndarray)
+    np.testing.assert_array_equal(result.phi, [-90.0, 0.0, 90.0])
+    np.testing.assert_array_equal(result.tau, [-45.0, 0.0, 45.0])
+    assert not result.phi.attrs
+    assert not result.tau.attrs
+    np.testing.assert_allclose(
+        result.copol.sel(phi=0, tau=0), synthesis.sel(band="blue")
+    )
+    np.testing.assert_allclose(
+        result.xpol.sel(phi=0, tau=0), synthesis.sel(band="green")
+    )
+    assert result.attrs["row"] == 3
+    assert result.attrs["col"] == 5
+
+
+@pytest.mark.parametrize("synthetic_poldata", ["T3"], indirect=True)
+def test_signature_grid(synthetic_poldata):
+    """Check that the default endpoints have exact one-degree spacing."""
+    data = next(iter(synthetic_poldata.values()))
+
+    result = polarimetric_signature(data, row=0, col=0)
+
+    assert result.copol.shape == result.xpol.shape == (181, 91)
+    np.testing.assert_allclose(np.diff(result.phi), 1.0)
+    np.testing.assert_allclose(np.diff(result.tau), 1.0)
+
+
+@pytest.mark.parametrize(
+    "name, value, error",
+    [
+        ("row", -1, IndexError),
+        ("col", 128, IndexError),
+        ("row", 1.5, TypeError),
+        ("n_phi", 1, ValueError),
+        ("n_tau", 2.5, TypeError),
+    ],
+)
+@pytest.mark.parametrize("synthetic_poldata", ["T3"], indirect=True)
+def test_signature_invalid(synthetic_poldata, name, value, error):
+    data = next(iter(synthetic_poldata.values()))
+    kwargs = {"row": 0, "col": 0, name: value}
+
+    with pytest.raises(error):
+        polarimetric_signature(data, **kwargs)

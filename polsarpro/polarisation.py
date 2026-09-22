@@ -86,26 +86,7 @@ def polarisation_synthesis(
     }
     T3 = converters[poltype](input_data)
 
-    phi_rad = np.deg2rad(float(phi))
-    tau_rad = np.deg2rad(float(tau))
-    cos_phi = np.cos(2.0 * phi_rad)
-    sin_phi = np.sin(2.0 * phi_rad)
-    sin_4phi = np.sin(4.0 * phi_rad)
-    cos_tau = np.cos(2.0 * tau_rad)
-    sin_tau = np.sin(2.0 * tau_rad)
-    sin_4tau = np.sin(4.0 * tau_rad)
-
-    t11_phi = T3.m11
-    t12_re_phi = T3.m12.real * cos_phi + T3.m13.real * sin_phi
-    t13_im_phi = -T3.m12.imag * sin_phi + T3.m13.imag * cos_phi
-    t22_phi = T3.m22 * cos_phi**2 + T3.m23.real * sin_4phi + T3.m33 * sin_phi**2
-    t23_im_phi = T3.m23.imag
-    t33_phi = T3.m22 * sin_phi**2 - T3.m23.real * sin_4phi + T3.m33 * cos_phi**2
-
-    new_t11 = t11_phi * cos_tau**2 + t13_im_phi * sin_4tau + t33_phi * sin_tau**2
-    new_t12_re = t12_re_phi * cos_tau + t23_im_phi * sin_tau
-    new_t22 = t22_phi
-    new_t33 = t11_phi * sin_tau**2 - t13_im_phi * sin_4tau + t33_phi * cos_tau**2
+    new_t11, new_t12_re, new_t22, new_t33 = _rotated_powers(T3, phi, tau)
 
     if basis == "pauli":
         blue = new_t11
@@ -130,3 +111,39 @@ def polarisation_synthesis(
         .rename("Polarisation synthesis")
         .assign_attrs(attrs)
     )
+
+
+# -----------------------------------------------------------------------------
+# Private helpers
+# -----------------------------------------------------------------------------
+
+
+def _rotated_powers(
+    T3: xr.Dataset, phi: float | xr.DataArray, tau: float | xr.DataArray
+) -> tuple[xr.DataArray, xr.DataArray, xr.DataArray, xr.DataArray]:
+    """Return the T11, real T12, T22, and T33 powers after rotation.
+
+    Angles are in degrees. Scalar angles retain the input's spatial chunks;
+    DataArray angles broadcast by their named dimensions.
+    """
+    phi_rad = np.deg2rad(phi)
+    tau_rad = np.deg2rad(tau)
+    cos_phi = np.cos(2.0 * phi_rad)
+    sin_phi = np.sin(2.0 * phi_rad)
+    sin_4phi = np.sin(4.0 * phi_rad)
+    cos_tau = np.cos(2.0 * tau_rad)
+    sin_tau = np.sin(2.0 * tau_rad)
+    sin_4tau = np.sin(4.0 * tau_rad)
+
+    t11_phi = T3.m11
+    t12_re_phi = T3.m12.real * cos_phi + T3.m13.real * sin_phi
+    t13_im_phi = -T3.m12.imag * sin_phi + T3.m13.imag * cos_phi
+    t22_phi = T3.m22 * cos_phi**2 + T3.m23.real * sin_4phi + T3.m33 * sin_phi**2
+    t23_im_phi = T3.m23.imag
+    t33_phi = T3.m22 * sin_phi**2 - T3.m23.real * sin_4phi + T3.m33 * cos_phi**2
+
+    new_t11 = t11_phi * cos_tau**2 + t13_im_phi * sin_4tau + t33_phi * sin_tau**2
+    new_t12_re = t12_re_phi * cos_tau + t23_im_phi * sin_tau
+    new_t22 = t22_phi
+    new_t33 = t11_phi * sin_tau**2 - t13_im_phi * sin_4tau + t33_phi * cos_tau**2
+    return new_t11, new_t12_re, new_t22, new_t33

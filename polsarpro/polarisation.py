@@ -29,6 +29,9 @@ from typing import Literal
 
 import numpy as np
 import xarray as xr
+from matplotlib import pyplot as plt
+from matplotlib.axes import Axes
+from matplotlib.figure import Figure
 
 from polsarpro.auxil import validate_dataset
 from polsarpro.util import C3_to_T3, S_to_T3
@@ -187,6 +190,60 @@ def polarimetric_signature(
             "col": int(col),
         },
     )
+
+
+def plot_polarimetric_signature(
+    signature: xr.Dataset,
+    *,
+    azimuth_angle: float = -60.0,
+    elevation_angle: float = 30.0,
+) -> tuple[Figure, tuple[Axes, Axes]]:
+    """Plot co-polar and cross-polar signature surfaces in three dimensions.
+
+    Args:
+        signature: Dataset returned by :func:`polarimetric_signature`.
+        azimuth_angle: Camera azimuth angle in degrees. This controls the plot
+            view and is unrelated to the SAR image azimuth coordinate.
+        elevation_angle: Camera elevation angle in degrees.
+
+    Returns:
+        Matplotlib figure and the co-polar and cross-polar axes. The returned
+        handles can be edited or passed to ``Figure.savefig``.
+    """
+    if not isinstance(signature, xr.Dataset):
+        raise TypeError("signature must be an xarray.Dataset.")
+    if signature.attrs.get("poltype") != "polarimetric_signature":
+        raise ValueError("Input must be a polarimetric signature dataset.")
+    if set(signature.data_vars) != {"copol", "xpol"}:
+        raise ValueError("Signature dataset must contain copol and xpol variables.")
+    for name in ("copol", "xpol"):
+        if signature[name].dims != ("phi", "tau"):
+            raise ValueError(f"{name} must have dimensions ('phi', 'tau').")
+    for name, angle in (
+        ("azimuth_angle", azimuth_angle),
+        ("elevation_angle", elevation_angle),
+    ):
+        if not isinstance(angle, Real):
+            raise TypeError(f"{name} must be a real number.")
+        if not np.isfinite(angle):
+            raise ValueError(f"{name} must be finite, got {angle}.")
+
+    tau, phi = np.meshgrid(signature.tau.values, signature.phi.values)
+    figure, axes_array = plt.subplots(
+        1, 2, figsize=(12, 5), subplot_kw={"projection": "3d"}
+    )
+    axes = tuple(axes_array)
+    titles = {"copol": "Co-polar signature", "xpol": "Cross-polar signature"}
+    for axis, name in zip(axes, ("copol", "xpol"), strict=True):
+        axis.plot_surface(tau, phi, signature[name].values, cmap="viridis")
+        axis.set_xlabel("Ellipticity angle, tau (degrees)")
+        axis.set_ylabel("Orientation angle, phi (degrees)")
+        axis.set_zlabel("Power")
+        axis.set_title(titles[name])
+        axis.view_init(elev=elevation_angle, azim=azimuth_angle)
+
+    figure.tight_layout()
+    return figure, axes
 
 
 # -----------------------------------------------------------------------------

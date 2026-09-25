@@ -1,9 +1,11 @@
 import numpy as np
 import pytest
 import xarray as xr
+from matplotlib import pyplot as plt
 
 from polsarpro.polarisation import (
     _rotated_powers,
+    plot_polarimetric_signature,
     polarimetric_signature,
     polarisation_synthesis,
 )
@@ -146,3 +148,27 @@ def test_signature_invalid(synthetic_poldata, name, value, error):
 
     with pytest.raises(error):
         polarimetric_signature(data, **kwargs)
+
+
+@pytest.mark.parametrize("synthetic_poldata", ["T3"], indirect=True)
+def test_signature_plot(synthetic_poldata):
+    """Check labeled 3D axes, camera angles, and editable handles."""
+    data = next(iter(synthetic_poldata.values()))
+    signature = polarimetric_signature(data, row=0, col=0, n_phi=5, n_tau=3)
+
+    figure, axes = plot_polarimetric_signature(
+        signature, azimuth_angle=25.0, elevation_angle=40.0
+    )
+
+    assert len(axes) == 2
+    assert all(axis.name == "3d" for axis in axes)
+    assert [axis.get_title() for axis in axes] == [
+        "Co-polar signature",
+        "Cross-polar signature",
+    ]
+    assert all(axis.get_xlabel() == "Ellipticity angle, tau (degrees)" for axis in axes)
+    assert all(axis.get_ylabel() == "Orientation angle, phi (degrees)" for axis in axes)
+    assert all(axis.get_zlabel() == "Power" for axis in axes)
+    assert all(axis.azim == 25.0 and axis.elev == 40.0 for axis in axes)
+    assert all(len(axis.collections) == 1 for axis in axes)
+    plt.close(figure)

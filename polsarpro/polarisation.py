@@ -145,6 +145,10 @@ def polarimetric_signature(
         Dataset with ``copol`` and ``xpol`` float32 powers on ``(phi, tau)``.
         Source pixel positions are recorded in the dataset attributes.
 
+    Raises:
+        ValueError: If the selected pixel contains a NaN or infinite matrix
+            value.
+
     Notes:
         The default 181 phi and 91 tau values include both endpoints at exact
         1-degree steps. C-PolSARpro uses 180 and 90 values over the same ranges,
@@ -172,6 +176,10 @@ def polarimetric_signature(
     )
     converters = {"S": S_to_T3, "C3": C3_to_T3, "T3": lambda data: data}
     T3 = converters[poltype](pixel).isel({row_dim: 0, col_dim: 0}, drop=True).compute()
+    if any(not np.isfinite(value.item()) for value in T3.data_vars.values()):
+        raise ValueError(
+            f"Selected pixel at row={row}, col={col} contains non-finite values."
+        )
 
     phi_values = np.linspace(-90.0, 90.0, n_phi)
     tau_values = np.linspace(-45.0, 45.0, n_tau)

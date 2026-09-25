@@ -150,6 +150,17 @@ def test_signature_invalid(synthetic_poldata, name, value, error):
         polarimetric_signature(data, **kwargs)
 
 
+@pytest.mark.parametrize("value", [np.nan, np.inf, -np.inf])
+@pytest.mark.parametrize("synthetic_poldata", ["T3"], indirect=True)
+def test_signature_nonfinite(synthetic_poldata, value):
+    """Reject a selected pixel containing a non-finite matrix element."""
+    data = next(iter(synthetic_poldata.values())).compute()
+    data["m11"].values[3, 5] = value
+
+    with pytest.raises(ValueError, match="row=3, col=5 contains non-finite values"):
+        polarimetric_signature(data, row=3, col=5)
+
+
 @pytest.mark.parametrize("synthetic_poldata", ["T3"], indirect=True)
 def test_signature_plot(synthetic_poldata):
     """Check labeled 3D axes, camera angles, and editable handles."""

@@ -32,7 +32,8 @@ from typing import Sequence
 import numpy as np
 import xarray as xr
 
-# Standardized required variables for each poltype
+# Standardized schemas used to validate algorithm inputs. Output poltypes are
+# registered here only when another algorithm explicitly accepts them as input.
 POLTYPES = {
     "S": {
         "description": "Scattering matrix",

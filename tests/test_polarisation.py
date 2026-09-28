@@ -5,10 +5,55 @@ from matplotlib import pyplot as plt
 
 from polsarpro.polarisation import (
     _rotated_powers,
+    estimate_orientation,
     plot_polarimetric_signature,
     polarimetric_signature,
     polarisation_synthesis,
 )
+from polsarpro.util import C3_to_T3, S_to_T3, boxcar
+
+
+@pytest.mark.parametrize("synthetic_poldata", ["S", "C3", "T3"], indirect=True)
+def test_orientation_estimation_output(synthetic_poldata):
+    """Check the angle schema for every supported input representation."""
+    data = next(iter(synthetic_poldata.values()))
+
+    result = estimate_orientation(data)
+
+    assert set(result.data_vars) == {"orientation_angle"}
+    assert result.orientation_angle.dims == tuple(data.dims)
+    assert result.orientation_angle.shape == next(iter(data.data_vars.values())).shape
+    assert result.orientation_angle.dtype == np.float32
+    assert result.attrs == {
+        "poltype": "orientation_estimation",
+        "description": "Polarimetric orientation angle estimation.",
+    }
+    assert not result.orientation_angle.attrs
+    assert result.orientation_angle.chunks is not None
+
+
+@pytest.mark.parametrize("synthetic_poldata", [["S", "C3", "T3"]], indirect=True)
+def test_orientation_estimation_formula(synthetic_poldata):
+    """Check conversion, averaging, and the legacy quotient arctangent."""
+    converters = {"S": S_to_T3, "C3": C3_to_T3, "T3": lambda value: value}
+    for poltype, data in synthetic_poldata.items():
+        averaged = boxcar(converters[poltype](data), 3, 5)
+        expected = np.rad2deg(
+            0.25 * np.arctan(2.0 * averaged.m23.real / (averaged.m22 - averaged.m33))
+        ).astype(np.float32)
+
+        result = estimate_orientation(data, boxcar_size=(3, 5))
+
+        xr.testing.assert_allclose(result.orientation_angle, expected)
+
+
+@pytest.mark.parametrize("boxcar_size", [(3,), (3, 3, 3)])
+@pytest.mark.parametrize("synthetic_poldata", ["T3"], indirect=True)
+def test_orientation_estimation_window(synthetic_poldata, boxcar_size):
+    data = next(iter(synthetic_poldata.values()))
+
+    with pytest.raises(ValueError, match="must contain two values"):
+        estimate_orientation(data, boxcar_size=boxcar_size)
 
 
 @pytest.mark.parametrize("synthetic_poldata", ["S", "C3", "T3"], indirect=True)

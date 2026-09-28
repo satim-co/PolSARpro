@@ -34,7 +34,46 @@ from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
 from polsarpro.auxil import validate_dataset
-from polsarpro.util import C3_to_T3, S_to_T3
+from polsarpro.util import C3_to_T3, S_to_T3, boxcar
+
+
+def estimate_orientation(
+    input_data: xr.Dataset,
+    boxcar_size: tuple[int, int] = (3, 3),
+) -> xr.Dataset:
+    """Estimate the local polarimetric orientation angle.
+
+    The input is converted to the Pauli coherency basis and spatially averaged
+    before estimating the angle from the real T23 coupling. The returned angle
+    follows the quotient-based arctangent convention of C-PolSARpro.
+
+    Args:
+        input_data: Polarimetric dataset with ``poltype`` ``"S"``, ``"C3"``,
+            or ``"T3"``.
+        boxcar_size: Averaging-window size along the two spatial dimensions.
+
+    Returns:
+        Dataset containing the float32 ``orientation_angle`` in degrees.
+        Coordinates and Dask laziness are preserved from the input.
+    """
+    poltype = validate_dataset(input_data, allowed_poltypes=("S", "C3", "T3"))
+    if len(boxcar_size) != 2:
+        raise ValueError("boxcar_size must contain two values.")
+
+    converters = {
+        "S": S_to_T3,
+        "C3": C3_to_T3,
+        "T3": lambda data: data,
+    }
+    T3 = boxcar(converters[poltype](input_data), *boxcar_size)
+    angle = 0.25 * np.arctan(2.0 * T3.m23.real / (T3.m22 - T3.m33))
+    return xr.Dataset(
+        {"orientation_angle": np.rad2deg(angle).astype(np.float32, copy=False)},
+        attrs={
+            "poltype": "orientation_estimation",
+            "description": "Polarimetric orientation angle estimation.",
+        },
+    )
 
 
 def polarisation_synthesis(

@@ -19,6 +19,7 @@ nav:
     - Polarisation:
       - synthesis: polarisation-synthesis-tutorial.ipynb
       - signature: polarimetric-signature-tutorial.ipynb
+      - orientation compensation: orientation-compensation-tutorial.ipynb
     - Classification:
       - wishart-haa: wishart-h-a-alpha-tutorial.ipynb
       - wishart-supervised: wishart-supervised-tutorial.ipynb

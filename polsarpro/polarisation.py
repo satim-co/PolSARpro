@@ -34,7 +34,7 @@ from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
 from polsarpro.auxil import validate_dataset
-from polsarpro.util import C3_to_T3, S_to_T3, boxcar
+from polsarpro.util import C3_to_T3, S_to_T3, T3_to_C3, boxcar
 
 
 def estimate_orientation(
@@ -74,6 +74,51 @@ def estimate_orientation(
             "description": "Polarimetric orientation angle estimation.",
         },
     )
+
+
+def correct_orientation(input_data: xr.Dataset, orientation: xr.Dataset) -> xr.Dataset:
+    """Correct a polarimetric dataset for a spatially varying orientation.
+
+    Args:
+        input_data: Polarimetric dataset with ``poltype`` ``"S"``, ``"C3"``,
+            or ``"T3"``.
+        orientation: Dataset returned by :func:`estimate_orientation`.
+
+    Returns:
+        Orientation-corrected dataset in the same polarimetric representation
+        as ``input_data``. Coordinates and Dask laziness are preserved.
+    """
+    poltype = validate_dataset(input_data, allowed_poltypes=("S", "C3", "T3"))
+    validate_dataset(orientation, allowed_poltypes="orientation_estimation")
+    _, angle = xr.align(input_data, orientation.orientation_angle, join="exact")
+
+    if poltype == "S":
+        return _correct_orientation_S(input_data, angle)
+
+    T3 = C3_to_T3(input_data) if poltype == "C3" else input_data
+    corrected = _correct_orientation_T3(T3, angle)
+    if poltype == "C3":
+        corrected = T3_to_C3(corrected)
+        corrected.attrs["description"] = "Orientation-compensated covariance matrix."
+    return corrected
+
+
+def orientation_compensation(
+    input_data: xr.Dataset,
+    boxcar_size: tuple[int, int] = (3, 3),
+) -> tuple[xr.Dataset, xr.Dataset]:
+    """Estimate and compensate the local polarimetric orientation.
+
+    Args:
+        input_data: Polarimetric dataset with ``poltype`` ``"S"``, ``"C3"``,
+            or ``"T3"``.
+        boxcar_size: Estimation-window size along the two spatial dimensions.
+
+    Returns:
+        Orientation-corrected data and the estimated orientation-angle Dataset.
+    """
+    orientation = estimate_orientation(input_data, boxcar_size=boxcar_size)
+    return correct_orientation(input_data, orientation), orientation
 
 
 def polarisation_synthesis(
@@ -296,6 +341,65 @@ def plot_polarimetric_signature(
 # -----------------------------------------------------------------------------
 # Private helpers
 # -----------------------------------------------------------------------------
+
+
+def _correct_orientation_S(S: xr.Dataset, angle: xr.DataArray) -> xr.Dataset:
+    """Apply the inverse real rotation to a full Sinclair matrix."""
+    angle_rad = np.deg2rad(angle)
+    cos_angle = np.cos(angle_rad)
+    sin_angle = np.sin(angle_rad)
+    cos_sq = cos_angle**2
+    sin_sq = sin_angle**2
+    sin_cos = sin_angle * cos_angle
+
+    return xr.Dataset(
+        {
+            "hh": cos_sq * S.hh + sin_cos * (S.hv + S.vh) + sin_sq * S.vv,
+            "hv": -sin_cos * S.hh + cos_sq * S.hv - sin_sq * S.vh + sin_cos * S.vv,
+            "vh": -sin_cos * S.hh - sin_sq * S.hv + cos_sq * S.vh + sin_cos * S.vv,
+            "vv": sin_sq * S.hh - sin_cos * (S.hv + S.vh) + cos_sq * S.vv,
+        },
+        attrs={
+            "poltype": "S",
+            "description": "Orientation-compensated scattering matrix.",
+        },
+    ).astype(np.complex64)
+
+
+def _correct_orientation_T3(T3: xr.Dataset, angle: xr.DataArray) -> xr.Dataset:
+    """Apply the inverse real rotation to a Pauli coherency matrix."""
+    angle_rad = np.deg2rad(angle)
+    cos_angle = np.cos(2.0 * angle_rad)
+    sin_angle = -np.sin(2.0 * angle_rad)
+    cos_sq = cos_angle**2
+    sin_sq = sin_angle**2
+    sin_cos = sin_angle * cos_angle
+
+    return xr.Dataset(
+        {
+            "m11": T3.m11,
+            "m12": cos_angle * T3.m12 + sin_angle * T3.m13,
+            "m13": -sin_angle * T3.m12 + cos_angle * T3.m13,
+            "m22": cos_sq * T3.m22 + 2.0 * sin_cos * T3.m23.real + sin_sq * T3.m33,
+            "m23": sin_cos * (T3.m33 - T3.m22)
+            + cos_sq * T3.m23
+            - sin_sq * T3.m23.conj(),
+            "m33": sin_sq * T3.m22 - 2.0 * sin_cos * T3.m23.real + cos_sq * T3.m33,
+        },
+        attrs={
+            "poltype": "T3",
+            "description": "Orientation-compensated coherency matrix.",
+        },
+    ).astype(
+        {
+            "m11": np.float32,
+            "m12": np.complex64,
+            "m13": np.complex64,
+            "m22": np.float32,
+            "m23": np.complex64,
+            "m33": np.float32,
+        }
+    )
 
 
 def _rotated_powers(

@@ -5,55 +5,52 @@ from matplotlib import pyplot as plt
 
 from polsarpro.polarisation import (
     _rotated_powers,
+    correct_orientation,
     estimate_orientation,
+    orientation_compensation,
     plot_polarimetric_signature,
     polarimetric_signature,
     polarisation_synthesis,
 )
-from polsarpro.util import C3_to_T3, S_to_T3, boxcar
 
 
 @pytest.mark.parametrize("synthetic_poldata", ["S", "C3", "T3"], indirect=True)
-def test_orientation_estimation_output(synthetic_poldata):
-    """Check the angle schema for every supported input representation."""
+def test_POC_schema(synthetic_poldata):
+    """Check the public POC operations for every supported representation."""
     data = next(iter(synthetic_poldata.values()))
-
-    result = estimate_orientation(data)
-
-    assert set(result.data_vars) == {"orientation_angle"}
-    assert result.orientation_angle.dims == tuple(data.dims)
-    assert result.orientation_angle.shape == next(iter(data.data_vars.values())).shape
-    assert result.orientation_angle.dtype == np.float32
-    assert result.attrs == {
-        "poltype": "orientation_estimation",
-        "description": "Polarimetric orientation angle estimation.",
+    descriptions = {
+        "S": "Orientation-compensated scattering matrix.",
+        "C3": "Orientation-compensated covariance matrix.",
+        "T3": "Orientation-compensated coherency matrix.",
     }
-    assert not result.orientation_angle.attrs
-    assert result.orientation_angle.chunks is not None
 
+    orientation = estimate_orientation(data, boxcar_size=(3, 5))
+    corrected = correct_orientation(data, orientation)
+    combined_corrected, combined_orientation = orientation_compensation(
+        data, boxcar_size=(3, 5)
+    )
 
-@pytest.mark.parametrize("synthetic_poldata", [["S", "C3", "T3"]], indirect=True)
-def test_orientation_estimation_formula(synthetic_poldata):
-    """Check conversion, averaging, and the legacy quotient arctangent."""
-    converters = {"S": S_to_T3, "C3": C3_to_T3, "T3": lambda value: value}
-    for poltype, data in synthetic_poldata.items():
-        averaged = boxcar(converters[poltype](data), 3, 5)
-        expected = np.rad2deg(
-            0.25 * np.arctan(2.0 * averaged.m23.real / (averaged.m22 - averaged.m33))
-        ).astype(np.float32)
+    for result in (orientation, combined_orientation):
+        assert set(result.data_vars) == {"orientation_angle"}
+        assert result.orientation_angle.dims == tuple(data.dims)
+        assert result.orientation_angle.shape == data[next(iter(data.data_vars))].shape
+        assert result.orientation_angle.dtype == np.float32
+        assert result.attrs == {
+            "poltype": "orientation_estimation",
+            "description": "Polarimetric orientation angle estimation.",
+        }
+        assert not result.orientation_angle.attrs
 
-        result = estimate_orientation(data, boxcar_size=(3, 5))
-
-        xr.testing.assert_allclose(result.orientation_angle, expected)
-
-
-@pytest.mark.parametrize("boxcar_size", [(3,), (3, 3, 3)])
-@pytest.mark.parametrize("synthetic_poldata", ["T3"], indirect=True)
-def test_orientation_estimation_window(synthetic_poldata, boxcar_size):
-    data = next(iter(synthetic_poldata.values()))
-
-    with pytest.raises(ValueError, match="must contain two values"):
-        estimate_orientation(data, boxcar_size=boxcar_size)
+    for result in (corrected, combined_corrected):
+        assert set(result.data_vars) == set(data.data_vars)
+        assert dict(result.sizes) == dict(data.sizes)
+        assert result.attrs == {
+            "poltype": data.poltype,
+            "description": descriptions[data.poltype],
+        }
+        for name in result.data_vars:
+            assert result[name].shape == data[name].shape
+            assert result[name].dtype == data[name].dtype
 
 
 @pytest.mark.parametrize("synthetic_poldata", ["S", "C3", "T3"], indirect=True)

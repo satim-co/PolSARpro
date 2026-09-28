@@ -111,6 +111,11 @@ POLTYPES = {
         },
         "optional_vars": None,
     },
+    "orientation_estimation": {
+        "description": "Polarimetric orientation angle estimation.",
+        "vars": {"orientation_angle": {"dtype": "float32"}},
+        "optional_vars": None,
+    },
     "h_a_alpha": {
         "description": "Results of the H/A/Alpha decomposition.",
         "vars": {

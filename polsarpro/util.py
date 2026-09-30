@@ -516,7 +516,7 @@ def boxcar(img: xarray.Dataset, dim_az: int, dim_rg: int) -> xarray.Dataset:
     """
     _ = validate_dataset(img)
 
-    if type(dim_az) != int and type(dim_rg) != int:
+    if type(dim_az) is not int or type(dim_rg) is not int:
         raise ValueError("dimaz and dimrg must be integers")
     if (dim_az < 1) or (dim_rg < 1):
         raise ValueError("dimaz and dimrg must be strictly positive")

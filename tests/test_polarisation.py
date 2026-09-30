@@ -16,7 +16,7 @@ from polsarpro.polarisation import (
 
 @pytest.mark.parametrize("synthetic_poldata", ["S", "C3", "T3"], indirect=True)
 def test_POC_schema(synthetic_poldata):
-    """Check the public POC operations for every supported representation."""
+    """Check the public Polarimetric Orientation Compensation (POC) operations for every supported representation."""
     data = next(iter(synthetic_poldata.values()))
     descriptions = {
         "S": "Orientation-compensated scattering matrix.",
@@ -51,6 +51,20 @@ def test_POC_schema(synthetic_poldata):
         for name in result.data_vars:
             assert result[name].shape == data[name].shape
             assert result[name].dtype == data[name].dtype
+
+
+@pytest.mark.parametrize("synthetic_poldata", ["T3"], indirect=True)
+def test_POC_nan(synthetic_poldata):
+    """Check POC propagation from a non-finite orientation estimate."""
+    data = next(iter(synthetic_poldata.values())).compute()
+    data.m23.values[3, 5] = np.nan + 1j * np.nan
+
+    corrected, orientation = orientation_compensation(data)
+
+    assert np.isnan(orientation.orientation_angle.values[3, 5])
+    assert np.isfinite(corrected.m11.values[3, 5])
+    for name in ("m12", "m13", "m22", "m23", "m33"):
+        assert np.isnan(corrected[name].values[3, 5])
 
 
 @pytest.mark.parametrize("synthetic_poldata", ["S", "C3", "T3"], indirect=True)

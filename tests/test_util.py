@@ -75,13 +75,41 @@ def test_matrix_conversions(synthetic_poldata, input_poltype, converter, poltype
         )
 
 
-@pytest.mark.parametrize("synthetic_poldata", ["C3"], indirect=True)
-def test_boxcar(synthetic_poldata):
-    input_data = synthetic_poldata
+@pytest.mark.parametrize(
+    "synthetic_poldata, input_poltype",
+    [
+        ("S", "S"),
+        ({"poltypes": ["C2", "C3"]}, "C2"),
+        ("C3", "C3"),
+        ({"poltypes": ["C3", "C4"]}, "C4"),
+        ("T3", "T3"),
+        ({"poltypes": ["T3", "T4"]}, "T4"),
+    ],
+    indirect=["synthetic_poldata"],
+)
+def test_boxcar(synthetic_poldata, input_poltype):
+    ds = synthetic_poldata[input_poltype]
+    res = boxcar(img=ds, dim_az=5, dim_rg=3)
+    var = "hh" if input_poltype == "S" else "m11"
 
-    for _, ds in input_data.items():
-        res = boxcar(img=ds, dim_az=5, dim_rg=3)
-        _assert_polmatrix(res, ds.poltype, ds.m11.shape)
+    _assert_polmatrix(res, input_poltype, ds[var].shape)
+
+
+@pytest.mark.parametrize("synthetic_poldata", ["T3"], indirect=True)
+@pytest.mark.parametrize(
+    "dim_az, dim_rg, message",
+    [
+        (0, 3, "strictly positive"),
+        (3, 0, "strictly positive"),
+        (1.5, 3, "must be integers"),
+        (3, 1.5, "must be integers"),
+    ],
+)
+def test_boxcar_window(synthetic_poldata, dim_az, dim_rg, message):
+    ds = synthetic_poldata["T3"]
+
+    with pytest.raises(ValueError, match=message):
+        boxcar(img=ds, dim_az=dim_az, dim_rg=dim_rg)
 
 
 @pytest.mark.parametrize(

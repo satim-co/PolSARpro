@@ -16,7 +16,7 @@ from polsarpro.polarisation import (
 
 @pytest.mark.parametrize("synthetic_poldata", ["S", "C3", "T3"], indirect=True)
 def test_POC_schema(synthetic_poldata):
-    """Check the public Polarimetric Orientation Compensation (POC) operations for every supported representation."""
+    """Check the public Polarisation Orientation Compensation (POC) operations for every supported representation."""
     data = next(iter(synthetic_poldata.values()))
     descriptions = {
         "S": "Orientation-compensated scattering matrix.",

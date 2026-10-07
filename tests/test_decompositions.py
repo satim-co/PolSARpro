@@ -2,6 +2,7 @@ import pytest
 from polsarpro.decompositions import (
     h_a_alpha,
     freeman,
+    freeman2,
     yamaguchi3,
     yamaguchi4,
     tsvm,
@@ -51,6 +52,21 @@ def test_freeman(synthetic_poldata):
         shp = ds[var].shape
         assert all((res[it].shape == shp for it in ["odd", "double", "volume"]))
         assert all((res[it].dtype == "float32" for it in ["odd", "double", "volume"]))
+
+
+@pytest.mark.parametrize("synthetic_poldata", ["S", "C3", "T3"], indirect=True)
+def test_freeman2(synthetic_poldata):
+    input_data = synthetic_poldata
+
+    for _, ds in input_data.items():
+        res = freeman2(
+            input_data=ds,
+            boxcar_size=[5, 5],
+        ).compute()
+        var = "hh" if "hh" in ds.data_vars else "m11"
+        shp = ds[var].shape
+        assert all((res[it].shape == shp for it in ["ground", "volume"]))
+        assert all((res[it].dtype == "float32" for it in ["ground", "volume"]))
 
 
 @pytest.mark.parametrize("synthetic_poldata", ["S", "C3", "T3"], indirect=True)

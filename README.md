@@ -13,12 +13,14 @@ _"Re-implementation of selected PolSARpro functions in Python, following the sci
 
 [![Conda Version](https://img.shields.io/conda/vn/conda-forge/polsarpro.svg)](https://anaconda.org/conda-forge/polsarpro) [![Conda Downloads](https://img.shields.io/conda/dn/conda-forge/polsarpro.svg)](https://anaconda.org/conda-forge/polsarpro)  
 
-## Implemented routines and additional functionality
+## Features
 
 PyPolSARPro is powered by xarray and Dask, combining structured, labelled data
 with lazy and parallel processing. This supports scalable workflows and
 interoperability with the scientific Python ecosystem. PyPSP also supports
 BIOMASS data and is compatible with the MAAP ecosystem.
+
+PyPSP is actively developed, with more features planned for the future.
 
 - Decompositions: Cameron, Freeman–Durden (3-component), Freeman (2-component), H/A/alpha, Yamaguchi (3- and 4-component), Touzi TSVM, and Van Zyl.
 - Speckle filtering: Refined Lee and Polarimetric Whitening Filter.

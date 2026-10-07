@@ -1,5 +1,8 @@
-<p float="left">
-    <img src="https://raw.githubusercontent.com/satim-co/PolSARpro/refs/heads/main/docs/polsarpro_logo_dark.svg" width="360">
+<p>
+    <img src="docs/polsarpro_logo_dark.svg" alt="PyPolSARpro logo" width="360">
+</p>
+<p>
+    <img src="docs/collage_lanscape.png" alt="Collage of polarimetric SAR outputs and visualizations" width="900">
 </p>
 
 # PyPolSARPro

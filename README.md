@@ -38,7 +38,7 @@ PyPSP is actively developed, with more features planned for the future.
 
 ## Installation Guidelines
 
-### Install from conda-forge (recommended)
+### Recommended: conda-forge
 This is the simplest and most reliable installation method.
 
 - Install the `conda` package manager (recommended: **miniforge**).
@@ -52,7 +52,7 @@ conda activate polsarpro
 conda install conda-forge::polsarpro
 ```
 
-### Install with conda using a cloned repository
+### Using a cloned repository
 Choose this approach if you want access to the source code.
 
 - Clone the repository from GitHub and move into the project root.

@@ -122,6 +122,44 @@ def freeman(
     ).where(~mask)
 
 
+def freeman2(
+    input_data: xr.Dataset,
+    boxcar_size: tuple[int, int] = (3, 3),
+) -> xr.Dataset:
+    """Applies the Freeman two-component decomposition.
+
+    Args:
+        input_data: Input Sinclair (S), covariance (C3), or coherency (T3)
+            matrix dataset.
+        boxcar_size: Averaging window along azimuth and range. Defaults to
+            (3, 3).
+
+    Returns:
+        Dataset containing float32 ``ground`` and ``volume`` scattering powers
+        in linear input-power units, with the input coordinates and
+        ``poltype="freeman2"``. Invalid pixels are represented by NaNs.
+
+    """
+    poltype = validate_dataset(input_data, allowed_poltypes=("S", "C3", "T3"))
+    in_ = input_data.where(np.isfinite(input_data))
+    if poltype == "S":
+        in_ = S_to_C3(in_)
+    elif poltype == "T3":
+        in_ = T3_to_C3(in_)
+
+    in_ = boxcar(in_, boxcar_size[0], boxcar_size[1])
+    mask = (~np.isfinite(in_.to_array())).any("variable")
+    out = _compute_freeman2_components(in_.where(~mask))
+    return xr.Dataset(
+        out,
+        coords=input_data.coords,
+        attrs=dict(
+            poltype="freeman2",
+            description="Results of the Freeman two-component decomposition.",
+        ),
+    ).where(~mask)
+
+
 def h_a_alpha(
     input_data: xr.Dataset,
     boxcar_size: list[int, int] = [3, 3],
@@ -520,6 +558,11 @@ def vanzyl(
 # below this line, functions are not meant to be called directly
 
 
+# -----------------------------------------------------------------------------
+# Private helpers
+# -----------------------------------------------------------------------------
+
+
 def _compute_h_a_alpha_parameters_C2(l, v, flags):
 
     eps = 1e-30
@@ -894,6 +937,49 @@ def _compute_freeman_components(C3):
     Pd = da.where(Pd <= min_span, min_span, da.where(Pd > max_span, max_span, Pd))
     Pv = da.where(Pv <= min_span, min_span, da.where(Pv > max_span, max_span, Pv))
     return {"odd": Ps, "double": Pd, "volume": Pv}
+
+
+def _compute_freeman2_components(C3: xr.Dataset) -> dict[str, xr.DataArray]:
+    """Computes guarded Freeman ground and volume powers from averaged C3."""
+    eps = 1e-30
+
+    # Wider intermediates avoid overflow when the HH and VV powers are equal
+    # and the C zero-denominator replacement produces a large ratio.
+    c11 = C3.m11.fillna(0).astype("float64")
+    c22 = C3.m22.fillna(0).astype("float64")
+    c33 = C3.m33.fillna(0).astype("float64")
+    c13r = C3.m13.real.fillna(0).astype("float64")
+    c13i = C3.m13.imag.fillna(0).astype("float64")
+
+    z1 = c11 - c33
+    z1 = xr.where(z1 == 0, eps, z1)
+    z3r = (c22 + c13r - c11) / z1
+    z3i = c13i / z1
+    y = -(z3i * (1 + 2 * z3r)) / (z3r**2 + z3i**2 + eps)
+    denominator = z3i + eps
+    denominator = xr.where(denominator == 0, eps, denominator)
+    x = 1 + y * z3r / denominator
+
+    denominator = 1 - x**2 - y**2
+    denominator = xr.where(denominator == 0, eps, denominator)
+    fg = z1 / denominator
+    fv = c11 - fg
+    denominator = xr.where(fv == 0, eps, fv)
+    rho = 1 - c22 / denominator
+    volume = fv * (3 - rho)
+    ground = fg * (1 + x**2 + y**2)
+
+    # Keep the global reduction lazy and exclude invalid pixels. Explicit
+    # empty-image fallbacks avoid all-NaN reduction warnings.
+    span = (C3.m11 + C3.m22 + C3.m33).astype("float64")
+    min_span = span.fillna(np.inf).min()
+    max_span = span.fillna(-np.inf).max()
+    min_span = xr.where(np.isfinite(min_span), np.maximum(min_span, eps), eps)
+    max_span = xr.where(np.isfinite(max_span), max_span, 0)
+    return {
+        "ground": ground.clip(min=min_span, max=max_span).astype("float32"),
+        "volume": volume.clip(min=min_span, max=max_span).astype("float32"),
+    }
 
 
 def _compute_yamaguchi3_components(C3):

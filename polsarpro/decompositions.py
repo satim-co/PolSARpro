@@ -125,6 +125,8 @@ def freeman(
 def freeman2(
     input_data: xr.Dataset,
     boxcar_size: tuple[int, int] = (3, 3),
+    *,
+    condition_threshold: float | None = None,
 ) -> xr.Dataset:
     """Applies the Freeman two-component decomposition.
 
@@ -133,14 +135,31 @@ def freeman2(
             matrix dataset.
         boxcar_size: Averaging window along azimuth and range. Defaults to
             (3, 3).
+        condition_threshold: Optional dimensionless threshold between zero and
+            one for excluding pixels where the absolute ground-power denominator
+            ``1 - x**2 - y**2`` is at or below the threshold. Defaults to None
+            (no exclusion).
 
     Returns:
         Dataset containing float32 ``ground`` and ``volume`` scattering powers
         in linear input-power units, with the input coordinates and
         ``poltype="freeman2"``. Invalid pixels are represented by NaNs.
 
+    Notes:
+        A near-zero ground-power denominator makes the solution poorly
+        conditioned: small input perturbations can cause large changes in the
+        estimated powers. The optional threshold discards these numerically
+        unreliable estimates by marking both powers as NaN. This exclusion is
+        not part of the C implementation.
+
+        A typical threshold is 0.01, validated on the ALOS-1 test dataset. It
+        may need manual adjustment for other datasets.
     """
     poltype = validate_dataset(input_data, allowed_poltypes=("S", "C3", "T3"))
+    if condition_threshold is not None and (
+        not np.isfinite(condition_threshold) or not 0 < condition_threshold < 1
+    ):
+        raise ValueError("condition_threshold must be between zero and one.")
     in_ = input_data.where(np.isfinite(input_data))
     if poltype == "S":
         in_ = S_to_C3(in_)
@@ -149,7 +168,7 @@ def freeman2(
 
     in_ = boxcar(in_, boxcar_size[0], boxcar_size[1])
     mask = (~np.isfinite(in_.to_array())).any("variable")
-    out = _compute_freeman2_components(in_.where(~mask))
+    out = _compute_freeman2_components(in_.where(~mask), condition_threshold)
     return xr.Dataset(
         out,
         coords=input_data.coords,
@@ -939,12 +958,13 @@ def _compute_freeman_components(C3):
     return {"odd": Ps, "double": Pd, "volume": Pv}
 
 
-def _compute_freeman2_components(C3: xr.Dataset) -> dict[str, xr.DataArray]:
-    """Computes guarded Freeman ground and volume powers from averaged C3."""
+def _compute_freeman2_components(
+    C3: xr.Dataset, condition_threshold: float | None = None
+) -> dict[str, xr.DataArray]:
+    """Computes Freeman ground and volume powers from averaged C3."""
     eps = 1e-30
 
-    # Wider intermediates avoid overflow when the HH and VV powers are equal
-    # and the C zero-denominator replacement produces a large ratio.
+    # Wider intermediates prevent overflow around C's epsilon replacements.
     c11 = C3.m11.fillna(0).astype("float64")
     c22 = C3.m22.fillna(0).astype("float64")
     c33 = C3.m33.fillna(0).astype("float64")
@@ -952,8 +972,9 @@ def _compute_freeman2_components(C3: xr.Dataset) -> dict[str, xr.DataArray]:
     c13i = C3.m13.imag.fillna(0).astype("float64")
 
     z1 = c11 - c33
+    z2r = c22 + c13r - c11
     z1 = xr.where(z1 == 0, eps, z1)
-    z3r = (c22 + c13r - c11) / z1
+    z3r = z2r / z1
     z3i = c13i / z1
     y = -(z3i * (1 + 2 * z3r)) / (z3r**2 + z3i**2 + eps)
     denominator = z3i + eps
@@ -961,6 +982,8 @@ def _compute_freeman2_components(C3: xr.Dataset) -> dict[str, xr.DataArray]:
     x = 1 + y * z3r / denominator
 
     denominator = 1 - x**2 - y**2
+    if condition_threshold is not None:
+        poor = abs(denominator) <= condition_threshold
     denominator = xr.where(denominator == 0, eps, denominator)
     fg = z1 / denominator
     fv = c11 - fg
@@ -969,13 +992,15 @@ def _compute_freeman2_components(C3: xr.Dataset) -> dict[str, xr.DataArray]:
     volume = fv * (3 - rho)
     ground = fg * (1 + x**2 + y**2)
 
-    # Keep the global reduction lazy and exclude invalid pixels. Explicit
-    # empty-image fallbacks avoid all-NaN reduction warnings.
+    # Span limits include all valid inputs, before optional parity exclusion.
     span = (C3.m11 + C3.m22 + C3.m33).astype("float64")
     min_span = span.fillna(np.inf).min()
     max_span = span.fillna(-np.inf).max()
     min_span = xr.where(np.isfinite(min_span), np.maximum(min_span, eps), eps)
     max_span = xr.where(np.isfinite(max_span), max_span, 0)
+    if condition_threshold is not None:
+        ground = ground.where(~poor)
+        volume = volume.where(~poor)
     return {
         "ground": ground.clip(min=min_span, max=max_span).astype("float32"),
         "volume": volume.clip(min=min_span, max=max_span).astype("float32"),

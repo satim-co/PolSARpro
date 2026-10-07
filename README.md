@@ -13,6 +13,23 @@ _"Re-implementation of selected PolSARpro functions in Python, following the sci
 
 [![Conda Version](https://img.shields.io/conda/vn/conda-forge/polsarpro.svg)](https://anaconda.org/conda-forge/polsarpro) [![Conda Downloads](https://img.shields.io/conda/dn/conda-forge/polsarpro.svg)](https://anaconda.org/conda-forge/polsarpro)  
 
+## Implemented routines and additional functionality
+
+PyPolSARPro is powered by xarray and Dask, combining structured, labelled data
+with lazy and parallel processing. This supports scalable workflows and
+interoperability with the scientific Python ecosystem.
+
+- Decompositions: Cameron, Freeman–Durden (3-component), Freeman (2-component), H/A/alpha, Yamaguchi (3- and 4-component), Touzi TSVM, and Van Zyl.
+- Speckle filtering: Refined Lee and Polarimetric Whitening Filter.
+- Polarisation: synthesis, polarimetric signatures, and orientation compensation.
+- Classification: Wishart H/A/alpha and supervised Wishart.
+- Surface inversion: Dubois and Oh models.
+- Averaging: boxcar filtering and multilooking.
+- Visualization: H–alpha plane, Pauli RGB, and polarimetric signature plots.
+- Matrix utilities: conversions between scattering, covariance, and coherency representations.
+- Data access: SNAP NetCDF-BEAM support and an offline BIOMASS Level-1a reader.
+- BIOMASS workflows: tutorials for [local products](notebooks/biomass-tutorial.ipynb) and [discovery/access through the MAAP STAC API](notebooks/maap-biomass-stac-api.ipynb).
+
 ## Installation Guidelines
 
 ### Install from conda-forge (recommended)

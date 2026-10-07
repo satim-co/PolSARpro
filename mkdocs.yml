@@ -7,6 +7,7 @@ nav:
     - Quickstart: quickstart-tutorial.ipynb
     - Decompositions:
       - freeman: freeman-tutorial.ipynb
+      - freeman2: freeman2-tutorial.ipynb
       - h-a-alpha: h-a-alpha-tutorial.ipynb
       - tsvm: tsvm-tutorial.ipynb
       - vanzyl: vanzyl-tutorial.ipynb

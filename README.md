@@ -18,23 +18,27 @@ _"Re-implementation of selected PolSARpro functions in Python, following the sci
 
 ## Features
 
+PyPolSARPro is actively developed, with more features planned for the future.
+
+Currently the available features are:
+
+| Category | Features |
+| --- | --- |
+| Decompositions | <ul><li>Cameron</li><li>Freeman–Durden (3-component)</li><li>Freeman (2-component)</li><li>H/A/alpha</li><li>Yamaguchi (3- and 4-component)</li><li>Touzi TSVM</li><li>Van Zyl</li></ul> |
+| Speckle filtering | <ul><li>Refined Lee</li><li>Polarimetric Whitening Filter</li></ul> |
+| Polarisation | <ul><li>Synthesis</li><li>Polarimetric signatures</li><li>Orientation compensation</li></ul> |
+| Classification | <ul><li>Wishart H/A/alpha</li><li>Supervised Wishart</li></ul> |
+| Surface inversion | <ul><li>Dubois model</li><li>Oh model</li></ul> |
+| Averaging | <ul><li>Boxcar filtering</li><li>Multilooking</li></ul> |
+| Visualization | <ul><li>H–alpha plane</li><li>Pauli RGB</li><li>Polarimetric signature plots</li></ul> |
+| Matrix utilities | <ul><li>Conversions between scattering, covariance, and coherency representations</li></ul> |
+| Data access | <ul><li>SNAP NetCDF-BEAM support</li><li>Offline BIOMASS Level-1a reader</li></ul> |
+| BIOMASS workflows | <ul><li>Tutorial for [local products](notebooks/biomass-tutorial.ipynb)</li><li>Tutorial for [discovery/access through the MAAP STAC API](notebooks/maap-biomass-stac-api.ipynb)</li></ul> |
+
 PyPolSARPro is powered by xarray and Dask, combining structured, labelled data
 with lazy and parallel processing. This supports scalable workflows and
-interoperability with the scientific Python ecosystem. PyPSP also supports
+interoperability with the scientific Python ecosystem. PyPolSARPro also supports
 BIOMASS data and is compatible with the MAAP ecosystem.
-
-PyPSP is actively developed, with more features planned for the future.
-
-- Decompositions: Cameron, Freeman–Durden (3-component), Freeman (2-component), H/A/alpha, Yamaguchi (3- and 4-component), Touzi TSVM, and Van Zyl.
-- Speckle filtering: Refined Lee and Polarimetric Whitening Filter.
-- Polarisation: synthesis, polarimetric signatures, and orientation compensation.
-- Classification: Wishart H/A/alpha and supervised Wishart.
-- Surface inversion: Dubois and Oh models.
-- Averaging: boxcar filtering and multilooking.
-- Visualization: H–alpha plane, Pauli RGB, and polarimetric signature plots.
-- Matrix utilities: conversions between scattering, covariance, and coherency representations.
-- Data access: SNAP NetCDF-BEAM support and an offline BIOMASS Level-1a reader.
-- BIOMASS workflows: tutorials for [local products](notebooks/biomass-tutorial.ipynb) and [discovery/access through the MAAP STAC API](notebooks/maap-biomass-stac-api.ipynb).
 
 ## Installation Guidelines
 

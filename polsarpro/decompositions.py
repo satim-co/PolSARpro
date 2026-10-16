@@ -204,10 +204,6 @@ def huynen(
         Invalid pixels are represented by NaNs.
 
     Notes:
-        The decomposition operates on the first row of the averaged T3
-        matrix and retains C-PolSARpro's 1e-30 epsilon offsets, including
-        its handling of zero T11. Only the target matrix is returned.
-
         Unlike C-PolSARpro's coupled input/output formats, either output
         basis can be selected for any supported input type.
 

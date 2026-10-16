@@ -141,9 +141,10 @@ def freeman2(
             (no exclusion).
 
     Returns:
-        Dataset containing float32 ``ground`` and ``volume`` scattering powers
-        in linear input-power units, with the input coordinates and
-        ``poltype="freeman2"``. Invalid pixels are represented by NaNs.
+        xr.Dataset: Dataset containing float32 ``ground`` and ``volume``
+            scattering powers in linear input-power units, with the input
+            coordinates and ``poltype="freeman2"``. Invalid pixels are
+            represented by NaNs.
 
     Notes:
         A near-zero ground-power denominator makes the solution poorly
@@ -196,12 +197,12 @@ def huynen(
             or "lexicographic" (C3).
 
     Returns:
-        Dataset containing the rank-one target matrix, with float32 diagonal
-        elements and complex64 upper off-diagonal elements named ``m11``,
-        ``m12``, ``m13``, ``m22``, ``m23``, and ``m33``. Preserves input
-        coordinates and uses ``poltype="huynen_pauli"`` or
-        ``poltype="huynen_lexicographic"`` according to the output basis.
-        Invalid pixels are represented by NaNs.
+        xr.Dataset: Dataset containing the rank-one target matrix, with float32
+            diagonal elements and complex64 upper off-diagonal elements named
+            ``m11``, ``m12``, ``m13``, ``m22``, ``m23``, and ``m33``. Preserves
+            input coordinates and uses ``poltype="huynen_pauli"`` or
+            ``poltype="huynen_lexicographic"`` according to the output basis.
+            Invalid pixels are represented by NaNs.
 
     Notes:
         Unlike C-PolSARpro's coupled input/output formats, either output

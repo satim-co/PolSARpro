@@ -179,6 +179,61 @@ def freeman2(
     ).where(~mask)
 
 
+def huynen(
+    input_data: xr.Dataset,
+    boxcar_size: tuple[int, int] = (3, 3),
+    *,
+    output_basis: str = "pauli",
+) -> xr.Dataset:
+    """Applies the Huynen decomposition to a polarimetric matrix image.
+
+    Args:
+        input_data: Input Sinclair (S), covariance (C3), or coherency (T3)
+            matrix dataset.
+        boxcar_size: Averaging window along azimuth and range. Defaults to
+            (3, 3).
+        output_basis: Basis of the target matrix: "pauli" (T3, the default)
+            or "lexicographic" (C3).
+
+    Returns:
+        Dataset containing the rank-one target matrix, with float32 diagonal
+        elements and complex64 upper off-diagonal elements named ``m11``,
+        ``m12``, ``m13``, ``m22``, ``m23``, and ``m33``. Preserves input
+        coordinates and uses ``poltype="T3"`` or ``poltype="C3"`` according
+        to the output basis. Invalid pixels are represented by NaNs.
+
+    Notes:
+        The decomposition operates on the first row of the averaged T3
+        matrix and retains C-PolSARpro's 1e-30 epsilon offsets, including
+        its handling of zero T11. Only the target matrix is returned.
+
+        Unlike C-PolSARpro's coupled input/output formats, either output
+        basis can be selected for any supported input type.
+    """
+    poltype = validate_dataset(input_data, allowed_poltypes=("S", "C3", "T3"))
+    if output_basis not in ("pauli", "lexicographic"):
+        raise ValueError("output_basis must be 'pauli' or 'lexicographic'.")
+
+    if poltype == "S":
+        in_ = S_to_T3(input_data)
+    elif poltype == "C3":
+        in_ = C3_to_T3(input_data)
+    else:
+        in_ = input_data
+
+    in_ = boxcar(in_, boxcar_size[0], boxcar_size[1])
+    mask = in_.to_array().isnull().any("variable")
+    out = xr.Dataset(
+        _compute_huynen(in_.fillna(1e-30)),
+        coords=input_data.coords,
+        attrs=dict(poltype="T3"),
+    ).where(~mask)
+    if output_basis == "lexicographic":
+        out = T3_to_C3(out)
+    out.attrs["description"] = "Target matrix of the Huynen decomposition."
+    return out
+
+
 def h_a_alpha(
     input_data: xr.Dataset,
     boxcar_size: list[int, int] = [3, 3],
@@ -956,6 +1011,27 @@ def _compute_freeman_components(C3):
     Pd = da.where(Pd <= min_span, min_span, da.where(Pd > max_span, max_span, Pd))
     Pv = da.where(Pv <= min_span, min_span, da.where(Pv > max_span, max_span, Pv))
     return {"odd": Ps, "double": Pd, "volume": Pv}
+
+
+def _compute_huynen(T3: xr.Dataset) -> dict[str, xr.DataArray]:
+    """Computes the Huynen target matrix from averaged T3."""
+    eps = 1e-30
+    t11 = eps + T3.m11
+    denominator = np.sqrt(t11)
+    k1 = t11 / denominator
+    k2r = (eps + T3.m12.real) / denominator
+    k2i = (eps - T3.m12.imag) / denominator
+    k3r = (eps + T3.m13.real) / denominator
+    k3i = -(eps + T3.m13.imag) / denominator
+
+    return {
+        "m11": k1 * k1,
+        "m12": k1 * k2r - 1j * k1 * k2i,
+        "m13": k1 * k3r - 1j * k1 * k3i,
+        "m22": k2r * k2r + k2i * k2i,
+        "m23": k2r * k3r + k2i * k3i + 1j * (k2i * k3r - k2r * k3i),
+        "m33": k3r * k3r + k3i * k3i,
+    }
 
 
 def _compute_freeman2_components(

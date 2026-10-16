@@ -33,7 +33,7 @@ import numpy as np
 import xarray as xr
 
 # Standardized schemas used to validate algorithm inputs. Output poltypes are
-# registered here only when another algorithm explicitly accepts them as input.
+# registered here only when another routine explicitly accepts them as input.
 POLTYPES = {
     "S": {
         "description": "Scattering matrix",
@@ -108,6 +108,30 @@ POLTYPES = {
             "m33": {"dtype": "float32"},
             "m34": {"dtype": "complex64"},
             "m44": {"dtype": "float32"},
+        },
+        "optional_vars": None,
+    },
+    "huynen_pauli": {
+        "description": "Huynen rank-one target coherency matrix in the Pauli basis.",
+        "vars": {
+            "m11": {"dtype": "float32"},
+            "m12": {"dtype": "complex64"},
+            "m13": {"dtype": "complex64"},
+            "m22": {"dtype": "float32"},
+            "m23": {"dtype": "complex64"},
+            "m33": {"dtype": "float32"},
+        },
+        "optional_vars": None,
+    },
+    "huynen_lexicographic": {
+        "description": "Huynen rank-one target covariance matrix in the lexicographic basis.",
+        "vars": {
+            "m11": {"dtype": "float32"},
+            "m12": {"dtype": "complex64"},
+            "m13": {"dtype": "complex64"},
+            "m22": {"dtype": "float32"},
+            "m23": {"dtype": "complex64"},
+            "m33": {"dtype": "float32"},
         },
         "optional_vars": None,
     },

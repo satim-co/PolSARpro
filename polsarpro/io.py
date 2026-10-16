@@ -36,12 +36,14 @@ import rioxarray as riox
 import xarray
 import xarray as xr
 
-from polsarpro.auxil import validate_dataset
+from polsarpro.auxil import POLTYPES, validate_dataset
 
 log = logging.getLogger(__name__)
 
 SLC_NO_TAG = ""
 ALLOWED_SLC_TAGS = ("S1", "S2", "S3")
+
+_HUYNEN_BASES = {"huynen_pauli": "T3", "huynen_lexicographic": "C3"}
 
 BIOMASS_L1A_SCS_NAME = re.compile(
     r"BIO_S[123]_SCS__1S_"
@@ -63,6 +65,8 @@ def open_netcdf_beam(file_path: str | Path) -> xarray.Dataset:
     Note:
         Only polarimetric data is allowed.
         Supported polarimetric types are 'S' scattering matrix, 'C3' and 'C4' covariance matrices, 'T3' and 'T4' coherency matrices as well as 'C2' dual-polarimetric covariance matrix.
+        Huynen target types 'huynen_pauli' and 'huynen_lexicographic' are
+        preserved when reading files written with polmat_to_netcdf.
     """
 
     # use chunks to create dask instead of numpy arrays
@@ -200,6 +204,13 @@ def open_netcdf_beam(file_path: str | Path) -> xarray.Dataset:
             "Polarimetric type not recognized. Possible types are 'S', 'C2', 'C3', 'T3', 'C4', 'T4' matrices."
         )
 
+    stored_poltype = ds.attrs.get("poltype")
+    if stored_poltype in _HUYNEN_BASES:
+        if poltype != _HUYNEN_BASES[stored_poltype]:
+            raise ValueError("Huynen poltype does not match the matrix bands.")
+        poltype = stored_poltype
+        description = ds.attrs.get("description", POLTYPES[poltype]["description"])
+
     # make a new dataset with PolSARpro metadata
     if "poltype" not in ds.attrs:
         ds_out = xr.Dataset(
@@ -228,13 +239,27 @@ def polmat_to_netcdf(ds: xarray.Dataset, file_path: str | Path):
     """Writes complex polarimetric matrices to a nectdf file.
     Due to the lack of complex number support in netcdf files, real and imaginary parts are stored separately.
     Variable names follow the netcdf-beam convention used by SNAP.
+    Huynen target types are written with T3 or C3 band names while preserving
+    their dedicated poltype and description metadata.
 
     Args:
         ds (xarray.Dataset): input dataset with polarimetric matrix elements.
         file_path (str|Path): output file path.
     """
 
-    poltype = validate_dataset(ds, allowed_poltypes=["S", "C2", "C3", "T3", "C4", "T4"])
+    poltype = validate_dataset(
+        ds,
+        allowed_poltypes=(
+            "S",
+            "C2",
+            "C3",
+            "T3",
+            "C4",
+            "T4",
+            "huynen_pauli",
+            "huynen_lexicographic",
+        ),
+    )
 
     data_out = {}
     if poltype == "S":
@@ -248,8 +273,9 @@ def polmat_to_netcdf(ds: xarray.Dataset, file_path: str | Path):
         data_out["q_VV"] = ds.vv.imag
     else:
         # automatically extract data for T and C matrices
-        n = int(poltype[-1])
-        name = poltype[0]
+        matrix_type = _HUYNEN_BASES.get(poltype, poltype)
+        n = int(matrix_type[-1])
+        name = matrix_type[0]
         for i in range(1, n + 1):
             for j in range(i, n + 1):
                 arr = ds[f"m{i}{j}"]

@@ -31,7 +31,7 @@ import dask.array as da
 import numpy as np
 import xarray as xr
 
-from polsarpro.auxil import validate_dataset
+from polsarpro.auxil import POLTYPES, validate_dataset
 from polsarpro.util import C3_to_T3, C4_to_T4, S_to_C3, S_to_T3, T3_to_C3, boxcar
 
 
@@ -199,8 +199,9 @@ def huynen(
         Dataset containing the rank-one target matrix, with float32 diagonal
         elements and complex64 upper off-diagonal elements named ``m11``,
         ``m12``, ``m13``, ``m22``, ``m23``, and ``m33``. Preserves input
-        coordinates and uses ``poltype="T3"`` or ``poltype="C3"`` according
-        to the output basis. Invalid pixels are represented by NaNs.
+        coordinates and uses ``poltype="huynen_pauli"`` or
+        ``poltype="huynen_lexicographic"`` according to the output basis.
+        Invalid pixels are represented by NaNs.
 
     Notes:
         The decomposition operates on the first row of the averaged T3
@@ -209,6 +210,10 @@ def huynen(
 
         Unlike C-PolSARpro's coupled input/output formats, either output
         basis can be selected for any supported input type.
+
+        The output types identify an extracted target and are not accepted
+        by routines requiring standard T3 or C3 input. Reusing the target
+        in those routines requires explicitly changing its poltype.
     """
     poltype = validate_dataset(input_data, allowed_poltypes=("S", "C3", "T3"))
     if output_basis not in ("pauli", "lexicographic"):
@@ -230,7 +235,8 @@ def huynen(
     ).where(~mask)
     if output_basis == "lexicographic":
         out = T3_to_C3(out)
-    out.attrs["description"] = "Target matrix of the Huynen decomposition."
+    out.attrs["poltype"] = f"huynen_{output_basis}"
+    out.attrs["description"] = POLTYPES[out.attrs["poltype"]]["description"]
     return out
 
 

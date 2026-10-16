@@ -16,13 +16,15 @@ from polsarpro.decompositions import (
 
 @pytest.mark.parametrize("synthetic_poldata", ["S", "C3", "T3"], indirect=True)
 @pytest.mark.parametrize(
-    "output_basis, poltype", [("pauli", "T3"), ("lexicographic", "C3")]
+    "output_basis, poltype",
+    [("pauli", "huynen_pauli"), ("lexicographic", "huynen_lexicographic")],
 )
 def test_huynen(synthetic_poldata, output_basis, poltype):
     for ds in synthetic_poldata.values():
         result = huynen(ds, boxcar_size=[5, 5], output_basis=output_basis).compute()
         var = "hh" if "hh" in ds.data_vars else "m11"
         assert result.attrs["poltype"] == poltype
+        assert output_basis in result.attrs["description"].lower()
         assert set(result.data_vars) == {"m11", "m12", "m13", "m22", "m23", "m33"}
         for name, value in result.data_vars.items():
             assert value.shape == ds[var].shape

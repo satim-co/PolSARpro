@@ -4,6 +4,8 @@ import rasterio
 import xarray as xr
 from pathlib import Path
 
+from polsarpro.classification import wishart_h_a_alpha
+from polsarpro.decompositions import huynen
 from polsarpro.io import (
     _parse_slc_bands,
     _validate_biomass_l1a_scs_name,
@@ -11,6 +13,7 @@ from polsarpro.io import (
     open_netcdf_beam,
     polmat_to_netcdf,
 )
+from polsarpro.speckle_filters import refined_lee
 
 VALID_BIOMASS_NAME = (
     "BIO_S2_SCS__1S_20251216T034800_20251216T034815_"
@@ -72,6 +75,21 @@ def tmp_netcdf(tmp_path: Path):
         return file_path
 
     return _create_ds
+
+
+@pytest.mark.parametrize(
+    "synthetic_poldata", [{"poltypes": "S", "size": 8, "chunk_size": 4}], indirect=True
+)
+@pytest.mark.parametrize("output_basis", ["pauli", "lexicographic"])
+def test_huynen_roundtrip(synthetic_poldata, tmp_path, output_basis):
+    target = huynen(synthetic_poldata["S"], output_basis=output_basis)
+    path = tmp_path / "huynen.nc"
+    polmat_to_netcdf(target, path)
+    with open_netcdf_beam(path) as restored:
+        xr.testing.assert_identical(restored.compute(), target.compute())
+        for processor in (refined_lee, wishart_h_a_alpha):
+            with pytest.raises(ValueError, match="not allowed"):
+                processor(restored)
 
 
 def test_s_matrix(tmp_netcdf):

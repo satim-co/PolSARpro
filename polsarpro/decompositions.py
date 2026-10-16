@@ -205,6 +205,10 @@ def huynen(
             Invalid pixels are represented by NaNs.
 
     Notes:
+        Use ``polsarpro.io.polmat_to_netcdf`` to save the result instead of
+        ``Dataset.to_netcdf``. It stores complex matrix elements as separate
+        real and imaginary bands and preserves the Huynen output type.
+
         Unlike C-PolSARpro's coupled input/output formats, either output
         basis can be selected for any supported input type.
 

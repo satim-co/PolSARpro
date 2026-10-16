@@ -208,6 +208,8 @@ def huynen(
         Use ``polsarpro.io.polmat_to_netcdf`` to save the result instead of
         ``Dataset.to_netcdf``. It stores complex matrix elements as separate
         real and imaginary bands and preserves the Huynen output type.
+        Reopen the saved result with ``polsarpro.io.open_netcdf_beam`` to
+        reconstruct the complex elements and preserve the output type.
 
         Unlike C-PolSARpro's coupled input/output formats, either output
         basis can be selected for any supported input type.

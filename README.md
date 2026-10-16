@@ -24,7 +24,7 @@ Currently the available features are:
 
 | Category | Features |
 | --- | --- |
-| Decompositions | <ul><li>Cameron</li><li>Freeman–Durden (3-component)</li><li>Freeman (2-component)</li><li>H/A/alpha</li><li>Yamaguchi (3- and 4-component)</li><li>Touzi TSVM</li><li>Van Zyl</li></ul> |
+| Decompositions | <ul><li>Cameron</li><li>Freeman–Durden (3-component)</li><li>Freeman (2-component)</li><li>Huynen</li><li>H/A/alpha</li><li>Yamaguchi (3- and 4-component)</li><li>Touzi TSVM</li><li>Van Zyl</li></ul> |
 | Speckle filtering | <ul><li>Refined Lee</li><li>Polarimetric Whitening Filter</li></ul> |
 | Polarisation | <ul><li>Synthesis</li><li>Polarimetric signatures</li><li>Orientation compensation</li></ul> |
 | Classification | <ul><li>Wishart H/A/alpha</li><li>Supervised Wishart</li></ul> |

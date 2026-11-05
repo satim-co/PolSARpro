@@ -45,8 +45,8 @@ ALLOWED_SLC_TAGS = ("S1", "S2", "S3")
 
 _HUYNEN_BASES = {"huynen_pauli": "T3", "huynen_lexicographic": "C3"}
 
-BIOMASS_L1A_SCS_NAME = re.compile(
-    r"BIO_S[123]_SCS__1S_"
+BIOMASS_L1AC_NAME = re.compile(
+    r"BIO_S[123]_(?:SCS|STA)__1S_"
     r"\d{8}T\d{6}_\d{8}T\d{6}_"
     r"[A-Z]_G\d{2}_M\d{2}_C\d{2}_T\d{3}_F\d{3}_"
     r"[A-Z0-9]{2}_[A-Z0-9]{6}"
@@ -353,17 +353,22 @@ def get_incidence_angle_netcdf_beam(
         .drop_attrs()
     )
 
-def open_biomass_l1a(
+
+def open_biomass_l1ac(
     product_path: str | Path,
     *,
     chunks: dict | str | None = "auto",
 ) -> xarray.Dataset:
-    """Open a BIOMASS Level-1a Standard SCS product as a scattering matrix.
+    """Open a standard BIOMASS Level-1a or Level-1c scattering matrix.
 
-    The reader targets standard, non-calibration SCS products (product type
-    ``S[123]_SCS__1S``). It reconstructs the four complex polarimetric channels
+    The reader accepts non-calibration L1a SCS and L1c STA products (types
+    ``S[123]_SCS__1S`` and ``S[123]_STA__1S``). It reconstructs four complex channels
     from the product's amplitude and phase Cloud Optimized GeoTIFFs while
     preserving lazy, chunked access.
+
+    An L1c product directory contains one acquisition registered to its stack's
+    primary image. The output remains a two-dimensional scattering matrix;
+    additional interferometric layers and calibration phase screens are not read.
 
     Args:
         product_path (str | Path): Path to the BIOMASS product directory
@@ -383,7 +388,7 @@ def open_biomass_l1a(
         FileNotFoundError: If either expected measurement raster is missing.
 
     """
-    product_name = _validate_biomass_l1a_scs_name(product_path)
+    product_name = _validate_biomass_name(product_path)
 
     # Internal filenames are lowercase and omit the baseline and creation ID.
     file_stem = product_name.rsplit("_", maxsplit=2)[0].lower()
@@ -423,7 +428,9 @@ def open_biomass_l1a(
     )
 
 
-# --- helper functions not to be called outside of the module
+# -----------------------------------------------------------------------------
+# Private helpers
+# -----------------------------------------------------------------------------
 
 
 def _parse_slc_bands(var_names: set[str]) -> str | None:
@@ -452,14 +459,14 @@ def _parse_slc_bands(var_names: set[str]) -> str | None:
     return None
 
 
-def _validate_biomass_l1a_scs_name(product_path: str | Path) -> str:
+def _validate_biomass_name(product_path: str | Path) -> str:
     product_name = Path(product_path).name
 
-    if BIOMASS_L1A_SCS_NAME.fullmatch(product_name) is None:
+    if BIOMASS_L1AC_NAME.fullmatch(product_name) is None:
         raise ValueError(
             f"Unsupported BIOMASS product directory name: {product_name!r}. "
-            "Expected a standard, non-calibration L1a SCS product "
-            "(BIO_S[123]_SCS__1S_...)."
+            "Expected a standard, non-calibration L1a SCS or L1c STA product "
+            "(BIO_S[123]_(SCS|STA)__1S_...)."
         )
 
     return product_name

@@ -32,7 +32,7 @@ Currently the available features are:
 | Averaging | <ul><li>Boxcar filtering</li><li>Multilooking</li></ul> |
 | Visualization | <ul><li>H–alpha plane</li><li>Pauli RGB</li><li>Polarimetric signature plots</li></ul> |
 | Matrix utilities | <ul><li>Conversions between scattering, covariance, and coherency representations</li></ul> |
-| Data access | <ul><li>SNAP NetCDF-BEAM support</li><li>Offline BIOMASS Level-1a reader</li></ul> |
+| Data access | <ul><li>SNAP NetCDF-BEAM support</li><li>Offline BIOMASS Level-1a and Level-1c reader</li></ul> |
 | BIOMASS workflows | <ul><li>Tutorial for [local products](notebooks/biomass-tutorial.ipynb)</li><li>Tutorial for [discovery/access through the MAAP STAC API](notebooks/maap-biomass-stac-api.ipynb)</li></ul> |
 
 PyPolSARPro is powered by xarray and Dask, combining structured, labelled data

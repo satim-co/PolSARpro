@@ -8,8 +8,8 @@ from polsarpro.classification import wishart_h_a_alpha
 from polsarpro.decompositions import huynen
 from polsarpro.io import (
     _parse_slc_bands,
-    _validate_biomass_l1a_scs_name,
-    open_biomass_l1a,
+    _validate_biomass_name,
+    open_biomass_l1ac,
     open_netcdf_beam,
     polmat_to_netcdf,
 )
@@ -23,6 +23,15 @@ VALID_BIOMASS_STEM = (
     "bio_s2_scs__1s_20251216t034800_20251216t034815_"
     "t_g01_m01_c02_t017_f289"
 )
+
+
+@pytest.fixture(params=["SCS", "STA"], ids=["l1a", "l1c"])
+def biomass_product(tmp_path: Path, request: pytest.FixtureRequest) -> tuple[Path, str]:
+    """Create a measurement directory for either supported product family."""
+    name = VALID_BIOMASS_NAME.replace("SCS", request.param)
+    product_path = tmp_path / name
+    (product_path / "measurement").mkdir(parents=True)
+    return product_path, VALID_BIOMASS_STEM.replace("scs", request.param.lower())
 
 
 def _write_biomass_raster(
@@ -334,11 +343,12 @@ def test_parse_slc_bands():
 
 
 @pytest.mark.parametrize("sensor", ["S1", "S2", "S3"])
-def test_biomass_name_valid(sensor):
-    """Accept standard L1a SCS product names for every BIOMASS sensor mode."""
-    name = VALID_BIOMASS_NAME.replace("S2_SCS", f"{sensor}_SCS")
+@pytest.mark.parametrize("product_type", ["SCS", "STA"])
+def test_biomass_name_valid(sensor, product_type):
+    """Accept standard L1a and L1c names for every BIOMASS sensor mode."""
+    name = VALID_BIOMASS_NAME.replace("S2_SCS", f"{sensor}_{product_type}")
 
-    assert _validate_biomass_l1a_scs_name(Path("products") / name) == name
+    assert _validate_biomass_name(Path("products") / name) == name
 
 
 @pytest.mark.parametrize(
@@ -360,18 +370,18 @@ def test_biomass_name_valid(sensor):
         "field-width",
     ],
 )
-def test_biomass_name_invalid(name):
+@pytest.mark.parametrize("product_type", ["SCS", "STA"])
+def test_biomass_name_invalid(name, product_type):
     """Reject unsupported product families and malformed directory fields."""
     with pytest.raises(ValueError, match="Unsupported BIOMASS product"):
-        _validate_biomass_l1a_scs_name(name)
+        _validate_biomass_name(name.replace("SCS", product_type))
 
 
 @pytest.mark.filterwarnings("ignore:Dataset has no geotransform")
-def test_biomass_files_valid(tmp_path):
+def test_biomass_files_valid(biomass_product):
     """Read valid rasters lazily and reconstruct the expected PSP dataset."""
-    product_path = tmp_path / VALID_BIOMASS_NAME
+    product_path, file_stem = biomass_product
     measurement_path = product_path / "measurement"
-    measurement_path.mkdir(parents=True)
     raster_shape = (4, 2, 3)
     amplitude = np.broadcast_to(
         np.arange(1, 5, dtype="float32")[:, None, None], raster_shape
@@ -379,15 +389,15 @@ def test_biomass_files_valid(tmp_path):
     phase_values = np.array((0, np.pi / 2, np.pi, -np.pi / 2), dtype="float32")
     phase = np.broadcast_to(phase_values[:, None, None], raster_shape)
     _write_biomass_raster(
-        measurement_path / f"{VALID_BIOMASS_STEM}_i_abs.tiff",
+        measurement_path / f"{file_stem}_i_abs.tiff",
         data=amplitude,
     )
     _write_biomass_raster(
-        measurement_path / f"{VALID_BIOMASS_STEM}_i_phase.tiff",
+        measurement_path / f"{file_stem}_i_phase.tiff",
         data=phase,
     )
 
-    result = open_biomass_l1a(product_path, chunks={"y": 1, "x": 2})
+    result = open_biomass_l1ac(product_path, chunks={"y": 1, "x": 2})
 
     assert set(result.data_vars) == {"hh", "hv", "vh", "vv"}
     assert result.attrs == {
@@ -408,28 +418,27 @@ def test_biomass_files_valid(tmp_path):
 
 
 @pytest.mark.filterwarnings("ignore:Dataset has no geotransform")
-def test_biomass_nodata(tmp_path):
+def test_biomass_nodata(biomass_product):
     """Propagate amplitude and phase nodata values to complex NaNs."""
-    product_path = tmp_path / VALID_BIOMASS_NAME
+    product_path, file_stem = biomass_product
     measurement_path = product_path / "measurement"
-    measurement_path.mkdir(parents=True)
     amplitude = np.ones((4, 2, 3), dtype="float32")
     phase = np.zeros((4, 2, 3), dtype="float32")
     amplitude[0, 0, 0] = -9999
     phase[1, 0, 1] = -9999
 
     _write_biomass_raster(
-        measurement_path / f"{VALID_BIOMASS_STEM}_i_abs.tiff",
+        measurement_path / f"{file_stem}_i_abs.tiff",
         data=amplitude,
         nodata=-9999,
     )
     _write_biomass_raster(
-        measurement_path / f"{VALID_BIOMASS_STEM}_i_phase.tiff",
+        measurement_path / f"{file_stem}_i_phase.tiff",
         data=phase,
         nodata=-9999,
     )
 
-    result = open_biomass_l1a(product_path, chunks=None)
+    result = open_biomass_l1ac(product_path, chunks=None)
 
     assert np.isnan(result.hh[0, 0])
     assert np.isnan(result.hv[0, 1])
@@ -437,18 +446,17 @@ def test_biomass_nodata(tmp_path):
 
 
 @pytest.mark.parametrize("missing_suffix", ["i_abs.tiff", "i_phase.tiff"])
-def test_biomass_file_missing(tmp_path, missing_suffix):
+def test_biomass_file_missing(biomass_product, missing_suffix):
     """Report which required measurement raster is absent."""
-    product_path = tmp_path / VALID_BIOMASS_NAME
+    product_path, file_stem = biomass_product
     measurement_path = product_path / "measurement"
-    measurement_path.mkdir(parents=True)
 
     for suffix in ("i_abs.tiff", "i_phase.tiff"):
         if suffix != missing_suffix:
-            (measurement_path / f"{VALID_BIOMASS_STEM}_{suffix}").touch()
+            (measurement_path / f"{file_stem}_{suffix}").touch()
 
     with pytest.raises(FileNotFoundError, match=missing_suffix):
-        open_biomass_l1a(product_path)
+        open_biomass_l1ac(product_path)
 
 
 @pytest.mark.parametrize(
@@ -467,18 +475,17 @@ def test_biomass_file_missing(tmp_path, missing_suffix):
     ids=["bands", "dtype", "shape", "polarizations"],
 )
 @pytest.mark.filterwarnings("ignore:Dataset has no geotransform")
-def test_biomass_raster_invalid(tmp_path, raster_name, options, error, message):
+def test_biomass_raster_invalid(biomass_product, raster_name, options, error, message):
     """Reject invalid band counts, dtypes, shapes, and polarization order."""
-    product_path = tmp_path / VALID_BIOMASS_NAME
+    product_path, file_stem = biomass_product
     measurement_path = product_path / "measurement"
-    measurement_path.mkdir(parents=True)
 
     for name, suffix in (("amplitude", "i_abs.tiff"), ("phase", "i_phase.tiff")):
         raster_options = options if name == raster_name else {}
         _write_biomass_raster(
-            measurement_path / f"{VALID_BIOMASS_STEM}_{suffix}",
+            measurement_path / f"{file_stem}_{suffix}",
             **raster_options,
         )
 
     with pytest.raises(error, match=message):
-        open_biomass_l1a(product_path, chunks=None)
+        open_biomass_l1ac(product_path, chunks=None)

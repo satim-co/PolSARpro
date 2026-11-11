@@ -388,13 +388,6 @@ def open_biomass_l1ac(
         that require Dask-backed arrays, including ``polmat_to_netcdf``. This
         is why ``chunks="auto"`` is recommended for most workflows.
 
-    Raises:
-        ValueError: If the directory name does not identify a supported
-            product, or if raster metadata and polarization bands are
-            inconsistent.
-        TypeError: If a measurement raster is not stored as ``float32``.
-        FileNotFoundError: If either expected measurement raster is missing.
-
     """
     product_name = _validate_biomass_name(product_path)
 

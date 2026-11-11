@@ -35,6 +35,7 @@ nav:
   - API reference: 
     - Classification: classification.md
     - Decompositions: decompositions.md
+    - Polarisation: polarisation.md
     - Speckle Filters: speckle_filters.md
     - Physical inversion: physical_inversion.md
     - Utilities: util.md

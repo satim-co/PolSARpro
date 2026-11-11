@@ -373,12 +373,20 @@ def open_biomass_l1ac(
     Args:
         product_path (str | Path): Path to the BIOMASS product directory
             containing the measurement rasters.
-        chunks (dict | str | None): Chunking passed to the raster reader. Use
-            ``None`` for eager arrays. Defaults to ``"auto"``.
+        chunks (dict | str | None): Chunking passed to the raster reader.
+            Keep the default ``"auto"`` for most PyPolSARPro workflows. Use a
+            dictionary such as ``{"y": 900, "x": 600}`` to adjust block sizes
+            to your hardware, or ``None`` to load the full dataset into memory
+            as NumPy arrays.
 
     Returns:
         xarray.Dataset: Scattering-matrix dataset with ``hh``, ``hv``, ``vh``,
             and ``vv`` variables and ``poltype="S"``.
+
+    Notes:
+        Eager output from ``chunks=None`` will fail with PyPolSARPro functions
+        that require Dask-backed arrays, including ``polmat_to_netcdf``. This
+        is why ``chunks="auto"`` is recommended for most workflows.
 
     Raises:
         ValueError: If the directory name does not identify a supported
